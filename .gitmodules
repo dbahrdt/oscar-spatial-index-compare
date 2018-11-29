@@ -3,4 +3,4 @@
 	url = https://github.com/dbahrdt/liboscar.git
 [submodule "vendor/lsst/sphgeom"]
 	path = vendor/lsst/sphgeom
-	url = https://github.com/lsst/sphgeom.git
+	url = https://github.com/dbahrdt/sphgeom.git

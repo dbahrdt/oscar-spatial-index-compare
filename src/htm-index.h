@@ -22,6 +22,8 @@ public:
 	virtual ~OscarHtmIndex();
 public:
 	void create();
+public:
+	void stats();
 private:
 	Store m_store;
 	IndexStore m_idxStore;

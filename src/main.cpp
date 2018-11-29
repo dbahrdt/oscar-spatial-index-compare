@@ -6,12 +6,16 @@ struct Config {
     std::string filename;
 };
 
+void help() {
+	std::cerr << "prg -f <oscar files> -l <htm levels>" << std::endl;
+}
+
 int main(int argc, char const * argv[] ) {
     Config cfg;
 
     for(int i(1); i < argc; ++i) {
         std::string token(argv[i]);
-        if (token == "--htm-level" && i+1 < argc ) {
+        if (token == "-l" && i+1 < argc ) {
             cfg.htmLevel = std::atoi(argv[i+1]);
             ++i;
         }
@@ -21,6 +25,7 @@ int main(int argc, char const * argv[] ) {
         }
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
+			help();
             return -1;
         }
     }
@@ -33,9 +38,16 @@ int main(int argc, char const * argv[] ) {
     }
     catch (std::exception const & e) {
         std::cerr << "Error occured: " << e.what() << std::endl;
+		help();
+		return -1;
     }
 
-    
+    hic::OscarHtmIndex ohic(cmp.store(), cmp.indexStore(), cfg.htmLevel);
+	
+	std::cout << "Creating htm index..." << std::endl;
+	ohic.create();
+	
+	ohic.stats();
 
     return 0;
 }

@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH
 	${CMAKE_SOURCE_DIR}/cmake
 )
 
-# include(add_buildtype_ultra)
+include(add_buildtype_ultra)
 
 add_subdirectory(vendor/liboscar liboscar)
 add_subdirectory(vendor/lsst/sphgeom sphgeom)

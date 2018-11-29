@@ -3,6 +3,7 @@
 #include <sserialize/iterator/RangeGenerator.h>
 #include <sserialize/mt/ThreadPool.h>
 #include <sserialize/algorithm/hashspecializations.h>
+#include <sserialize/stats/ProgressInfo.h>
 #include <tuple>
 
 namespace hic {
@@ -60,6 +61,7 @@ void OscarHtmIndex::create() {
 	m_ctm.resize(m_store.geoHierarchy().cellSize());
 	
 	struct State {
+		sserialize::ProgressInfo pinfo;
 		std::atomic<uint32_t> cellId{0};
 		uint32_t cellCount;
 		
@@ -84,8 +86,8 @@ void OscarHtmIndex::create() {
 		
 		void operator()() {
 			while(true) {
-				uint32_t cellId = state->cellId.fetch_add(std::memory_order_relaxed);
-				if (cellId > state->cellCount) {
+				uint32_t cellId = state->cellId.fetch_add(1, std::memory_order_relaxed);
+				if (cellId >= state->cellCount) {
 					break;
 				}
 				
@@ -99,6 +101,7 @@ void OscarHtmIndex::create() {
 		}
 		
 		void process(uint32_t cellId) {
+			state->pinfo(state->cellId);
 			auto cell = state->gh.cell(cellId);
 			auto cellIdx = state->that->m_idxStore.at( cell.itemPtr() );
 		
@@ -137,7 +140,9 @@ void OscarHtmIndex::create() {
 			std::lock_guard<std::mutex> lck(state->flushLock);
 			for(Data const & x : m_tcd) {
 				state->that->m_td[x.trixelId][x.cellId].emplace_back(x.itemId);
-				state->that->m_ctm.at(x.cellId).insert(x.trixelId);
+				if (x.cellId != std::numeric_limits<uint32_t>::max()) {
+					state->that->m_ctm.at(x.cellId).insert(x.trixelId);
+				}
 			}
 		}
 	private:
@@ -156,7 +161,9 @@ void OscarHtmIndex::create() {
 	
 	cfg.workerCacheSize = 128*1024*1024 / sizeof(Worker::Data);
 	
+	state.pinfo.begin(state.cellCount, "HtmIndex: processing");
 	sserialize::ThreadPool::execute(Worker(&state, &cfg), 0, sserialize::ThreadPool::CopyTaskTag());
+	state.pinfo.end();
 	
 	//Sort item ids
 	for(auto & x : m_td) {
@@ -166,6 +173,12 @@ void OscarHtmIndex::create() {
 	}
 	
 }
-	
+
+
+void OscarHtmIndex::stats() {
+	std::cout << "OscarHtmIndex::stats:" << std::endl;
+	std::cout << "#htm-pixels: " << m_td.size() << std::endl;
+}
+
 	
 }//end namespace hic
