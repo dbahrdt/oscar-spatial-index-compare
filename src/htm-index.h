@@ -29,7 +29,11 @@ public:
 	void stats();
 public:
 	inline lsst::sphgeom::HtmPixelization const & htm() const { return m_hp; }
+	///TrixelId->CellId->ItemId
+	///maps trixel to the set of intersected cells and the items intersecting the cell and the trixel
 	inline TrixelData const & trixelData() const { return m_td; }
+	///CellId->TrixelId
+	///Maps cells to trixels intersecting the cell
 	inline CellTrixelMap const & cellTrixelMap() const { return m_ctm; }
 private:
 	Store m_store;
@@ -82,10 +86,12 @@ private:
 
 class OscarSearchHtmIndexCellInfo: public sserialize::interface::CQRCellInfoIface {
 public:
+	using RCType = sserialize::RCPtrWrapper<sserialize::interface::CQRCellInfoIface>;
+public:
 	OscarSearchHtmIndexCellInfo(std::shared_ptr<OscarSearchHtmIndex> & d);
 	virtual ~OscarSearchHtmIndexCellInfo() override;
 public:
-	static sserialize::RCPtrWrapper<sserialize::interface::CQRCellInfoIface> makeRc(std::shared_ptr<OscarSearchHtmIndex> & d);
+	static RCType makeRc(std::shared_ptr<OscarSearchHtmIndex> & d);
 public:
 	virtual SizeType cellSize() const override;
 	virtual sserialize::spatial::GeoRect cellBoundary(CellId cellId) const override;
@@ -106,6 +112,8 @@ private:
 	sserialize::CellQueryResult process(const liboscar::AdvancedOpTree::Node * node);
 private:
 	std::shared_ptr<OscarSearchHtmIndex> m_d;
+	sserialize::Static::ItemIndexStore m_idxStore;
+	OscarSearchHtmIndexCellInfo::RCType m_ci;
 };
 
 } //end namespace hic

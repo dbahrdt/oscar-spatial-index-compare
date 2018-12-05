@@ -10,7 +10,7 @@
 #include <sserialize/strings/stringfunctions.h>
 #include <boost/range/adaptor/map.hpp>
 #include <tuple>
-#include <../../data/daniel/arbeit/projekte/oscar-comparisons/htm-index/vendor/liboscar/vendor/sserialize/include/sserialize/strings/unicode_case_functions.h>
+#include <sserialize/strings/unicode_case_functions.h>
 
 namespace hic {
 namespace {
@@ -240,10 +240,11 @@ void OscarSearchHtmIndex::create() {
 		
 		sserialize::Static::ItemIndexStore idxStore;
 		sserialize::Static::spatial::GeoHierarchy gh;
+		std::vector<uint32_t> trixelItemSize;
 		TrieType trie;
 		
 		std::mutex flushLock;
-		OscarSearchHtmIndex * that;
+		OscarSearchHtmIndex * that{0};
 		
 		sserialize::ProgressInfo pinfo;
 	};
@@ -257,6 +258,7 @@ void OscarSearchHtmIndex::create() {
 		using CellTextCompleter = sserialize::Static::CellTextCompleter;
 	public:
 		Worker(State * state, Config * cfg) : state(state), cfg(cfg) {}
+		Worker(const Worker &) = default;
 	public:
 		void operator()() {
 			while(true) {
@@ -272,9 +274,16 @@ void OscarSearchHtmIndex::create() {
 		void process(uint32_t strId) {
 			CellTextCompleter::Payload payload = state->trie.at(strId);
 			CellTextCompleter::Payload::Type typeData = payload.type(sserialize::StringCompleter::QT_SUBSTRING);
+			if (!typeData.valid()) {
+				std::cerr << "Invalid trie payload data for string " << strId << " = " << state->trie.strAt(strId) << std::endl;
+			}
+			assert(typeData.valid());
 			sserialize::ItemIndex fmCells = state->idxStore.at( typeData.fmPtr() );
 			
 			for(auto cellId : fmCells) {
+				if (cellId >= state->that->m_ohi->cellTrixelMap().size()) {
+					std::cerr << "Invalid cellId for string with id " << strId << " = " << state->trie.strAt(strId) << std::endl;
+				}
 				auto const & trixels = state->that->m_ohi->cellTrixelMap().at(cellId);
 				for(HtmIndexId htmIndex : trixels) {
 					TrixelId trixelId = state->that->m_trixelIdMap.trixelId(htmIndex);
@@ -288,8 +297,6 @@ void OscarSearchHtmIndex::create() {
 			auto itemIdxIdIt = typeData.pItemsPtrBegin();
 			for(auto cellId : pmCells) {
 				uint32_t itemIdxId = *itemIdxIdIt;
-				++itemIdxIdIt;
-				
 				sserialize::ItemIndex items = state->idxStore.at(itemIdxId);
 				
 				auto const & trixels = state->that->m_ohi->cellTrixelMap().at(cellId);
@@ -301,6 +308,7 @@ void OscarSearchHtmIndex::create() {
 					trixel2Items[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
 				}
 				
+				++itemIdxIdIt;
 			}
 			
 		}
@@ -311,7 +319,7 @@ void OscarSearchHtmIndex::create() {
 			for(auto & x : trixel2Items) {
 				TrixelId trixelId = x.first;
 				HtmIndexId htmIndex = state->that->m_trixelIdMap.htmIndex(trixelId);
-				if (x.second.size() == state->that->m_idxFactory.idxSize(state->that->m_trixelItems.at(trixelId))) { //fullmatch
+				if (x.second.size() == state->trixelItemSize.at(trixelId)) { //fullmatch
 					fmTrixels.emplace_back(trixelId);
 				}
 				else {
@@ -336,10 +344,19 @@ void OscarSearchHtmIndex::create() {
 	state.gh = m_cmp->store().geoHierarchy();
 	state.trie = this->trie();
 	state.strCount = state.trie.size();
+	state.that = this;
+	for(uint32_t ptr : m_trixelItems) {
+		state.trixelItemSize.push_back(m_idxFactory.idxSize(ptr));
+	}
 	
 	cfg.workerCacheSize = 128*1024*1024/sizeof(uint64_t);
 	
+	m_d.resize(state.strCount);
+	
 	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
+	// {
+	// 	Worker(&state, &cfg)();
+	// }
 	sserialize::ThreadPool::execute(Worker(&state, &cfg), 0, sserialize::ThreadPool::CopyTaskTag());
 	state.pinfo.end();
 	
@@ -405,7 +422,9 @@ OscarSearchHtmIndexCellInfo::cellItemsPtr(CellId cellId) const {
 //BEGIN OscarSearchWithHtm
 
 OscarSearchWithHtm::OscarSearchWithHtm(std::shared_ptr<OscarSearchHtmIndex> d) :
-m_d(d)
+m_d(d),
+m_idxStore(m_d->idxFactory().asItemIndexStore()),
+m_ci(OscarSearchHtmIndexCellInfo::makeRc(m_d)
 {}
 
 OscarSearchWithHtm::~OscarSearchWithHtm()
@@ -429,16 +448,12 @@ OscarSearchWithHtm::complete(const std::string & qs, const sserialize::StringCom
 	
 	const OscarSearchHtmIndex::Data & d = m_d->data().at(pos);
 	
-	auto idxStore = m_d->idxFactory().asItemIndexStore();
-	auto ci = OscarSearchHtmIndexCellInfo::makeRc(m_d);
-	
-	
 	return sserialize::CellQueryResult(
-										idxStore.at(d.fmTrixels),
-										idxStore.at(d.pmTrixels),
+										m_idxStore.at(d.fmTrixels),
+										m_idxStore.at(d.pmTrixels),
 										d.pmItems.begin(),
-										ci,
-										idxStore,
+										m_ci,
+										m_idxStore,
 										sserialize::CellQueryResult::FF_CELL_GLOBAL_ITEM_IDS);
 }
 
