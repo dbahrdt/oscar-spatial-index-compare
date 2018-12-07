@@ -8,9 +8,10 @@
 #include <sserialize/stats/ProgressInfo.h>
 #include <sserialize/stats/statfuncs.h>
 #include <sserialize/strings/stringfunctions.h>
+#include <sserialize/strings/unicode_case_functions.h>
+#include <sserialize/utility/assert.h>
 #include <boost/range/adaptor/map.hpp>
 #include <tuple>
-#include <sserialize/strings/unicode_case_functions.h>
 
 namespace hic {
 namespace {
@@ -59,7 +60,7 @@ m_hp(levels)
 
 OscarHtmIndex::~OscarHtmIndex() {}
 
-void OscarHtmIndex::create() {
+void OscarHtmIndex::create(uint32_t threadCount) {
 	m_td.clear();
 	m_ctm.clear();
 	m_ctm.resize(m_store.geoHierarchy().cellSize());
@@ -112,19 +113,28 @@ void OscarHtmIndex::create() {
 			for(uint32_t itemId : cellIdx) {
 				auto item = state->that->m_store.at(itemId);
 				if (item.payload().cells().size() > 1) {
-					item.geoShape().visitPoints([this,itemId](const sserialize::Static::spatial::GeoPoint & p) {
-						this->m_tcd.emplace(
-							this->state->that->m_hp.index(
-								lsst::sphgeom::UnitVector3d(
-									lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
-								)
-							),
-							this->state->tr.cellId(p),
-							itemId
+					auto tmp = item.payload().cells();
+					std::set<uint32_t> itemCells(tmp.begin(), tmp.end());
+					item.geoShape().visitPoints([this,itemId, &itemCells](const sserialize::Static::spatial::GeoPoint & p) {
+						std::set<uint32_t> cellIds = this->state->tr.cellIds(p);
+						auto htmIndex = this->state->that->m_hp.index(
+							lsst::sphgeom::UnitVector3d(
+								lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
+							)
 						);
+						if (!cellIds.size()) {
+							cellIds.insert(0);
+						}
+						for(uint32_t myId : cellIds) {
+							SSERIALIZE_CHEAP_ASSERT_NOT_EQUAL(myId, std::numeric_limits<uint32_t>::max());
+							if (itemCells.count(myId)) {
+								this->m_tcd.emplace(htmIndex, myId, itemId);
+							}
+						}
 					});
 				}
 				else {
+					SSERIALIZE_CHEAP_ASSERT_EQUAL(cellId, item.payload().cells().at(0));
 					item.geoShape().visitPoints([this,cellId,itemId](const sserialize::Static::spatial::GeoPoint & p) {
 						this->m_tcd.emplace(
 							this->state->that->m_hp.index(
@@ -147,7 +157,25 @@ void OscarHtmIndex::create() {
 				if (x.cellId != std::numeric_limits<uint32_t>::max()) {
 					state->that->m_ctm.at(x.cellId).insert(x.trixelId);
 				}
+				else {
+					std::cout << "Item " << x.itemId << "is in invalid cell" << std::endl;
+				}
 			}
+			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
+			{
+				std::map<CellId, std::set<ItemId> > cellItems;
+				for(const Data & x : m_tcd) {
+					cellItems[x.cellId].insert(x.itemId);
+				}
+				for(const auto & x : cellItems) {
+					sserialize::ItemIndex realCellItems = state->that->m_idxStore.at( state->gh.cellItemsPtr(x.first) );
+					sserialize::ItemIndex myCellItems(std::vector<uint32_t>(x.second.begin(), x.second.end()));
+					sserialize::ItemIndex diff = myCellItems - realCellItems;
+					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(uint32_t(0), diff.size());
+				}
+			}
+			#endif
+			m_tcd.clear();
 		}
 	private:
 		State * state;
@@ -166,16 +194,37 @@ void OscarHtmIndex::create() {
 	cfg.workerCacheSize = 128*1024*1024 / sizeof(Worker::Data);
 	
 	state.pinfo.begin(state.cellCount, "HtmIndex: processing");
-	sserialize::ThreadPool::execute(Worker(&state, &cfg), 0, sserialize::ThreadPool::CopyTaskTag());
+	if (threadCount == 1) {
+		Worker(&state, &cfg)();
+	}
+	else {
+		sserialize::ThreadPool::execute(Worker(&state, &cfg), 0, sserialize::ThreadPool::CopyTaskTag());
+	}
 	state.pinfo.end();
 	
 	//Sort item ids
 	for(auto & x : m_td) {
 		for(auto & y : x.second) {
 			std::sort(y.second.begin(), y.second.end());
+			auto e = std::unique(y.second.begin(), y.second.end());
+			y.second.resize(e - y.second.begin());
 		}
 	}
 	
+	// #ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
+	{
+		std::vector<std::set<ItemId> > cellItems(m_ctm.size());
+		for(auto & x : m_td) {
+			for(auto & y : x.second) {
+				cellItems.at(y.first).insert(y.second.begin(), y.second.end());
+			}
+		}
+		for(uint32_t cellId(0), s(cellItems.size()); cellId < s; ++cellId) {
+			sserialize::ItemIndex realCellItems = m_idxStore.at( state.gh.cellItemsPtr(cellId) );
+			SSERIALIZE_EXPENSIVE_ASSERT(realCellItems == cellItems.at(cellId));
+		}
+	}
+	// #endif
 }
 
 
@@ -214,7 +263,7 @@ m_cmp(cmp),
 m_ohi(ohi)
 {}
 
-void OscarSearchHtmIndex::create() {
+void OscarSearchHtmIndex::create(uint32_t threadCount) {
 	std::cout << "Computing trixel items and trixel map..." << std::flush;
 	for(auto const & x : m_ohi->trixelData()) {
 		HtmIndexId htmIndex = x.first;
@@ -272,12 +321,13 @@ void OscarSearchHtmIndex::create() {
 			}
 		};
 		void process(uint32_t strId) {
+			trixel2Items.clear();
+
 			CellTextCompleter::Payload payload = state->trie.at(strId);
 			CellTextCompleter::Payload::Type typeData = payload.type(sserialize::StringCompleter::QT_SUBSTRING);
 			if (!typeData.valid()) {
 				std::cerr << "Invalid trie payload data for string " << strId << " = " << state->trie.strAt(strId) << std::endl;
 			}
-			assert(typeData.valid());
 			sserialize::ItemIndex fmCells = state->idxStore.at( typeData.fmPtr() );
 			
 			for(auto cellId : fmCells) {
@@ -313,6 +363,8 @@ void OscarSearchHtmIndex::create() {
 			
 		}
 		void flush(uint32_t strId) {
+			SSERIALIZE_EXPENSIVE_ASSERT_EXEC(std::set<uint32_t> strItems)
+
 			std::vector<TrixelId> fmTrixels;
 			std::vector<TrixelId> pmTrixels;
 			OscarSearchHtmIndex::Data & d = state->that->m_d.at(strId);
@@ -326,9 +378,33 @@ void OscarSearchHtmIndex::create() {
 					pmTrixels.emplace_back(trixelId);
 					d.pmItems.emplace_back(state->that->m_idxFactory.addIndex(x.second));
 				}
+				SSERIALIZE_EXPENSIVE_ASSERT_EXEC(strItems.insert(x.second.begin(), x.second.end()))
 			}
 			d.fmTrixels = state->that->m_idxFactory.addIndex(fmTrixels);
 			d.pmTrixels = state->that->m_idxFactory.addIndex(pmTrixels);
+			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
+			{
+				auto cqr = state->that->ctc().complete(state->trie.strAt(strId), sserialize::StringCompleter::QT_SUBSTRING);
+				sserialize::ItemIndex realItems = cqr.flaten();
+				if (realItems != strItems) {
+					cqr = state->that->ctc().complete(state->trie.strAt(strId), sserialize::StringCompleter::QT_SUBSTRING);
+					std::cerr << std::endl << "OscarSearchHtmIndex: Items of entry " << strId << " = " << state->trie.strAt(strId) << " differ" << std::endl;
+					sserialize::ItemIndex tmp(std::vector<uint32_t>(strItems.begin(), strItems.end()));
+					sserialize::ItemIndex real_broken = realItems - tmp;
+					sserialize::ItemIndex broken_real = tmp - realItems;
+					std::cerr << "real - broken:" << real_broken.size() << std::endl;
+					std::cerr << "broken - real:" << broken_real.size() << std::endl;
+					if (real_broken.size() < 10) {
+						std::cerr << "real - broken: " << real_broken << std::endl;
+					}
+					if (broken_real.size() < 10) {
+						std::cerr << "broken - real: " << broken_real << std::endl;
+					}
+				}
+				SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(strId, state->trie.find(state->trie.strAt(strId), false));
+			}
+			#endif
+			trixel2Items.clear();
 		}
 	private:
 		std::map<TrixelId, std::set<IndexId> > trixel2Items;
@@ -354,30 +430,31 @@ void OscarSearchHtmIndex::create() {
 	m_d.resize(state.strCount);
 	
 	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
-	// {
-	// 	Worker(&state, &cfg)();
-	// }
-	sserialize::ThreadPool::execute(Worker(&state, &cfg), 0, sserialize::ThreadPool::CopyTaskTag());
+	if (threadCount == 1) {
+		Worker(&state, &cfg)();
+	}
+	else {
+		sserialize::ThreadPool::execute(Worker(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+	}
 	state.pinfo.end();
 	
 }
 
 OscarSearchHtmIndex::TrieType
 OscarSearchHtmIndex::trie() const {
-	using CellTextCompleter = sserialize::Static::CellTextCompleter;
-	using CTCTrieType = CellTextCompleter::FlatTrieType;
-	
-	if(!m_cmp->textSearch().hasSearch(liboscar::TextSearch::OOMGEOCELL)) {
-		throw sserialize::MissingDataException("OscarSearchHtmIndex: No geocell completer");
-	}
-	sserialize::Static::CellTextCompleter ctc = m_cmp->textSearch().get<liboscar::TextSearch::OOMGEOCELL>();
-	
-	auto triePtr = ctc.trie().as<CTCTrieType>();
+	auto triePtr = ctc().trie().as<CellTextCompleter::FlatTrieType>();
 	if (!triePtr) {
 		throw sserialize::MissingDataException("OscarSearchHtmIndex: No geocell completer with flat trie");
 	}
-	
 	return triePtr->trie();
+}
+
+
+OscarSearchHtmIndex::CellTextCompleter OscarSearchHtmIndex::ctc() const {
+	if(!m_cmp->textSearch().hasSearch(liboscar::TextSearch::OOMGEOCELL)) {
+		throw sserialize::MissingDataException("OscarSearchHtmIndex: No geocell completer");
+	}
+	return m_cmp->textSearch().get<liboscar::TextSearch::OOMGEOCELL>();
 }
 
 //BEGIN OscarSearchHtmIndexCellInfo
@@ -424,7 +501,7 @@ OscarSearchHtmIndexCellInfo::cellItemsPtr(CellId cellId) const {
 OscarSearchWithHtm::OscarSearchWithHtm(std::shared_ptr<OscarSearchHtmIndex> d) :
 m_d(d),
 m_idxStore(m_d->idxFactory().asItemIndexStore()),
-m_ci(OscarSearchHtmIndexCellInfo::makeRc(m_d)
+m_ci(OscarSearchHtmIndexCellInfo::makeRc(m_d))
 {}
 
 OscarSearchWithHtm::~OscarSearchWithHtm()

@@ -24,7 +24,7 @@ public:
 	OscarHtmIndex(Store const & store, IndexStore const & idxStore, int levels);
 	virtual ~OscarHtmIndex();
 public:
-	void create();
+	void create(uint32_t threadCount);
 public:
 	void stats();
 public:
@@ -46,6 +46,7 @@ private:
 class OscarSearchHtmIndex {
 public:
 	using Completer = liboscar::Static::OsmCompleter;
+	using CellTextCompleter = sserialize::Static::CellTextCompleter;
 	using TrieType = sserialize::Static::CellTextCompleter::FlatTrieType::TrieType;
 	using TrixelId = uint32_t;
 	using HtmIndexId = uint64_t;
@@ -66,7 +67,7 @@ public:
 public:
 	OscarSearchHtmIndex(std::shared_ptr<Completer> cmp, std::shared_ptr<OscarHtmIndex> ohi);
 public:
-	void create();
+	void create(uint32_t threadCount);
 public:
 	sserialize::ItemIndexFactory & idxFactory() { return m_idxFactory; }
 public:
@@ -75,6 +76,7 @@ public:
 	TrixelIdMap const & trixelIdMap() const { return m_trixelIdMap; }
 	std::vector<Data> const & data() const { return m_d; }
 	TrieType trie() const;
+	CellTextCompleter ctc() const;
 private:
 	std::shared_ptr<Completer> m_cmp;
 	std::shared_ptr<OscarHtmIndex> m_ohi;

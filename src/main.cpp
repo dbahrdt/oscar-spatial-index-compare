@@ -3,13 +3,14 @@
 
 struct Config {
     int htmLevel{8};
+	uint32_t threadCount{0};
     std::string filename;
 	bool createSearch{false};
 	std::vector<std::string> queries;
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels> --create-search -q <query> --tempdir <dir>" << std::endl;
+	std::cerr << "prg -f <oscar files> -l <htm levels> --create-search -q <query> --tempdir <dir> -t <threadCount>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -38,6 +39,10 @@ int main(int argc, char const * argv[] ) {
 			sserialize::UByteArrayAdapter::setTempFilePrefix(token);
 			++i;
 		}
+        else if (token == "-t" && i+1 < argc ) {
+            cfg.threadCount = std::atoi(argv[i+1]);
+            ++i;
+        }
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
 			help();
@@ -60,7 +65,7 @@ int main(int argc, char const * argv[] ) {
     auto ohi = std::make_shared<hic::OscarHtmIndex>(cmp->store(), cmp->indexStore(), cfg.htmLevel);
 	
 	std::cout << "Creating htm index..." << std::endl;
-	ohi->create();
+	ohi->create(cfg.threadCount);
 	
 	ohi->stats();
 	
@@ -73,7 +78,7 @@ int main(int argc, char const * argv[] ) {
 		oshi->idxFactory().setIndexFile(sserialize::UByteArrayAdapter::createCache(1024, sserialize::MM_SLOW_FILEBASED));
 		
 		std::cout << "Creating search structures..." << std::endl;
-		oshi->create();
+		oshi->create(cfg.threadCount);
 		
 		auto oswh = std::make_shared<hic::OscarSearchWithHtm>(oshi);
 		
