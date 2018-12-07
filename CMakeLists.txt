@@ -15,10 +15,14 @@ set(SOURCES_CPP
 	src/htm-index.cpp
 )
 
+set(SOURCES_H
+	src/htm-index.h
+)
+
 SET(LINK_LIBS
 	liboscar
 	sphgeom
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES_CPP})
+add_executable(${PROJECT_NAME} ${SOURCES_CPP} ${SOURCES_H})
 target_link_libraries(${PROJECT_NAME} ${LINK_LIBS})
