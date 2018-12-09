@@ -13,10 +13,12 @@ add_subdirectory(vendor/lsst/sphgeom sphgeom)
 set(SOURCES_CPP
 	src/main.cpp
 	src/htm-index.cpp
+	src/static-htm-index.cpp
 )
 
 set(SOURCES_H
 	src/htm-index.h
+	src/static-htm-index.h
 )
 
 SET(LINK_LIBS

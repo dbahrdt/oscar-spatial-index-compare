@@ -6,6 +6,7 @@
 #include <sserialize/spatial/CellQueryResult.h>
 #include <unordered_map>
 #include <map>
+#include <limits>
 
 namespace hic {
 
@@ -51,10 +52,18 @@ public:
 	using TrixelId = uint32_t;
 	using HtmIndexId = uint64_t;
 	using IndexId = uint32_t;
-	struct Data {
-		IndexId fmTrixels;
-		IndexId pmTrixels;
+	struct QueryTypeData {
+		IndexId fmTrixels{std::numeric_limit<uint32_t>::max()};
+		IndexId pmTrixels{std::numeric_limit<uint32_t>::max()};
 		std::vector<IndexId> pmItems;
+		bool valid() const;
+	};
+	struct Entry {
+		std::array<QueryTypeData, 4> data;
+		bool hasQueryType(sserialize::StringCompleter::QuerryType qt) const;
+		QueryTypeData const & at(sserialize::StringCompleter::QuerryType qt) const;
+		QueryTypeData & at(sserialize::StringCompleter::QuerryType qt);
+		static std::size_t toPosition(sserialize::StringCompleter::QuerryType qt);
 	};
 	class TrixelIdMap {
 	public:
@@ -69,12 +78,14 @@ public:
 public:
 	void create(uint32_t threadCount);
 public:
+	sserialize::UByteArrayAdapter & serialize(sserialize::UByteArrayAdapter & dest) const;
+public:
 	sserialize::ItemIndexFactory & idxFactory() { return m_idxFactory; }
 public:
 	std::shared_ptr<OscarHtmIndex> const & ohi() const { return m_ohi; }
 	std::vector<IndexId> const & trixelItems() const { return m_trixelItems; }
 	TrixelIdMap const & trixelIdMap() const { return m_trixelIdMap; }
-	std::vector<Data> const & data() const { return m_d; }
+	std::vector<Entry> const & data() const { return m_d; }
 	TrieType trie() const;
 	CellTextCompleter ctc() const;
 private:
@@ -83,8 +94,11 @@ private:
 	TrixelIdMap m_trixelIdMap;
 	std::vector<IndexId> m_trixelItems;
 	sserialize::ItemIndexFactory m_idxFactory;
-	std::vector<Data> m_d; //maps from stringId to Data;
+	std::vector<Entry> m_d; //maps from stringId to Entry;
 };
+
+
+sserialize::UByteArrayAdapter & operator<<(sserialize::UByteArrayAdapter & other, OscarSearchHtmIndex::Entry const & entry);
 
 class OscarSearchHtmIndexCellInfo: public sserialize::interface::CQRCellInfoIface {
 public:

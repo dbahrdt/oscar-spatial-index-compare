@@ -257,11 +257,47 @@ void OscarHtmIndex::stats() {
 	
 }
 
+bool
+OscarSearchHtmIndex::QueryTypeData::valid() const {
+	return fmTrixels != std::numeric_limits<uint32_t>::max() && pmTrixels != std::numeric_limits<uint32_t>::max();
+}
+
+bool
+OscarSearchHtmIndex::Entry::hasQueryType(sserialize::StringCompleter::QuerryType qt) const {
+	return data.at( toPosition(qt) ).valid();
+}
+
+OscarSearchHtmIndex::QueryTypeData const &
+OscarSearchHtmIndex::Entry::at(sserialize::StringCompleter::QuerryType qt) const {
+	return data.at( toPosition(qt) );
+}
+
+OscarSearchHtmIndex::QueryTypeData &
+at(sserialize::StringCompleter::QuerryType qt) {
+	return data.at( toPosition(qt) );
+}
+
+std::size_t
+OscarSearchHtmIndex::Entry::toPosition(sserialize::StringCompleter::QuerryType qt) {
+	switch (qt) {
+	case sserialize::StringCompleter::QT_EXACT:
+		return 0;
+	case sserialize::StringCompleter::QT_PREFIX:
+		return 1;
+	case sserialize::StringCompleter::QT_SUFFIX:
+		return 2;
+	case sserialize::StringCompleter::QT_SUBSTRING:
+		return 3;
+	default:
+		throw std::out_of_bounds("OscarSearchHtmIndex::Entry::toPosition");
+	};
+}
 
 OscarSearchHtmIndex::OscarSearchHtmIndex(std::shared_ptr<Completer> cmp, std::shared_ptr<OscarHtmIndex> ohi) :
 m_cmp(cmp),
 m_ohi(ohi)
 {}
+
 
 void OscarSearchHtmIndex::create(uint32_t threadCount) {
 	std::cout << "Computing trixel items and trixel map..." << std::flush;
@@ -286,7 +322,8 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 	struct State {
 		std::atomic<uint32_t> strId{0};
 		uint32_t strCount;
-		
+		std::vector<sserialize::StringCompleter::QuerryType> queryTypes;
+
 		sserialize::Static::ItemIndexStore idxStore;
 		sserialize::Static::spatial::GeoHierarchy gh;
 		std::vector<uint32_t> trixelItemSize;
@@ -315,15 +352,18 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 				if (strId >= state->strCount) {
 					break;
 				}
-				process(strId);
-				flush(strId);
+				for(auto qt : state->queryTypes) {
+					process(strId, qt);
+				}
 				state->pinfo(state->strId);
 			}
 		};
-		void process(uint32_t strId) {
-			trixel2Items.clear();
 
+		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
 			CellTextCompleter::Payload payload = state->trie.at(strId);
+			if ((payload.types() & qt) == sserialize::StringCompleter::QT_NONE) {
+				return;
+			}
 			CellTextCompleter::Payload::Type typeData = payload.type(sserialize::StringCompleter::QT_SUBSTRING);
 			if (!typeData.valid()) {
 				std::cerr << "Invalid trie payload data for string " << strId << " = " << state->trie.strAt(strId) << std::endl;
@@ -339,7 +379,7 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 					TrixelId trixelId = state->that->m_trixelIdMap.trixelId(htmIndex);
 					auto const & trixelCells = state->that->m_ohi->trixelData().at(htmIndex);
 					auto const & trixelCellItems = trixelCells.at(cellId);
-					trixel2Items[trixelId].insert(trixelCellItems.begin(), trixelCellItems.end());
+					trixel2Items(qt)[trixelId].insert(trixelCellItems.begin(), trixelCellItems.end());
 				}
 			}
 			
@@ -355,20 +395,20 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 					auto const & trixelCells = state->that->m_ohi->trixelData().at(htmIndex);
 					sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
 					sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
-					trixel2Items[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
+					trixel2Items(qt)[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
 				}
 				
 				++itemIdxIdIt;
 			}
-			
+			flush(strId, qt);
 		}
-		void flush(uint32_t strId) {
+		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
 			SSERIALIZE_EXPENSIVE_ASSERT_EXEC(std::set<uint32_t> strItems)
 
 			std::vector<TrixelId> fmTrixels;
 			std::vector<TrixelId> pmTrixels;
-			OscarSearchHtmIndex::Data & d = state->that->m_d.at(strId);
-			for(auto & x : trixel2Items) {
+			OscarSearchHtmIndex::QueryTypeData & d = state->that->m_d.at(strId).at(qt);
+			for(auto & x : trixel2Items(qt)) {
 				TrixelId trixelId = x.first;
 				HtmIndexId htmIndex = state->that->m_trixelIdMap.htmIndex(trixelId);
 				if (x.second.size() == state->trixelItemSize.at(trixelId)) { //fullmatch
@@ -384,10 +424,10 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 			d.pmTrixels = state->that->m_idxFactory.addIndex(pmTrixels);
 			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
 			{
-				auto cqr = state->that->ctc().complete(state->trie.strAt(strId), sserialize::StringCompleter::QT_SUBSTRING);
+				auto cqr = state->that->ctc().complete(state->trie.strAt(strId), qt);
 				sserialize::ItemIndex realItems = cqr.flaten();
 				if (realItems != strItems) {
-					cqr = state->that->ctc().complete(state->trie.strAt(strId), sserialize::StringCompleter::QT_SUBSTRING);
+					cqr = state->that->ctc().complete(state->trie.strAt(strId), qt);
 					std::cerr << std::endl << "OscarSearchHtmIndex: Items of entry " << strId << " = " << state->trie.strAt(strId) << " differ" << std::endl;
 					sserialize::ItemIndex tmp(std::vector<uint32_t>(strItems.begin(), strItems.end()));
 					sserialize::ItemIndex real_broken = realItems - tmp;
@@ -404,10 +444,16 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 				SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(strId, state->trie.find(state->trie.strAt(strId), false));
 			}
 			#endif
-			trixel2Items.clear();
+			for(auto & x : buffer) {
+				x.clear();
+			}
 		}
 	private:
-		std::map<TrixelId, std::set<IndexId> > trixel2Items;
+		std::map<TrixelId, std::set<IndexId>> & trixel2Items(sserialize::StringCompleter::QuerryType qt) {
+			return ::hic::OscarSearchHtmIndex::Entry::toPosition(qt);
+		}
+	private:
+		std::array<std::map<TrixelId, std::set<IndexId>>, 4> buffer;
 	private:
 		State * state;
 		Config * cfg;
@@ -449,12 +495,62 @@ OscarSearchHtmIndex::trie() const {
 	return triePtr->trie();
 }
 
-
 OscarSearchHtmIndex::CellTextCompleter OscarSearchHtmIndex::ctc() const {
 	if(!m_cmp->textSearch().hasSearch(liboscar::TextSearch::OOMGEOCELL)) {
 		throw sserialize::MissingDataException("OscarSearchHtmIndex: No geocell completer");
 	}
 	return m_cmp->textSearch().get<liboscar::TextSearch::OOMGEOCELL>();
+}
+
+sserialize::UByteArrayAdapter &
+OscarSearchHtmIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
+	auto ctc = this->ctc();
+	auto trie = this->trie();
+	dest.putUint8(1);
+	dest.putUint8(ctc.getSupportedQuerries());
+	dest.putUint8(m_ohi->htm.getLevel());
+	dest.put(trie.data());
+	dest.putUint8(1); //FlatTrie Version
+	sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> ac(dest);
+	for(auto const & x : m_d) {
+		ac.beginRawPut();
+		ac.rawPut() << x;
+		ac.endRawPut();
+	}
+	ac.flush();
+	return dest;
+}
+
+sserialize::UByteArrayAdapter &
+operator<<(sserialize::UByteArrayAdapter & other, OscarSearchHtmIndex::Entry const & entry) {
+	std::array<sserialize::StringCompleter::QuerryType, 4> qts{{
+		sserialize::StringCompleter::QT_EXACT, sserialize::StringCompleter::QT_PREFIX,
+		sserialize::StringCompleter::QT_SUFFIX, sserialize::StringCompleter::QT_SUBSTRING
+	}};
+	uint32_t numQt = 0;
+	int qt = sserialize::StringCompleter::QT_NONE;
+	sserialize::UByteArrayAdapter tmp(1, sserialize::MM_PROGRAM_MEMORY);
+	std::vector<sserialize::UByteArrayAdapter::SizeType> offsets;
+	for(auto x : qts) {
+		if (entry.hasQueryType(x)) {
+			numQt += 1;
+			qt |= x;
+			sserialize::RLEStream::Creator rlc(tmp);
+			auto const & d = entry.at(x);
+			rlc.put(d.fmTrixels);
+			rlc.put(d.pmTrixels);
+			for(auto y : d.pmItems) {
+				rlc.put(y);
+			}
+			rlc.flush();
+		}
+	}
+	other.putUint8(qt);
+	for(std::size_t i(1), s(offsets.size()); i < s; ++i) {
+		other.putVlPackedUint32(offsets[i]);
+	}
+	other.put(tmp);
+	return other;
 }
 
 //BEGIN OscarSearchHtmIndexCellInfo
@@ -517,14 +613,20 @@ OscarSearchWithHtm::complete(const std::string & qs, const sserialize::StringCom
 // 	else {
 // 		qstr = qs;
 // 	}
-	uint32_t pos = trie.find(qstr, (qt & sserialize::StringCompleter::QT_SUBSTRING || qt & sserialize::StringCompleter::QT_PREFIX));
+	uint32_t pos = trie.find(qstr, qt);
 	
 	if (pos == trie.npos) {
 		return sserialize::CellQueryResult();
 	}
 	
-	const OscarSearchHtmIndex::Data & d = m_d->data().at(pos);
-	
+	OscarSearchHtmIndex::Entry const & e = m_d->data().at(pos);
+
+	if (!e.hasQueryType(qt)) {
+		return sserialize::CellQueryResult();
+	}
+
+	OscarSearchHtmIndex::QueryTypeData const & d = e.at(qt);
+
 	return sserialize::CellQueryResult(
 										m_idxStore.at(d.fmTrixels),
 										m_idxStore.at(d.pmTrixels),
