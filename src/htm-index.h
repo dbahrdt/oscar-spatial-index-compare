@@ -53,8 +53,8 @@ public:
 	using HtmIndexId = uint64_t;
 	using IndexId = uint32_t;
 	struct QueryTypeData {
-		IndexId fmTrixels{std::numeric_limit<uint32_t>::max()};
-		IndexId pmTrixels{std::numeric_limit<uint32_t>::max()};
+		IndexId fmTrixels{std::numeric_limits<uint32_t>::max()};
+		IndexId pmTrixels{std::numeric_limits<uint32_t>::max()};
 		std::vector<IndexId> pmItems;
 		bool valid() const;
 	};

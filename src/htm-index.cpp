@@ -10,6 +10,7 @@
 #include <sserialize/strings/stringfunctions.h>
 #include <sserialize/strings/unicode_case_functions.h>
 #include <sserialize/utility/assert.h>
+#include <sserialize/Static/Map.h>
 #include <boost/range/adaptor/map.hpp>
 #include <tuple>
 
@@ -273,7 +274,7 @@ OscarSearchHtmIndex::Entry::at(sserialize::StringCompleter::QuerryType qt) const
 }
 
 OscarSearchHtmIndex::QueryTypeData &
-at(sserialize::StringCompleter::QuerryType qt) {
+OscarSearchHtmIndex::Entry::at(sserialize::StringCompleter::QuerryType qt) {
 	return data.at( toPosition(qt) );
 }
 
@@ -289,7 +290,7 @@ OscarSearchHtmIndex::Entry::toPosition(sserialize::StringCompleter::QuerryType q
 	case sserialize::StringCompleter::QT_SUBSTRING:
 		return 3;
 	default:
-		throw std::out_of_bounds("OscarSearchHtmIndex::Entry::toPosition");
+		throw sserialize::OutOfBoundsException("OscarSearchHtmIndex::Entry::toPosition");
 	};
 }
 
@@ -450,7 +451,7 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 		}
 	private:
 		std::map<TrixelId, std::set<IndexId>> & trixel2Items(sserialize::StringCompleter::QuerryType qt) {
-			return ::hic::OscarSearchHtmIndex::Entry::toPosition(qt);
+			return buffer.at( ::hic::OscarSearchHtmIndex::Entry::toPosition(qt) );
 		}
 	private:
 		std::array<std::map<TrixelId, std::set<IndexId>>, 4> buffer;
@@ -508,7 +509,19 @@ OscarSearchHtmIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	auto trie = this->trie();
 	dest.putUint8(1);
 	dest.putUint8(ctc.getSupportedQuerries());
-	dest.putUint8(m_ohi->htm.getLevel());
+	
+	//HtmInfo
+	dest.putUint8(1);
+	dest.putUint8(m_ohi->htm().getLevel());
+	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
+	{
+		std::vector<std::pair<uint64_t, uint32_t>> tmp(trixelIdMap().m_htmIndex2TrixelId.begin(), trixelIdMap().m_htmIndex2TrixelId.end());
+		std::sort(tmp.begin(), tmp.end());
+		sserialize::Static::Map<uint64_t, uint32_t>::create(tmp.begin(), tmp.end(), dest);
+	}
+	sserialize::BoundedCompactUintArray::create(trixelItems(), dest);
+	
+	//Trie
 	dest.put(trie.data());
 	dest.putUint8(1); //FlatTrie Version
 	sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> ac(dest);

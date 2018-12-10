@@ -10,7 +10,7 @@ struct Config {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels> --create-search -q <query> --tempdir <dir> -t <threadCount>" << std::endl;
+	std::cerr << "prg -f <oscar files> -l <htm levels> --create-search -q <query> --tempdir <dir> -t <threadCount> --serialize <outdir>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
