@@ -507,6 +507,7 @@ sserialize::UByteArrayAdapter &
 OscarSearchHtmIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	auto ctc = this->ctc();
 	auto trie = this->trie();
+	//OscarSearchHtmIndex
 	dest.putUint8(1);
 	dest.putUint8(ctc.getSupportedQuerries());
 	
@@ -521,7 +522,7 @@ OscarSearchHtmIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	}
 	sserialize::BoundedCompactUintArray::create(trixelItems(), dest);
 	
-	//Trie
+	//OscarSearchHtmIndex::Trie
 	dest.put(trie.data());
 	dest.putUint8(1); //FlatTrie Version
 	sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> ac(dest);

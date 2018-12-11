@@ -6,43 +6,75 @@
 
 namespace hic::Static {
 	
-	
-HtmInfo::HtmInfo(const sserialize::UByteArrayAdapter & d) :
-m_numLevels(d.getUint8(1)),
+namespace ssinfo::HtmInfo {
+
+
+sserialize::UByteArrayAdapter::SizeType
+MetaData::getSizeInBytes() const {
+	return 2+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes()+m_d->trixelItemIndexIds().getSizeInBytes();;
+}
+
+sserialize::UByteArrayAdapter::SizeType
+MetaData::offset(DataMembers member) const {
+	switch(member) {
+		case DataMembers::htmLevels:
+			return 1;
+		case DataMembers::trixelId2HtmIndexId:
+			return 2;
+		case DataMembers::htmIndexId2TrixelId:
+			return 2+m_d->trixelId2HtmIndexId().getSizeInBytes();
+		case DataMembers::trixelItemIndexIds:
+			return 2+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes();
+		default:
+			throw sserialize::InvalidEnumValueException("MetaData");
+			break;
+	};
+	return 0;
+}
+
+
+Data::Data(const sserialize::UByteArrayAdapter & d) :
+m_htmLevels(d.getUint8(1)),
 m_trixelId2HtmIndexId(d+2),
 m_htmIndexId2TrixelId(d+(2+m_trixelId2HtmIndexId.getSizeInBytes())),
 m_trixelItemIndexIds(d+(2+m_trixelId2HtmIndexId.getSizeInBytes()+m_htmIndexId2TrixelId.getSizeInBytes()))
+{}
+
+} //end namespace ssinfo::HtmInfo
+	
+HtmInfo::HtmInfo(const sserialize::UByteArrayAdapter & d) :
+m_d(d)
 {}
 
 HtmInfo::~HtmInfo() {}
 
 sserialize::UByteArrayAdapter::SizeType
 HtmInfo::getSizeInBytes() const {
-	return 1+m_trixelId2HtmIndexId.getSizeInBytes()+m_htmIndexId2TrixelId.getSizeInBytes()+m_trixelItemIndexIds.getSizeInBytes();
+	return MetaData(&m_d).getSizeInBytes();
 }
 
 int HtmInfo::levels() const {
-	return m_numLevels;
+	return m_d.htmLevels();
 }
 
 HtmInfo::SizeType
 HtmInfo::trixelCount() const {
-	return m_trixelId2HtmIndexId.size();
+	return m_d.trixelId2HtmIndexId().size();
 }
 
 HtmInfo::IndexId
 HtmInfo::trixelItemIndexId(TrixelId trixelId) const {
-	return m_trixelItemIndexIds.at(trixelId);
+	return m_d.trixelItemIndexIds().at(trixelId);
 }
 
 HtmInfo::TrixelId
 HtmInfo::trixelId(HtmIndexId htmIndex) const {
-	return m_htmIndexId2TrixelId.at(htmIndex);
+	return m_d.htmIndexId2TrixelId().at(htmIndex);
 }
 
 HtmInfo::HtmIndexId
 HtmInfo::htmIndex(TrixelId trixelId) const {
-	return m_trixelId2HtmIndexId.at(trixelId);
+	return m_d.trixelId2HtmIndexId().at(trixelId);
 }
 
 OscarSearchHtmIndex::OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
@@ -50,7 +82,7 @@ m_sq(d.at(1)),
 m_htmInfo( d+2 ),
 m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+m_htmInfo.getSizeInBytes()))) ),
 m_idxStore(idxStore),
-m_hp(m_htmLevels)
+m_hp(m_htmInfo.levels())
 {
 	SSERIALIZE_VERSION_MISSMATCH_CHECK(MetaData::version, d.at(0), "hic::Static::OscarSearchHtmIndex");
 }
