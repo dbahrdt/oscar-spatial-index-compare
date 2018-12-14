@@ -114,24 +114,23 @@ void OscarHtmIndex::create(uint32_t threadCount) {
 			for(uint32_t itemId : cellIdx) {
 				auto item = state->that->m_store.at(itemId);
 				if (item.payload().cells().size() > 1) {
-					auto tmp = item.payload().cells();
-					std::set<uint32_t> itemCells(tmp.begin(), tmp.end());
-					item.geoShape().visitPoints([this,itemId, &itemCells](const sserialize::Static::spatial::GeoPoint & p) {
+					item.geoShape().visitPoints([this,cellId,itemId](const sserialize::Static::spatial::GeoPoint & p) {
 						std::set<uint32_t> cellIds = this->state->tr.cellIds(p);
-						auto htmIndex = this->state->that->m_hp.index(
-							lsst::sphgeom::UnitVector3d(
-								lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
-							)
-						);
 						if (!cellIds.size()) {
 							cellIds.insert(0);
 						}
-						for(uint32_t myId : cellIds) {
-							SSERIALIZE_CHEAP_ASSERT_NOT_EQUAL(myId, std::numeric_limits<uint32_t>::max());
-							if (itemCells.count(myId)) {
-								this->m_tcd.emplace(htmIndex, myId, itemId);
-							}
+						if (!cellIds.count(cellId)) {
+							return;
 						}
+						this->m_tcd.emplace(
+							this->state->that->m_hp.index(
+								lsst::sphgeom::UnitVector3d(
+									lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
+								)
+							),
+							cellId,
+							itemId
+						);
 					});
 				}
 				else {
