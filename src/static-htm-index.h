@@ -30,8 +30,8 @@ namespace hic::Static {
  *  };
  **/
 
-namespace ssinfo::HtmInfo {
-
+namespace ssinfo {
+namespace HtmInfo {
 	class Data;
 	
     class MetaData final {
@@ -56,7 +56,7 @@ namespace ssinfo::HtmInfo {
 	struct Types;
 	
 	template<> struct Types<MetaData::DataMembers::htmLevels>
-	{ using type = int; };
+	{ using type = uint8_t; };
 	
 	template<> struct Types<MetaData::DataMembers::trixelId2HtmIndexId>
 	{ using type = sserialize::BoundedCompactUintArray; };
@@ -67,7 +67,7 @@ namespace ssinfo::HtmInfo {
 	template<> struct Types<MetaData::DataMembers::trixelItemIndexIds>
 	{ using type = sserialize::BoundedCompactUintArray; };
 	
-	class Data final {
+	class Data: sserialize::RefCountObject {
 	public:
 		Data(const sserialize::UByteArrayAdapter & d);
 		~Data() {}
@@ -82,7 +82,8 @@ namespace ssinfo::HtmInfo {
 		Types<MetaData::DataMembers::htmIndexId2TrixelId>::type m_htmIndexId2TrixelId;
 		Types<MetaData::DataMembers::trixelItemIndexIds>::type m_trixelItemIndexIds;
 	};
-}
+} //end namespace HtmInfo
+}//end namespace ssinfo
 
 class HtmInfo final {
 public:

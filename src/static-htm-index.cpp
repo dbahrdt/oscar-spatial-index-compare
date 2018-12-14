@@ -74,7 +74,7 @@ HtmInfo::trixelId(HtmIndexId htmIndex) const {
 
 HtmInfo::HtmIndexId
 HtmInfo::htmIndex(TrixelId trixelId) const {
-	return m_d.trixelId2HtmIndexId().at(trixelId);
+	return m_d.trixelId2HtmIndexId().at64(trixelId);
 }
 
 OscarSearchHtmIndex::OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :

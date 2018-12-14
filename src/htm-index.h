@@ -122,7 +122,7 @@ public:
 	OscarSearchWithHtm(std::shared_ptr<OscarSearchHtmIndex> d);
 	~OscarSearchWithHtm();
 public:
-	sserialize::CellQueryResult complete(std::string const & qstr, const sserialize::StringCompleter::QuerryType qt);
+	sserialize::CellQueryResult complete(std::string const & qstr, sserialize::StringCompleter::QuerryType qt);
 	sserialize::CellQueryResult complete(liboscar::AdvancedOpTree const & optree);
 private:
 	sserialize::CellQueryResult process(const liboscar::AdvancedOpTree::Node * node);

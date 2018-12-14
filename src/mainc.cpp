@@ -82,7 +82,7 @@ int main(int argc, char const * argv[] ) {
 	
     auto oshi = std::make_shared<hic::OscarSearchHtmIndex>(cmp, ohi);
 		
-    oshi->idxFactory().setType(sserialize::ItemIndex::T_RLE_DE);
+    oshi->idxFactory().setType(cmp->indexStore().indexTypes());
     oshi->idxFactory().setDeduplication(true);
     oshi->idxFactory().setIndexFile(state.indexFile);
     
