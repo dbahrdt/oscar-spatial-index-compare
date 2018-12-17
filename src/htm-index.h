@@ -77,6 +77,7 @@ public:
 	OscarSearchHtmIndex(std::shared_ptr<Completer> cmp, std::shared_ptr<OscarHtmIndex> ohi);
 public:
 	void create(uint32_t threadCount);
+	sserialize::UByteArrayAdapter & create(sserialize::UByteArrayAdapter & dest, uint32_t threadCount);
 public:
 	sserialize::UByteArrayAdapter & serialize(sserialize::UByteArrayAdapter & dest) const;
 public:
@@ -88,6 +89,83 @@ public:
 	std::vector<Entry> const & data() const { return m_d; }
 	TrieType trie() const;
 	CellTextCompleter ctc() const;
+private:
+	struct State {
+		std::atomic<uint32_t> strId{0};
+		uint32_t strCount;
+		std::vector<sserialize::StringCompleter::QuerryType> queryTypes;
+
+		sserialize::Static::ItemIndexStore idxStore;
+		sserialize::Static::spatial::GeoHierarchy gh;
+		std::vector<uint32_t> trixelItemSize;
+		TrieType trie;
+		
+		std::mutex flushLock;
+		OscarSearchHtmIndex * that{0};
+		
+		sserialize::ProgressInfo pinfo;
+	};
+	struct Config {
+		std::size_t workerCacheSize;
+	};
+	class WorkerBase {
+	public:
+		using CellTextCompleter = sserialize::Static::CellTextCompleter;
+		using TrixelItems = std::map<TrixelId, std::set<IndexId> >;
+	public:
+		WorkerBase(State * state, Config * cfg);
+		WorkerBase(const WorkerBase & other);
+		virtual ~WorkerBase() {}
+	public:
+		void operator()();
+		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
+		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
+		void flush(uint32_t strId);
+		virtual void flush(uint32_t strId, Entry && entry) = 0;
+	protected:
+		inline State & state() { return *m_state; }
+		inline Config & cfg() { return *m_cfg; }
+	private:
+		TrixelItems & trixel2Items(sserialize::StringCompleter::QuerryType qt);
+	private:
+		std::array<TrixelItems, 4> buffer;
+		Entry m_bufferEntry;
+	private:
+		State * m_state;
+		Config * m_cfg;
+	};
+	class InMemoryFlusher: public WorkerBase {
+	public:
+		InMemoryFlusher(State * state, Config * cfg);
+		InMemoryFlusher(InMemoryFlusher const & other);
+		virtual ~InMemoryFlusher() override;
+	public:
+		virtual void flush(uint32_t strId, Entry && entry) override;
+	};
+	
+	struct SerializationState {
+		std::mutex lock;
+		sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> ac;
+		int64_t lastPushedEntry{-1}; //this way we don't have to explicitly check for 0
+		std::map<uint32_t, sserialize::UByteArrayAdapter> queuedEntries;
+		
+		SerializationState(sserialize::UByteArrayAdapter & dest) : ac(dest) {}
+	};
+	
+	class SerializationFlusher: public WorkerBase {
+	public:
+		SerializationFlusher(SerializationState * sstate, State * state, Config * cfg);
+		SerializationFlusher(const SerializationFlusher & other);
+		virtual ~SerializationFlusher() override {}
+	public:
+		virtual void flush(uint32_t strId, Entry && entry) override;
+	protected:
+		inline SerializationState & sstate() { return *m_sstate; }
+	private:
+		SerializationState * m_sstate;
+	};
+private:
+	void computeTrixelItems();
 private:
 	std::shared_ptr<Completer> m_cmp;
 	std::shared_ptr<OscarHtmIndex> m_ohi;

@@ -86,11 +86,8 @@ int main(int argc, char const * argv[] ) {
     oshi->idxFactory().setDeduplication(true);
     oshi->idxFactory().setIndexFile(state.indexFile);
     
-    std::cout << "Creating search structures..." << std::endl;
-    oshi->create(cfg.threadCount);
-
-    std::cout << "Serializing data structures..." << std::flush;
-    oshi->serialize(state.searchFile);
+    std::cout << "Serializing search structures..." << std::endl;
+    oshi->create(state.searchFile, cfg.threadCount);
     oshi->idxFactory().flush();
     std::cout << "done" << std::endl;
 

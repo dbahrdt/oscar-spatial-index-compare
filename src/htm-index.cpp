@@ -110,6 +110,8 @@ void OscarHtmIndex::create(uint32_t threadCount) {
 			state->pinfo(state->cellId);
 			auto cell = state->gh.cell(cellId);
 			auto cellIdx = state->that->m_idxStore.at( cell.itemPtr() );
+			
+			sserialize::breakHereIf(cellId == 1057);
 		
 			for(uint32_t itemId : cellIdx) {
 				auto item = state->that->m_store.at(itemId);
@@ -257,6 +259,10 @@ void OscarHtmIndex::stats() {
 	
 }
 
+//BEGIN OscarSearchHtmIndex
+
+//BEGIN OscarSearchHtmIndex::QueryTypeData
+
 bool
 OscarSearchHtmIndex::QueryTypeData::valid() const {
 	return fmTrixels != std::numeric_limits<uint32_t>::max() && pmTrixels != std::numeric_limits<uint32_t>::max();
@@ -277,6 +283,9 @@ OscarSearchHtmIndex::Entry::at(sserialize::StringCompleter::QuerryType qt) {
 	return data.at( toPosition(qt) );
 }
 
+//END OscarSearchHtmIndex::QueryTypeData
+//BEGIN OscarSearchHtmIndex::Entry
+
 std::size_t
 OscarSearchHtmIndex::Entry::toPosition(sserialize::StringCompleter::QuerryType qt) {
 	switch (qt) {
@@ -293,13 +302,216 @@ OscarSearchHtmIndex::Entry::toPosition(sserialize::StringCompleter::QuerryType q
 	};
 }
 
+//END OscarSearchHtmIndex::Entry
+//BEGIN OscarSearchHtmIndex::WorkerBase
+
+OscarSearchHtmIndex::WorkerBase::WorkerBase(State * state, Config * cfg) : 
+m_state(state),
+m_cfg(cfg)
+{}
+
+OscarSearchHtmIndex::WorkerBase::WorkerBase(WorkerBase const & other) :
+m_state(other.m_state),
+m_cfg(other.m_cfg)
+{}
+
+void
+OscarSearchHtmIndex::WorkerBase::operator()() {
+	while(true) {
+		uint32_t strId = state().strId.fetch_add(1, std::memory_order_relaxed);
+		if (strId >= state().strCount) {
+			break;
+		}
+		for(auto qt : state().queryTypes) {
+			process(strId, qt);
+		}
+		flush(strId);
+		state().pinfo(state().strId);
+	}
+};
+
+void
+OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
+	CellTextCompleter::Payload payload = state().trie.at(strId);
+	if ((payload.types() & qt) == sserialize::StringCompleter::QT_NONE) {
+		return;
+	}
+	CellTextCompleter::Payload::Type typeData = payload.type(qt);
+	if (!typeData.valid()) {
+		std::cerr << std::endl << "Invalid trie payload data for string " << strId << " = " << state().trie.strAt(strId) << std::endl;
+	}
+	sserialize::ItemIndex fmCells = state().idxStore.at( typeData.fmPtr() );
+	
+	for(auto cellId : fmCells) {
+		if (cellId >= state().that->m_ohi->cellTrixelMap().size()) {
+			std::cerr << std::endl << "Invalid cellId for string with id " << strId << " = " << state().trie.strAt(strId) << std::endl;
+		}
+		auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
+		for(HtmIndexId htmIndex : trixels) {
+			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
+			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
+			auto const & trixelCellItems = trixelCells.at(cellId);
+			trixel2Items(qt)[trixelId].insert(trixelCellItems.begin(), trixelCellItems.end());
+		}
+	}
+	
+	sserialize::ItemIndex pmCells = state().idxStore.at( typeData.pPtr() );
+	auto itemIdxIdIt = typeData.pItemsPtrBegin();
+	for(auto cellId : pmCells) {
+		uint32_t itemIdxId = *itemIdxIdIt;
+		sserialize::ItemIndex items = state().idxStore.at(itemIdxId);
+		
+		auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
+		for(HtmIndexId htmIndex : trixels) {
+			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
+			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
+			sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
+			sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
+			if (pmTrixelCellItems.size()) {
+				trixel2Items(qt)[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
+			}
+		}
+		
+		++itemIdxIdIt;
+	}
+	flush(strId, qt);
+}
+
+void
+OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
+	SSERIALIZE_EXPENSIVE_ASSERT_EXEC(std::set<uint32_t> strItems)
+
+	std::vector<TrixelId> fmTrixels;
+	std::vector<TrixelId> pmTrixels;
+	OscarSearchHtmIndex::QueryTypeData & d = m_bufferEntry.at(qt);
+	for(auto & x : trixel2Items(qt)) {
+		TrixelId trixelId = x.first;
+		HtmIndexId htmIndex = state().that->m_trixelIdMap.htmIndex(trixelId);
+		if (x.second.size() == state().trixelItemSize.at(trixelId)) { //fullmatch
+			fmTrixels.emplace_back(trixelId);
+		}
+		else {
+			pmTrixels.emplace_back(trixelId);
+			d.pmItems.emplace_back(state().that->m_idxFactory.addIndex(x.second));
+		}
+		SSERIALIZE_EXPENSIVE_ASSERT_EXEC(strItems.insert(x.second.begin(), x.second.end()))
+	}
+	d.fmTrixels = state().that->m_idxFactory.addIndex(fmTrixels);
+	d.pmTrixels = state().that->m_idxFactory.addIndex(pmTrixels);
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(strId, state().trie.find(state().trie.strAt(strId), qt & (sserialize::StringCompleter::QT_PREFIX | sserialize::StringCompleter::QT_SUBSTRING)));
+	#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
+	{
+		auto cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
+		sserialize::ItemIndex realItems = cqr.flaten();
+		if (realItems != strItems) {
+			cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
+			std::cerr << std::endl << "OscarSearchHtmIndex: Items of entry " << strId << " = " << state().trie.strAt(strId) << " with qt=" << qt << " differ" << std::endl;
+			sserialize::ItemIndex tmp(std::vector<uint32_t>(strItems.begin(), strItems.end()));
+			sserialize::ItemIndex real_broken = realItems - tmp;
+			sserialize::ItemIndex broken_real = tmp - realItems;
+			std::cerr << "real - broken:" << real_broken.size() << std::endl;
+			std::cerr << "broken - real:" << broken_real.size() << std::endl;
+			if (real_broken.size() < 10) {
+				std::cerr << "real - broken: " << real_broken << std::endl;
+			}
+			if (broken_real.size() < 10) {
+				std::cerr << "broken - real: " << broken_real << std::endl;
+			}
+		}
+		SSERIALIZE_EXPENSIVE_ASSERT(realItems == strItems);
+		
+	}
+	#endif
+	for(auto & x : buffer) {
+		x.clear();
+	}
+}
+
+void
+OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId) {
+	flush(strId, std::move(m_bufferEntry));
+	m_bufferEntry = Entry();
+}
+
+
+OscarSearchHtmIndex::WorkerBase::TrixelItems &
+OscarSearchHtmIndex::WorkerBase::trixel2Items(sserialize::StringCompleter::QuerryType qt) {
+	return buffer.at( ::hic::OscarSearchHtmIndex::Entry::toPosition(qt) );
+}
+
+//END OscarSearchHtmIndex::WorkerBase
+//BEGIN OscarSearchHtmIndex::InMemoryFlusher
+
+
+OscarSearchHtmIndex::InMemoryFlusher::InMemoryFlusher(State * state, Config * cfg) :
+WorkerBase(state, cfg)
+{}
+
+OscarSearchHtmIndex::InMemoryFlusher::InMemoryFlusher(InMemoryFlusher const & other) :
+WorkerBase(other)
+{}
+
+OscarSearchHtmIndex::InMemoryFlusher::~InMemoryFlusher() {}
+
+void OscarSearchHtmIndex::InMemoryFlusher::flush(uint32_t strId, Entry && entry) {
+	state().that->m_d.at(strId) = std::move(entry);
+}
+
+//END OscarSearchHtmIndex::InMemoryFlusher
+//BEGIN OscarSearchHtmIndex::SerializationFlusher
+
+OscarSearchHtmIndex::SerializationFlusher::SerializationFlusher(SerializationState * sstate, State * state, Config * cfg) :
+WorkerBase(state, cfg),
+m_sstate(sstate)
+{}
+
+OscarSearchHtmIndex::SerializationFlusher::SerializationFlusher(const SerializationFlusher & other) :
+WorkerBase(other),
+m_sstate(other.m_sstate)
+{}
+
+void
+OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry) {
+	std::unique_lock<std::mutex> lock(sstate().lock, std::defer_lock_t());
+	if (sstate().lastPushedEntry+1 == strId) {
+		lock.lock();
+		sstate().lastPushedEntry += 1;
+		sstate().ac.beginRawPut();
+		sstate().ac.rawPut() << entry;
+		sstate().ac.endRawPut();
+	}
+	else {
+		sserialize::UByteArrayAdapter tmp(new std::vector<uint8_t>(), true);
+		tmp << entry;
+		lock.lock();
+		sstate().queuedEntries[strId] = tmp;
+	}
+	//try to flush queued entries
+	for(auto it(sstate().queuedEntries.begin()), end(sstate().queuedEntries.end()); it != end;) {
+		if (it->first == sstate().lastPushedEntry+1) {
+			sstate().lastPushedEntry += 1;
+			sstate().ac.put(it->second);
+			it = sstate().queuedEntries.erase(it);
+		}
+		else {
+			break;
+		}
+	}
+}
+
+//END OscarSearchHtmIndex::SerializationFlusher
+		
 OscarSearchHtmIndex::OscarSearchHtmIndex(std::shared_ptr<Completer> cmp, std::shared_ptr<OscarHtmIndex> ohi) :
 m_cmp(cmp),
 m_ohi(ohi)
 {}
 
 
-void OscarSearchHtmIndex::create(uint32_t threadCount) {
+void OscarSearchHtmIndex::computeTrixelItems() {
+	if (m_trixelItems.size()) {
+		throw sserialize::InvalidAlgorithmStateException("OscarSearchHtmIndex::computeTrixelItems: already computed!");
+	}
+	
 	std::cout << "Computing trixel items and trixel map..." << std::flush;
 	for(auto const & x : m_ohi->trixelData()) {
 		HtmIndexId htmIndex = x.first;
@@ -318,151 +530,10 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 		}
 	}
 	std::cout << "done" << std::endl;
-	
-	struct State {
-		std::atomic<uint32_t> strId{0};
-		uint32_t strCount;
-		std::vector<sserialize::StringCompleter::QuerryType> queryTypes;
+}
 
-		sserialize::Static::ItemIndexStore idxStore;
-		sserialize::Static::spatial::GeoHierarchy gh;
-		std::vector<uint32_t> trixelItemSize;
-		TrieType trie;
-		
-		std::mutex flushLock;
-		OscarSearchHtmIndex * that{0};
-		
-		sserialize::ProgressInfo pinfo;
-	};
-	
-	struct Config {
-		std::size_t workerCacheSize;
-	};
-	
-	class Worker {
-	public:
-		using CellTextCompleter = sserialize::Static::CellTextCompleter;
-	public:
-		Worker(State * state, Config * cfg) : state(state), cfg(cfg) {}
-		Worker(const Worker & other) : state(other.state), cfg(other.cfg) {}
-	public:
-		void operator()() {
-			while(true) {
-				uint32_t strId = state->strId.fetch_add(1, std::memory_order_relaxed);
-				if (strId >= state->strCount) {
-					break;
-				}
-				sserialize::breakHereIf(strId == 33);
-				for(auto qt : state->queryTypes) {
-					process(strId, qt);
-				}
-				state->pinfo(state->strId);
-			}
-		};
-
-		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
-			CellTextCompleter::Payload payload = state->trie.at(strId);
-			if ((payload.types() & qt) == sserialize::StringCompleter::QT_NONE) {
-				return;
-			}
-			CellTextCompleter::Payload::Type typeData = payload.type(qt);
-			if (!typeData.valid()) {
-				std::cerr << std::endl << "Invalid trie payload data for string " << strId << " = " << state->trie.strAt(strId) << std::endl;
-			}
-			sserialize::ItemIndex fmCells = state->idxStore.at( typeData.fmPtr() );
-			
-			for(auto cellId : fmCells) {
-				if (cellId >= state->that->m_ohi->cellTrixelMap().size()) {
-					std::cerr << std::endl << "Invalid cellId for string with id " << strId << " = " << state->trie.strAt(strId) << std::endl;
-				}
-				auto const & trixels = state->that->m_ohi->cellTrixelMap().at(cellId);
-				for(HtmIndexId htmIndex : trixels) {
-					TrixelId trixelId = state->that->m_trixelIdMap.trixelId(htmIndex);
-					auto const & trixelCells = state->that->m_ohi->trixelData().at(htmIndex);
-					auto const & trixelCellItems = trixelCells.at(cellId);
-					trixel2Items(qt)[trixelId].insert(trixelCellItems.begin(), trixelCellItems.end());
-				}
-			}
-			
-			sserialize::ItemIndex pmCells = state->idxStore.at( typeData.pPtr() );
-			auto itemIdxIdIt = typeData.pItemsPtrBegin();
-			for(auto cellId : pmCells) {
-				uint32_t itemIdxId = *itemIdxIdIt;
-				sserialize::ItemIndex items = state->idxStore.at(itemIdxId);
-				
-				auto const & trixels = state->that->m_ohi->cellTrixelMap().at(cellId);
-				for(HtmIndexId htmIndex : trixels) {
-					TrixelId trixelId = state->that->m_trixelIdMap.trixelId(htmIndex);
-					auto const & trixelCells = state->that->m_ohi->trixelData().at(htmIndex);
-					sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
-					sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
-					if (pmTrixelCellItems.size()) {
-						trixel2Items(qt)[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
-					}
-				}
-				
-				++itemIdxIdIt;
-			}
-			flush(strId, qt);
-		}
-		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt) {
-			SSERIALIZE_EXPENSIVE_ASSERT_EXEC(std::set<uint32_t> strItems)
-
-			std::vector<TrixelId> fmTrixels;
-			std::vector<TrixelId> pmTrixels;
-			OscarSearchHtmIndex::QueryTypeData & d = state->that->m_d.at(strId).at(qt);
-			for(auto & x : trixel2Items(qt)) {
-				TrixelId trixelId = x.first;
-				HtmIndexId htmIndex = state->that->m_trixelIdMap.htmIndex(trixelId);
-				if (x.second.size() == state->trixelItemSize.at(trixelId)) { //fullmatch
-					fmTrixels.emplace_back(trixelId);
-				}
-				else {
-					pmTrixels.emplace_back(trixelId);
-					d.pmItems.emplace_back(state->that->m_idxFactory.addIndex(x.second));
-				}
-				SSERIALIZE_EXPENSIVE_ASSERT_EXEC(strItems.insert(x.second.begin(), x.second.end()))
-			}
-			d.fmTrixels = state->that->m_idxFactory.addIndex(fmTrixels);
-			d.pmTrixels = state->that->m_idxFactory.addIndex(pmTrixels);
-			SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(strId, state->trie.find(state->trie.strAt(strId), qt & (sserialize::StringCompleter::QT_PREFIX | sserialize::StringCompleter::QT_SUBSTRING)));
-			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
-			{
-				auto cqr = state->that->ctc().complete(state->trie.strAt(strId), qt);
-				sserialize::ItemIndex realItems = cqr.flaten();
-				if (realItems != strItems) {
-					cqr = state->that->ctc().complete(state->trie.strAt(strId), qt);
-					std::cerr << std::endl << "OscarSearchHtmIndex: Items of entry " << strId << " = " << state->trie.strAt(strId) << " with qt=" << qt << " differ" << std::endl;
-					sserialize::ItemIndex tmp(std::vector<uint32_t>(strItems.begin(), strItems.end()));
-					sserialize::ItemIndex real_broken = realItems - tmp;
-					sserialize::ItemIndex broken_real = tmp - realItems;
-					std::cerr << "real - broken:" << real_broken.size() << std::endl;
-					std::cerr << "broken - real:" << broken_real.size() << std::endl;
-					if (real_broken.size() < 10) {
-						std::cerr << "real - broken: " << real_broken << std::endl;
-					}
-					if (broken_real.size() < 10) {
-						std::cerr << "broken - real: " << broken_real << std::endl;
-					}
-				}
-				SSERIALIZE_EXPENSIVE_ASSERT(realItems == strItems);
-				
-			}
-			#endif
-			for(auto & x : buffer) {
-				x.clear();
-			}
-		}
-	private:
-		std::map<TrixelId, std::set<IndexId>> & trixel2Items(sserialize::StringCompleter::QuerryType qt) {
-			return buffer.at( ::hic::OscarSearchHtmIndex::Entry::toPosition(qt) );
-		}
-	private:
-		std::array<std::map<TrixelId, std::set<IndexId>>, 4> buffer;
-	private:
-		State * state;
-		Config * cfg;
-	};
+void OscarSearchHtmIndex::create(uint32_t threadCount) {
+	computeTrixelItems();
 	
 	State state;
 	Config cfg;
@@ -493,13 +564,81 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 	
 	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
 	if (threadCount == 1) {
-		Worker(&state, &cfg)();
+		InMemoryFlusher(&state, &cfg)();
 	}
 	else {
-		sserialize::ThreadPool::execute(Worker(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+		sserialize::ThreadPool::execute(InMemoryFlusher(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
 	}
 	state.pinfo.end();
 	
+}
+
+
+sserialize::UByteArrayAdapter &
+OscarSearchHtmIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t threadCount) {
+	
+	computeTrixelItems();
+	
+	auto ctc = this->ctc();
+	auto trie = this->trie();
+	//OscarSearchHtmIndex
+	dest.putUint8(1); //version
+	dest.putUint8(ctc.getSupportedQuerries());
+	
+	//HtmInfo
+	dest.putUint8(1); //version
+	dest.putUint8(m_ohi->htm().getLevel());
+	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
+	{
+		std::vector<std::pair<uint64_t, uint32_t>> tmp(trixelIdMap().m_htmIndex2TrixelId.begin(), trixelIdMap().m_htmIndex2TrixelId.end());
+		std::sort(tmp.begin(), tmp.end());
+		sserialize::Static::Map<uint64_t, uint32_t>::create(tmp.begin(), tmp.end(), dest);
+	}
+	sserialize::BoundedCompactUintArray::create(trixelItems(), dest);
+	
+	//OscarSearchHtmIndex::Trie
+	dest.put(trie.data()); //FlatTrieBase
+	dest.putUint8(1); //FlatTrie Version
+	
+	
+	State state;
+	Config cfg;
+	SerializationState sstate(dest);
+	
+	state.idxStore = m_cmp->indexStore();
+	state.gh = m_cmp->store().geoHierarchy();
+	state.trie = this->trie();
+	state.strCount = state.trie.size();
+	state.that = this;
+	for(uint32_t ptr : m_trixelItems) {
+		state.trixelItemSize.push_back(m_idxFactory.idxSize(ptr));
+	}
+	{
+		std::array<sserialize::StringCompleter::QuerryType, 4> qts{{
+			sserialize::StringCompleter::QT_EXACT, sserialize::StringCompleter::QT_PREFIX,
+			sserialize::StringCompleter::QT_SUFFIX, sserialize::StringCompleter::QT_SUBSTRING
+		}};
+		auto sq = this->ctc().getSupportedQuerries();
+		for(auto x : qts) {
+			if (x & sq) {
+				state.queryTypes.emplace_back(x);
+			}
+		}
+	}
+	cfg.workerCacheSize = 128*1024*1024/sizeof(uint64_t);
+	
+	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
+	if (threadCount == 1) {
+		SerializationFlusher(&sstate, &state, &cfg)();
+	}
+	else {
+		sserialize::ThreadPool::execute(SerializationFlusher(&sstate, &state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+	}
+	state.pinfo.end();
+	SSERIALIZE_CHEAP_ASSERT_EQUAL(0, sstate.queuedEntries.size());
+	
+	sstate.ac.flush();
+	return dest;
 }
 
 OscarSearchHtmIndex::TrieType
