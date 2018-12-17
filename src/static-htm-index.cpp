@@ -317,4 +317,23 @@ OscarSearchHtmIndexCellInfo::cellItemsPtr(CellId cellId) const {
 }//end namespace detail
 //END Static::detail::OscarSearchHtmIndexCellInfo
 
+//BEGIN OscarSearchHtmCompleter
+
+void
+OscarSearchHtmCompleter::energize(std::string const & files) {
+	auto indexData = sserialize::UByteArrayAdapter::openRo(files + "/index", false);
+	auto searchData = sserialize::UByteArrayAdapter::openRo(files + "/search", false);
+	auto idxStore = sserialize::Static::ItemIndexStore(indexData);
+	m_d = hic::Static::OscarSearchHtmIndex::make(searchData, idxStore);
+}
+
+sserialize::CellQueryResult
+OscarSearchHtmCompleter::complete(std::string const & str) {
+	HtmOpTree opTree(m_d);
+	opTree.parse(str);
+	return opTree.calc();
+}
+
+//END OscarSearchHtmCompleter
+	
 }//end namespace hic::Static

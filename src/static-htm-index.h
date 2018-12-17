@@ -192,6 +192,18 @@ private:
     sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
 };
 
+class OscarSearchHtmCompleter {
+public:
+	OscarSearchHtmCompleter() {}
+	~OscarSearchHtmCompleter() {}
+public:
+	void energize(std::string const & files);
+public:
+	sserialize::CellQueryResult complete(std::string const & str);
+private:
+	sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
+};
+
 }//end namespace hic::Static
 
 //BEGIN Template function implementations
