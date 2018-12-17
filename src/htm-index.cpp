@@ -110,8 +110,6 @@ void OscarHtmIndex::create(uint32_t threadCount) {
 			state->pinfo(state->cellId);
 			auto cell = state->gh.cell(cellId);
 			auto cellIdx = state->that->m_idxStore.at( cell.itemPtr() );
-			
-			sserialize::breakHereIf(cellId == 1057);
 		
 			for(uint32_t itemId : cellIdx) {
 				auto item = state->that->m_store.at(itemId);
