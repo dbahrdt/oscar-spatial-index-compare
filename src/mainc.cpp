@@ -4,6 +4,7 @@
 struct Config {
     int htmLevel{8};
 	uint32_t threadCount{0};
+	uint32_t serializeThreadCount{0};
     std::string filename;
     std::string outdir;
 };
@@ -14,7 +15,7 @@ struct State {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels>  -o <outdir> --tempdir <dir> -t <threadCount>" << std::endl;
+	std::cerr << "prg -f <oscar files> -l <htm levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -43,6 +44,10 @@ int main(int argc, char const * argv[] ) {
 		}
         else if (token == "-t" && i+1 < argc ) {
             cfg.threadCount = std::atoi(argv[i+1]);
+            ++i;
+        }
+        else if (token == "-st" && i+1 < argc ) {
+            cfg.serializeThreadCount = std::atoi(argv[i+1]);
             ++i;
         }
         else {
@@ -87,7 +92,7 @@ int main(int argc, char const * argv[] ) {
     oshi->idxFactory().setIndexFile(state.indexFile);
     
     std::cout << "Serializing search structures..." << std::endl;
-    oshi->create(state.searchFile, cfg.threadCount);
+    oshi->create(state.searchFile, cfg.serializeThreadCount);
     oshi->idxFactory().flush();
     std::cout << "done" << std::endl;
 
