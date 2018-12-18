@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH
 )
 
 include(add_buildtype_ultra)
+include(add_buildtype_sanitize_debug)
 
 add_subdirectory(vendor/liboscar liboscar)
 add_subdirectory(vendor/lsst/sphgeom sphgeom)
