@@ -131,6 +131,7 @@ private:
 			void clear();
 			void process();
 		};
+// 		using TrixelItems = std::map<TrixelId, std::set<ItemId> >;
 	public:
 		WorkerBase(State * state, Config * cfg);
 		WorkerBase(const WorkerBase & other);
@@ -146,9 +147,8 @@ private:
 		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
 		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
 		void flush(uint32_t strId);
-		TrixelItems & trixel2Items(sserialize::StringCompleter::QuerryType qt);
 	private:
-		std::array<TrixelItems, 4> buffer;
+		TrixelItems buffer;
 		std::vector<uint32_t> itemIdBuffer;
 		Entry m_bufferEntry;
 	private:

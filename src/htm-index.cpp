@@ -374,7 +374,7 @@ OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompl
 			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
 			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
 			auto const & trixelCellItems = trixelCells.at(cellId);
-			trixel2Items(qt).add(trixelId, trixelCellItems.begin(), trixelCellItems.end());
+			buffer.add(trixelId, trixelCellItems.begin(), trixelCellItems.end());
 		}
 	}
 	
@@ -391,7 +391,7 @@ OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompl
 			sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
 			sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
 			if (pmTrixelCellItems.size()) {
-				trixel2Items(qt).add(trixelId, pmTrixelCellItems.begin(), pmTrixelCellItems.end());
+				buffer.add(trixelId, pmTrixelCellItems.begin(), pmTrixelCellItems.end());
 			}
 		}
 		
@@ -407,9 +407,8 @@ OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplet
 	std::vector<TrixelId> fmTrixels;
 	std::vector<TrixelId> pmTrixels;
 	OscarSearchHtmIndex::QueryTypeData & d = m_bufferEntry.at(qt);
-	TrixelItems & ti = trixel2Items(qt);
-	ti.process();
-	for(auto it(ti.entries.begin()), end(ti.entries.end()); it != end;) {
+	buffer.process();
+	for(auto it(buffer.entries.begin()), end(buffer.entries.end()); it != end;) {
 		TrixelId trixelId = it->trixelId;
 		for(; it != end && it->trixelId == trixelId; ++it) {
 			itemIdBuffer.push_back(it->itemId);
@@ -453,19 +452,13 @@ OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplet
 		
 	}
 	#endif
-	ti.clear();
+	buffer.clear();
 }
 
 void
 OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId) {
 	flush(strId, std::move(m_bufferEntry));
 	m_bufferEntry = Entry();
-}
-
-
-OscarSearchHtmIndex::WorkerBase::TrixelItems &
-OscarSearchHtmIndex::WorkerBase::trixel2Items(sserialize::StringCompleter::QuerryType qt) {
-	return buffer.at( ::hic::OscarSearchHtmIndex::Entry::toPosition(qt) );
 }
 
 //END OscarSearchHtmIndex::WorkerBase
