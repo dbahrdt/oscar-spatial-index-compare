@@ -471,7 +471,7 @@ m_sstate(other.m_sstate)
 
 void
 OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry) {
-	sserialize::UByteArrayAdapter tmp(new std::vector<uint8_t>(), true);
+	sserialize::UByteArrayAdapter tmp(0, sserialize::MM_PROGRAM_MEMORY);
 	tmp << entry;
 	std::unique_lock<std::mutex> lock(sstate().lock, std::defer_lock_t());
 	if (sstate().lastPushedEntry+1 == strId) {
