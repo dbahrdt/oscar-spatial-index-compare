@@ -481,21 +481,6 @@ OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry)
 	}
 	else {
 		lock.lock();
-		if (sstate().queuedEntries.size() > cfg().workerCacheSize) {
-			//don't queue element, busy wait until queue is flushed
-			//If we are here then we likely have to wait multiple seconds (or even minutes)
-			while (true) {
-				lock.unlock();
-				using namespace std::chrono_literals;
-				std::this_thread::sleep_for(1s);
-				lock.lock();
-				if (sstate().queuedEntries.size() < cfg().workerCacheSize) {
-					break;
-				}
-			}
-		}
-		
-		SSERIALIZE_CHEAP_ASSERT(lock.owns_lock());
 		sstate().queuedEntries[strId] = tmp;
 	}
 	
@@ -511,6 +496,20 @@ OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry)
 			break;
 		}
 	}
+	
+	if (sstate().queuedEntries.size() > cfg().workerCacheSize) {
+		//If we are here then we likely have to wait multiple seconds (or even minutes)
+		while (true) {
+			lock.unlock();
+			using namespace std::chrono_literals;
+			std::this_thread::sleep_for(1s);
+			lock.lock();
+			if (sstate().queuedEntries.size() < cfg().workerCacheSize) {
+				break;
+			}
+		}
+	}
+	
 }
 
 //END OscarSearchHtmIndex::SerializationFlusher
