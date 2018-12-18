@@ -14,6 +14,7 @@
 #include <boost/range/adaptor/map.hpp>
 #include <sserialize/utility/debuggerfunctions.h>
 #include <tuple>
+#include <chrono>
 
 namespace hic {
 namespace {
@@ -480,6 +481,21 @@ OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry)
 	}
 	else {
 		lock.lock();
+		if (sstate().queuedEntries.size() > cfg().workerCacheSize) {
+			//don't queue element, busy wait until queue is flushed
+			//If we are here then we likely have to wait multiple seconds (or even minutes)
+			while (true) {
+				lock.unlock();
+				using namespace std::chrono_literals;
+				std::this_thread::sleep_for(1s);
+				lock.lock();
+				if (sstate().queuedEntries.size() < cfg().workerCacheSize) {
+					break;
+				}
+			}
+		}
+		
+		SSERIALIZE_CHEAP_ASSERT(lock.owns_lock());
 		sstate().queuedEntries[strId] = tmp;
 	}
 	
@@ -623,7 +639,7 @@ OscarSearchHtmIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t threa
 			}
 		}
 	}
-	cfg.workerCacheSize = 128*1024*1024/sizeof(uint64_t);
+	cfg.workerCacheSize = std::size_t(threadCount)*128*1024*1024/sizeof(uint64_t);
 	
 	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
 	if (threadCount == 1) {
