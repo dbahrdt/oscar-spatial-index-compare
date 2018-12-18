@@ -120,7 +120,7 @@ private:
 				TrixelId trixelId;
 				ItemId itemId;
 			};
-			sserialize::MMVector<Entry> entries{sserialize::MM_PROGRAM_MEMORY};
+			sserialize::MMVector<Entry> entries{sserialize::MM_SHARED_MEMORY};
 			void add(TrixelId trixelId, ItemId itemId);
 			template<typename TItemIdIterator>
 			void add(TrixelId trixelId, TItemIdIterator begin, TItemIdIterator end) {
