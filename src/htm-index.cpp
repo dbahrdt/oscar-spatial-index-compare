@@ -304,6 +304,30 @@ OscarSearchHtmIndex::Entry::toPosition(sserialize::StringCompleter::QuerryType q
 //END OscarSearchHtmIndex::Entry
 //BEGIN OscarSearchHtmIndex::WorkerBase
 
+
+void
+OscarSearchHtmIndex::WorkerBase::TrixelItems::add(TrixelId trixelId, ItemId itemId) {
+	entries.emplace_back(Entry{trixelId, itemId});
+}
+
+void
+OscarSearchHtmIndex::WorkerBase::TrixelItems::clear() {
+	entries.clear();
+}
+
+void
+OscarSearchHtmIndex::WorkerBase::TrixelItems::process() {
+	using std::sort;
+	using std::unique;
+	sort(entries.begin(), entries.end(), [](Entry const & a, Entry const & b) {
+		return (a.trixelId == b.trixelId ? a.itemId < b.itemId : a.trixelId < b.trixelId);
+	});
+	auto it = unique(entries.begin(), entries.end(), [](Entry const & a, Entry const & b) {
+		return a.trixelId == b.trixelId && a.itemId == b.itemId;
+	});
+	entries.resize(it - entries.begin());
+}
+
 OscarSearchHtmIndex::WorkerBase::WorkerBase(State * state, Config * cfg) : 
 m_state(state),
 m_cfg(cfg)
@@ -350,7 +374,7 @@ OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompl
 			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
 			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
 			auto const & trixelCellItems = trixelCells.at(cellId);
-			trixel2Items(qt)[trixelId].insert(trixelCellItems.begin(), trixelCellItems.end());
+			trixel2Items(qt).add(trixelId, trixelCellItems.begin(), trixelCellItems.end());
 		}
 	}
 	
@@ -367,7 +391,7 @@ OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompl
 			sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
 			sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
 			if (pmTrixelCellItems.size()) {
-				trixel2Items(qt)[trixelId].insert(pmTrixelCellItems.begin(), pmTrixelCellItems.end());
+				trixel2Items(qt).add(trixelId, pmTrixelCellItems.begin(), pmTrixelCellItems.end());
 			}
 		}
 		
@@ -383,17 +407,25 @@ OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplet
 	std::vector<TrixelId> fmTrixels;
 	std::vector<TrixelId> pmTrixels;
 	OscarSearchHtmIndex::QueryTypeData & d = m_bufferEntry.at(qt);
-	for(auto & x : trixel2Items(qt)) {
-		TrixelId trixelId = x.first;
+	TrixelItems & ti = trixel2Items(qt);
+	ti.process();
+	for(auto it(ti.entries.begin()), end(ti.entries.end()); it != end;) {
+		TrixelId trixelId = it->trixelId;
+		for(; it != end && it->trixelId == trixelId; ++it) {
+			itemIdBuffer.push_back(it->itemId);
+		}
+		
 		HtmIndexId htmIndex = state().that->m_trixelIdMap.htmIndex(trixelId);
-		if (x.second.size() == state().trixelItemSize.at(trixelId)) { //fullmatch
+		if (itemIdBuffer.size() == state().trixelItemSize.at(trixelId)) { //fullmatch
 			fmTrixels.emplace_back(trixelId);
 		}
 		else {
 			pmTrixels.emplace_back(trixelId);
-			d.pmItems.emplace_back(state().that->m_idxFactory.addIndex(x.second));
+			d.pmItems.emplace_back(state().that->m_idxFactory.addIndex(itemIdBuffer));
 		}
-		SSERIALIZE_EXPENSIVE_ASSERT_EXEC(strItems.insert(x.second.begin(), x.second.end()))
+		SSERIALIZE_EXPENSIVE_ASSERT_EXEC(strItems.insert(itemIdBuffer.begin(), itemIdBuffer.end()))
+		
+		itemIdBuffer.clear();
 	}
 	d.fmTrixels = state().that->m_idxFactory.addIndex(fmTrixels);
 	d.pmTrixels = state().that->m_idxFactory.addIndex(pmTrixels);
@@ -421,9 +453,7 @@ OscarSearchHtmIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplet
 		
 	}
 	#endif
-	for(auto & x : buffer) {
-		x.clear();
-	}
+	ti.clear();
 }
 
 void

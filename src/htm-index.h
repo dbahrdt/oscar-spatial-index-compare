@@ -4,6 +4,7 @@
 #include <liboscar/AdvancedOpTree.h>
 #include <sserialize/containers/ItemIndexFactory.h>
 #include <sserialize/spatial/CellQueryResult.h>
+#include <sserialize/containers/MMVector.h>
 #include <unordered_map>
 #include <map>
 #include <limits>
@@ -52,6 +53,7 @@ public:
 	using TrixelId = uint32_t;
 	using HtmIndexId = uint64_t;
 	using IndexId = uint32_t;
+	using ItemId = uint32_t;
 	struct QueryTypeData {
 		IndexId fmTrixels{std::numeric_limits<uint32_t>::max()};
 		IndexId pmTrixels{std::numeric_limits<uint32_t>::max()};
@@ -112,7 +114,23 @@ private:
 	class WorkerBase {
 	public:
 		using CellTextCompleter = sserialize::Static::CellTextCompleter;
-		using TrixelItems = std::map<TrixelId, std::set<IndexId> >;
+		
+		struct TrixelItems {
+			struct Entry {
+				TrixelId trixelId;
+				ItemId itemId;
+			};
+			sserialize::MMVector<Entry> entries{sserialize::MM_PROGRAM_MEMORY};
+			void add(TrixelId trixelId, ItemId itemId);
+			template<typename TItemIdIterator>
+			void add(TrixelId trixelId, TItemIdIterator begin, TItemIdIterator end) {
+				for(; begin != end; ++begin) {
+					add(trixelId, *begin);
+				}
+			}
+			void clear();
+			void process();
+		};
 	public:
 		WorkerBase(State * state, Config * cfg);
 		WorkerBase(const WorkerBase & other);
@@ -131,6 +149,7 @@ private:
 		TrixelItems & trixel2Items(sserialize::StringCompleter::QuerryType qt);
 	private:
 		std::array<TrixelItems, 4> buffer;
+		std::vector<uint32_t> itemIdBuffer;
 		Entry m_bufferEntry;
 	private:
 		State * m_state;
