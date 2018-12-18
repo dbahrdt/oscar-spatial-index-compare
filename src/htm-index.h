@@ -92,7 +92,7 @@ public:
 private:
 	struct State {
 		std::atomic<uint32_t> strId{0};
-		uint32_t strCount;
+		uint32_t strCount{0};
 		std::vector<sserialize::StringCompleter::QuerryType> queryTypes;
 
 		sserialize::Static::ItemIndexStore idxStore;
@@ -106,7 +106,7 @@ private:
 		sserialize::ProgressInfo pinfo;
 	};
 	struct Config {
-		std::size_t workerCacheSize;
+		std::size_t workerCacheSize{1024};
 	};
 	class WorkerBase {
 	public:
@@ -118,14 +118,15 @@ private:
 		virtual ~WorkerBase() {}
 	public:
 		void operator()();
-		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
-		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
-		void flush(uint32_t strId);
+	protected:
 		virtual void flush(uint32_t strId, Entry && entry) = 0;
 	protected:
 		inline State & state() { return *m_state; }
 		inline Config & cfg() { return *m_cfg; }
 	private:
+		void process(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
+		void flush(uint32_t strId, sserialize::StringCompleter::QuerryType qt);
+		void flush(uint32_t strId);
 		TrixelItems & trixel2Items(sserialize::StringCompleter::QuerryType qt);
 	private:
 		std::array<TrixelItems, 4> buffer;

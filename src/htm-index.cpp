@@ -470,21 +470,21 @@ m_sstate(other.m_sstate)
 
 void
 OscarSearchHtmIndex::SerializationFlusher::flush(uint32_t strId, Entry && entry) {
+	sserialize::UByteArrayAdapter tmp(new std::vector<uint8_t>(), true);
+	tmp << entry;
 	std::unique_lock<std::mutex> lock(sstate().lock, std::defer_lock_t());
 	if (sstate().lastPushedEntry+1 == strId) {
 		lock.lock();
 		sstate().lastPushedEntry += 1;
-		sstate().ac.beginRawPut();
-		sstate().ac.rawPut() << entry;
-		sstate().ac.endRawPut();
+		sstate().ac.put(tmp);
 	}
 	else {
-		sserialize::UByteArrayAdapter tmp(new std::vector<uint8_t>(), true);
-		tmp << entry;
 		lock.lock();
 		sstate().queuedEntries[strId] = tmp;
 	}
+	
 	//try to flush queued entries
+	SSERIALIZE_CHEAP_ASSERT(lock.owns_lock());
 	for(auto it(sstate().queuedEntries.begin()), end(sstate().queuedEntries.end()); it != end;) {
 		if (it->first == sstate().lastPushedEntry+1) {
 			sstate().lastPushedEntry += 1;
