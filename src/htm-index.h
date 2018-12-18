@@ -73,10 +73,11 @@ public:
 		std::unordered_map<HtmIndexId, TrixelId> m_htmIndex2TrixelId;
 		std::vector<HtmIndexId> m_trixelId2HtmIndex;
 	};
+	enum FlusherType { FT_IN_MEMORY, FT_NO_OP};
 public:
 	OscarSearchHtmIndex(std::shared_ptr<Completer> cmp, std::shared_ptr<OscarHtmIndex> ohi);
 public:
-	void create(uint32_t threadCount);
+	void create(uint32_t threadCount, FlusherType ft = FT_IN_MEMORY);
 	sserialize::UByteArrayAdapter & create(sserialize::UByteArrayAdapter & dest, uint32_t threadCount);
 public:
 	sserialize::UByteArrayAdapter & serialize(sserialize::UByteArrayAdapter & dest) const;
@@ -140,6 +141,14 @@ private:
 		InMemoryFlusher(State * state, Config * cfg);
 		InMemoryFlusher(InMemoryFlusher const & other);
 		virtual ~InMemoryFlusher() override;
+	public:
+		virtual void flush(uint32_t strId, Entry && entry) override;
+	};
+	class NoOpFlusher: public WorkerBase {
+	public:
+		NoOpFlusher(State * state, Config * cfg);
+		NoOpFlusher(InMemoryFlusher const & other);
+		virtual ~NoOpFlusher() override;
 	public:
 		virtual void flush(uint32_t strId, Entry && entry) override;
 	};

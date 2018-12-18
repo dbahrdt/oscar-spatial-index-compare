@@ -457,6 +457,22 @@ void OscarSearchHtmIndex::InMemoryFlusher::flush(uint32_t strId, Entry && entry)
 }
 
 //END OscarSearchHtmIndex::InMemoryFlusher
+//BEGIN OscarSearchHtmIndex::NoOpFlusher
+
+
+OscarSearchHtmIndex::NoOpFlusher::NoOpFlusher(State * state, Config * cfg) :
+WorkerBase(state, cfg)
+{}
+
+OscarSearchHtmIndex::NoOpFlusher::NoOpFlusher(InMemoryFlusher const & other) :
+WorkerBase(other)
+{}
+
+OscarSearchHtmIndex::NoOpFlusher::~NoOpFlusher() {}
+
+void OscarSearchHtmIndex::NoOpFlusher::flush(uint32_t strId, Entry && entry) {}
+
+//END OscarSearchHtmIndex::NoOpFlusher
 //BEGIN OscarSearchHtmIndex::SerializationFlusher
 
 OscarSearchHtmIndex::SerializationFlusher::SerializationFlusher(SerializationState * sstate, State * state, Config * cfg) :
@@ -545,7 +561,7 @@ void OscarSearchHtmIndex::computeTrixelItems() {
 	std::cout << "done" << std::endl;
 }
 
-void OscarSearchHtmIndex::create(uint32_t threadCount) {
+void OscarSearchHtmIndex::create(uint32_t threadCount, FlusherType ft) {
 	computeTrixelItems();
 	
 	State state;
@@ -576,14 +592,23 @@ void OscarSearchHtmIndex::create(uint32_t threadCount) {
 	m_d.resize(state.strCount);
 	
 	state.pinfo.begin(state.strCount, "OscarSearchHtmIndex: processing");
-	if (threadCount == 1) {
-		InMemoryFlusher(&state, &cfg)();
+	if (ft == FT_IN_MEMORY) {
+		if (threadCount == 1) {
+			InMemoryFlusher(&state, &cfg)();
+		}
+		else {
+			sserialize::ThreadPool::execute(InMemoryFlusher(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+		}
 	}
-	else {
-		sserialize::ThreadPool::execute(InMemoryFlusher(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+	else if (ft == FT_NO_OP) {
+		if (threadCount == 1) {
+			NoOpFlusher(&state, &cfg)();
+		}
+		else {
+			sserialize::ThreadPool::execute(NoOpFlusher(&state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+		}
 	}
 	state.pinfo.end();
-	
 }
 
 

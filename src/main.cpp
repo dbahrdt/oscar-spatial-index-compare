@@ -1,16 +1,23 @@
 #include <liboscar/StaticOsmCompleter.h>
 #include "htm-index.h"
 
+enum SearchType {
+	ST_NONE,
+	ST_NOOP,
+	ST_MEM,
+	ST_SS
+};
+
 struct Config {
     int htmLevel{8};
 	uint32_t threadCount{0};
     std::string filename;
-	bool createSearch{false};
 	std::vector<std::string> queries;
+	SearchType st{ST_NONE};
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels> --create-search -q <query> --tempdir <dir> -t <threadCount> --serialize <outdir>" << std::endl;
+	std::cerr << "prg -f <oscar files> -l <htm levels> --search-type (noop|mem|sserialize) -q <query> --tempdir <dir> -t <threadCount>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -26,8 +33,21 @@ int main(int argc, char const * argv[] ) {
             cfg.filename = std::string(argv[i+1]);
             ++i;
         }
-        else if (token == "--create-search") {
-			cfg.createSearch = true;
+        else if (token == "--search-type" && i+1 < argc) {
+			token = std::string(argv[i+1]);
+			if (token == "noop") {
+				cfg.st = ST_NOOP;
+			}
+			else if (token == "mem") {
+				cfg.st = ST_MEM;
+			}
+			else if (token == "sserialize") {
+				cfg.st = ST_SS;
+			}
+			else {
+				cfg.st = ST_NONE;
+			}
+			++i;
 		}
 		else if (token == "-q" && i+1 < argc) {
 			cfg.queries.emplace_back(argv[i+1]);
@@ -69,7 +89,7 @@ int main(int argc, char const * argv[] ) {
 	
 	ohi->stats();
 	
-	if (cfg.createSearch || cfg.queries.size()) {
+	if (cfg.st != ST_NONE) {
 		
 		auto oshi = std::make_shared<hic::OscarSearchHtmIndex>(cmp, ohi);
 		
@@ -78,7 +98,22 @@ int main(int argc, char const * argv[] ) {
 		oshi->idxFactory().setIndexFile(sserialize::UByteArrayAdapter::createCache(1024, sserialize::MM_SLOW_FILEBASED));
 		
 		std::cout << "Creating search structures..." << std::endl;
-		oshi->create(cfg.threadCount);
+		switch (cfg.st) {
+			case ST_MEM:
+				oshi->create(cfg.threadCount);
+				break;
+			case ST_NOOP:
+				oshi->create(cfg.threadCount, hic::OscarSearchHtmIndex::FT_NO_OP);
+				break;
+			case ST_SS:
+			{
+				auto searchData = sserialize::UByteArrayAdapter::createCache(1024, sserialize::MM_SLOW_FILEBASED);
+				oshi->create(searchData, cfg.threadCount);
+			}
+				break;
+			default:
+				break;
+		};
 		
 		auto oswh = std::make_shared<hic::OscarSearchWithHtm>(oshi);
 		
