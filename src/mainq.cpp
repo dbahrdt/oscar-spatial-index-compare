@@ -82,7 +82,7 @@ int main(int argc, char const * argv[] ) {
     for(int i(1); i < argc; ++i) {
         std::string token(argv[i]);
         if (token == "-o" && i+1 < argc ) {
-            cfg.oscarFiles = std::atoi(argv[i+1]);
+            cfg.oscarFiles = std::string(argv[i+1]);
             ++i;
         }
         else if (token == "-f" && i+1 < argc) {
@@ -157,7 +157,7 @@ int main(int argc, char const * argv[] ) {
 				hqs.items = hqs.cqr.flaten(state.numThreads);
 				hqs.flatenTime.end();
 				std::cout << "HtmIndex query: " << state.str << std::endl;
-				std::cout << oqs << std::endl;
+				std::cout << hqs << std::endl;
 			}
 				break;
 			case WorkItem::WI_OSCAR_QUERY:
