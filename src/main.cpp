@@ -11,13 +11,14 @@ enum SearchType {
 struct Config {
     int htmLevel{8};
 	uint32_t threadCount{0};
+	uint32_t searchCreationThreadCount{0};
     std::string filename;
 	std::vector<std::string> queries;
 	SearchType st{ST_NONE};
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels> --search-type (noop|mem|sserialize) -q <query> --tempdir <dir> -t <threadCount>" << std::endl;
+	std::cerr << "prg -f <oscar files> -l <htm levels> --search-type (noop|mem|sserialize) -q <query> --tempdir <dir> -t <threadCount> -st <search creation thread count>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -63,6 +64,10 @@ int main(int argc, char const * argv[] ) {
             cfg.threadCount = std::atoi(argv[i+1]);
             ++i;
         }
+        else if (token == "-st" && i+1 < argc ) {
+            cfg.searchCreationThreadCount = std::atoi(argv[i+1]);
+            ++i;
+        }
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
 			help();
@@ -100,15 +105,15 @@ int main(int argc, char const * argv[] ) {
 		std::cout << "Creating search structures..." << std::endl;
 		switch (cfg.st) {
 			case ST_MEM:
-				oshi->create(cfg.threadCount);
+				oshi->create(cfg.searchCreationThreadCount);
 				break;
 			case ST_NOOP:
-				oshi->create(cfg.threadCount, hic::OscarSearchHtmIndex::FT_NO_OP);
+				oshi->create(cfg.searchCreationThreadCount, hic::OscarSearchHtmIndex::FT_NO_OP);
 				break;
 			case ST_SS:
 			{
 				auto searchData = sserialize::UByteArrayAdapter::createCache(1024, sserialize::MM_SLOW_FILEBASED);
-				oshi->create(searchData, cfg.threadCount);
+				oshi->create(searchData, cfg.searchCreationThreadCount);
 			}
 				break;
 			default:
