@@ -131,7 +131,6 @@ private:
 			void clear();
 			void process();
 		};
-// 		using TrixelItems = std::map<TrixelId, std::set<ItemId> >;
 	public:
 		WorkerBase(State * state, Config * cfg);
 		WorkerBase(const WorkerBase & other);

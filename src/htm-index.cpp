@@ -387,11 +387,25 @@ OscarSearchHtmIndex::WorkerBase::process(uint32_t strId, sserialize::StringCompl
 		auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
 		for(HtmIndexId htmIndex : trixels) {
 			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
-			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
-			sserialize::ItemIndex trixelCellItems( trixelCells.at(cellId) );
-			sserialize::ItemIndex pmTrixelCellItems = items / trixelCellItems;
-			if (pmTrixelCellItems.size()) {
-				buffer.add(trixelId, pmTrixelCellItems.begin(), pmTrixelCellItems.end());
+			auto const & trixelCellItems = state().that->m_ohi->trixelData().at(htmIndex).at(cellId);
+			{
+				auto fit = items.begin();
+				auto fend = items.end();
+				auto sit = trixelCellItems.begin();
+				auto send = trixelCellItems.end();
+				for(; fit!= fend && sit != send;) {
+					if (*fit < *sit) {
+						++fit;
+					}
+					else if (*sit < *fit) {
+						++sit;
+					}
+					else {
+						buffer.add(trixelId, *sit);
+						++fit;
+						++sit;
+					}
+				}
 			}
 		}
 		
