@@ -1,5 +1,4 @@
 #pragma once
-#include <lsst/sphgeom/HtmPixelization.h>
 #include <liboscar/StaticOsmCompleter.h>
 #include <liboscar/AdvancedOpTree.h>
 #include <sserialize/containers/ItemIndexFactory.h>
@@ -8,6 +7,8 @@
 #include <unordered_map>
 #include <map>
 #include <limits>
+
+#include "SpatialGrid.h"
 
 namespace hic {
 
@@ -23,24 +24,24 @@ public:
 	using TrixelData = std::unordered_map<TrixelId, TrixelCellItemMap>;
 public:
 	///This assumes that the gh ist NOT refined and NOT split!
-	OscarHtmIndex(Store const & store, IndexStore const & idxStore, int levels);
+	OscarHtmIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<interface::SpatialGrid> const & sg);
 	virtual ~OscarHtmIndex();
 public:
 	void create(uint32_t threadCount);
 public:
 	void stats();
 public:
-	inline lsst::sphgeom::HtmPixelization const & htm() const { return m_hp; }
 	///TrixelId->CellId->ItemId
 	///maps trixel to the set of intersected cells and the items intersecting the cell and the trixel
 	inline TrixelData const & trixelData() const { return m_td; }
 	///CellId->TrixelId
 	///Maps cells to trixels intersecting the cell
 	inline CellTrixelMap const & cellTrixelMap() const { return m_ctm; }
+	inline interface::SpatialGrid const & sg() const { return *m_sg; }
 private:
 	Store m_store;
 	IndexStore m_idxStore;
-	lsst::sphgeom::HtmPixelization m_hp;
+	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
 	TrixelData m_td;
 	CellTrixelMap m_ctm;
 };

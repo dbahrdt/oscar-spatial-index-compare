@@ -4,3 +4,6 @@
 [submodule "vendor/lsst/sphgeom"]
 	path = vendor/lsst/sphgeom
 	url = https://github.com/dbahrdt/sphgeom.git
+[submodule "vendor/h3"]
+	path = vendor/h3
+	url = https://github.com/uber/h3.git

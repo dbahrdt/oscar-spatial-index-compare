@@ -1,30 +1,32 @@
 #include "static-htm-index.h"
 #include <sserialize/strings/unicode_case_functions.h>
-#include <lsst/sphgeom/LonLat.h>
-#include <lsst/sphgeom/Circle.h>
-#include <lsst/sphgeom/Box.h>
+
+#include "HtmSpatialGrid.h"
+#include "H3SpatialGrid.h"
 
 namespace hic::Static {
 	
-namespace ssinfo::HtmInfo {
+namespace ssinfo::SpatialGridInfo {
 
 
 sserialize::UByteArrayAdapter::SizeType
 MetaData::getSizeInBytes() const {
-	return 2+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes()+m_d->trixelItemIndexIds().getSizeInBytes();;
+	return 3+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes()+m_d->trixelItemIndexIds().getSizeInBytes();;
 }
 
 sserialize::UByteArrayAdapter::SizeType
 MetaData::offset(DataMembers member) const {
 	switch(member) {
-		case DataMembers::htmLevels:
+		case DataMembers::type:
 			return 1;
-		case DataMembers::trixelId2HtmIndexId:
+		case DataMembers::levels:
 			return 2;
+		case DataMembers::trixelId2HtmIndexId:
+			return 3;
 		case DataMembers::htmIndexId2TrixelId:
-			return 2+m_d->trixelId2HtmIndexId().getSizeInBytes();
+			return 3+m_d->trixelId2HtmIndexId().getSizeInBytes();
 		case DataMembers::trixelItemIndexIds:
-			return 2+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes();
+			return 3+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes();
 		default:
 			throw sserialize::InvalidEnumValueException("MetaData");
 			break;
@@ -34,57 +36,68 @@ MetaData::offset(DataMembers member) const {
 
 
 Data::Data(const sserialize::UByteArrayAdapter & d) :
-m_htmLevels(d.getUint8(1)),
-m_trixelId2HtmIndexId(d+2),
-m_htmIndexId2TrixelId(d+(2+m_trixelId2HtmIndexId.getSizeInBytes())),
-m_trixelItemIndexIds(d+(2+m_trixelId2HtmIndexId.getSizeInBytes()+m_htmIndexId2TrixelId.getSizeInBytes()))
+m_type(decltype(m_type)(d.getUint8(1))),
+m_levels(d.getUint8(2)),
+m_trixelId2HtmIndexId(d+3),
+m_htmIndexId2TrixelId(d+(3+m_trixelId2HtmIndexId.getSizeInBytes())),
+m_trixelItemIndexIds(d+(3+m_trixelId2HtmIndexId.getSizeInBytes()+m_htmIndexId2TrixelId.getSizeInBytes()))
 {}
 
 } //end namespace ssinfo::HtmInfo
 	
-HtmInfo::HtmInfo(const sserialize::UByteArrayAdapter & d) :
+SpatialGridInfo::SpatialGridInfo(const sserialize::UByteArrayAdapter & d) :
 m_d(d)
 {}
 
-HtmInfo::~HtmInfo() {}
+SpatialGridInfo::~SpatialGridInfo() {}
 
 sserialize::UByteArrayAdapter::SizeType
-HtmInfo::getSizeInBytes() const {
+SpatialGridInfo::getSizeInBytes() const {
 	return MetaData(&m_d).getSizeInBytes();
 }
 
-int HtmInfo::levels() const {
-	return m_d.htmLevels();
+int SpatialGridInfo::levels() const {
+	return m_d.levels();
 }
 
-HtmInfo::SizeType
-HtmInfo::trixelCount() const {
+SpatialGridInfo::SizeType
+SpatialGridInfo::trixelCount() const {
 	return m_d.trixelId2HtmIndexId().size();
 }
 
-HtmInfo::IndexId
-HtmInfo::trixelItemIndexId(TrixelId trixelId) const {
+SpatialGridInfo::ItemIndexId
+SpatialGridInfo::itemIndexId(CPixelId trixelId) const {
 	return m_d.trixelItemIndexIds().at(trixelId);
 }
 
-HtmInfo::TrixelId
-HtmInfo::trixelId(HtmIndexId htmIndex) const {
+SpatialGridInfo::CPixelId
+SpatialGridInfo::cPixelId(SGPixelId htmIndex) const {
 	return m_d.htmIndexId2TrixelId().at(htmIndex);
 }
 
-HtmInfo::HtmIndexId
-HtmInfo::htmIndex(TrixelId trixelId) const {
-	return m_d.trixelId2HtmIndexId().at64(trixelId);
+SpatialGridInfo::SGPixelId
+SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
+	return m_d.trixelId2HtmIndexId().at64(cPixelId);
 }
 
 OscarSearchHtmIndex::OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(d.at(1)),
-m_htmInfo( d+2 ),
-m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+m_htmInfo.getSizeInBytes()))) ),
-m_idxStore(idxStore),
-m_hp(m_htmInfo.levels())
+m_sgInfo( d+2 ),
+m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+sgInfo().getSizeInBytes()))) ),
+m_idxStore(idxStore)
 {
 	SSERIALIZE_VERSION_MISSMATCH_CHECK(MetaData::version, d.at(0), "hic::Static::OscarSearchHtmIndex");
+	switch(sgInfo().type()) {
+		case SpatialGridInfo::MetaData::SG_HTM:
+			m_sg = hic::HtmSpatialGrid::make(sgInfo().levels());
+			break;
+		case SpatialGridInfo::MetaData::SG_H3:
+			m_sg = hic::H3SpatialGrid::make(sgInfo().levels());
+			break;
+		default:
+			throw sserialize::TypeMissMatchException("SpatialGridType is invalid: " + std::to_string(sgInfo().type()));
+			break;
+	};
 }
 
 
@@ -293,15 +306,11 @@ OscarSearchHtmIndexCellInfo::makeRc(const sserialize::RCPtrWrapper<IndexType> & 
 
 OscarSearchHtmIndexCellInfo::SizeType
 OscarSearchHtmIndexCellInfo::cellSize() const {
-	return m_d->htmInfo().trixelCount();
+	return m_d->sgInfo().trixelCount();
 }
 sserialize::spatial::GeoRect
 OscarSearchHtmIndexCellInfo::cellBoundary(CellId cellId) const {
-	auto htmIdx = m_d->htmInfo().htmIndex(cellId);
-	lsst::sphgeom::Box box = m_d->htm().triangle(htmIdx).getBoundingBox();
-	auto lat = box.getLat();
-	auto lon = box.getLon();
-	return sserialize::spatial::GeoRect(lat.getA().asDegrees(), lat.getB().asDegrees(), lon.getA().asDegrees(), lon.getB().asDegrees());
+	return m_d->sg().bbox(m_d->sgInfo().sgIndex(cellId));
 }
 
 OscarSearchHtmIndexCellInfo::SizeType
@@ -311,7 +320,7 @@ OscarSearchHtmIndexCellInfo::cellItemsCount(CellId cellId) const {
 
 OscarSearchHtmIndexCellInfo::IndexId
 OscarSearchHtmIndexCellInfo::cellItemsPtr(CellId cellId) const {
-	return m_d->htmInfo().trixelItemIndexId(cellId);
+	return m_d->sgInfo().itemIndexId(cellId);
 }
 	
 }//end namespace detail

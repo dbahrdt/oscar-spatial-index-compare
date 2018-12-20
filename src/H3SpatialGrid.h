@@ -1,15 +1,11 @@
 #pragma once
-
 #include "SpatialGrid.h"
-#include <lsst/sphgeom/HtmPixelization.h>
 
 namespace hic {
 	
-class HtmSpatialGrid final: public interface::SpatialGrid {
+class H3SpatialGrid final: public interface::SpatialGrid {
 public:
-	using HtmPixelization = lsst::sphgeom::HtmPixelization;
-public:
-	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t levels);
+	static sserialize::RCPtrWrapper<H3SpatialGrid> make(uint32_t defaultLevel);
 public:
 	virtual Level maxLevel() const override;
 	virtual Level defaultLevel() const override;
@@ -24,10 +20,10 @@ public:
 	virtual uint64_t area(PixelId pixel) const override;
 	virtual sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
 protected:
-	HtmSpatialGrid(uint32_t levels);
-	virtual ~HtmSpatialGrid();
+	H3SpatialGrid(uint32_t defaultLevel);
+	virtual ~H3SpatialGrid ();
 private:
-	std::vector<lsst::sphgeom::HtmPixelization> m_hps;
+	uint32_t m_defaultLevel;
 };
 
 }//end namespace hic

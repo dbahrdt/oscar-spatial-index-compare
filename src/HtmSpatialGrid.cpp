@@ -1,6 +1,10 @@
 #include "HtmSpatialGrid.h"
 #include <sserialize/utility/exceptions.h>
 
+#include <lsst/sphgeom/LonLat.h>
+#include <lsst/sphgeom/Circle.h>
+#include <lsst/sphgeom/Box.h>
+
 namespace hic {
 
 
@@ -9,14 +13,20 @@ HtmSpatialGrid::make(uint32_t levels) {
 	return sserialize::RCPtrWrapper<HtmSpatialGrid>(new HtmSpatialGrid(levels));
 }
 
-uint32_t
+HtmSpatialGrid::Level
 HtmSpatialGrid::maxLevel() const {
 	return m_hps.size()-1;
 }
 
-uint32_t
+HtmSpatialGrid::Level
 HtmSpatialGrid::defaultLevel() const {
 	return maxLevel();
+}
+
+
+HtmSpatialGrid::Level
+HtmSpatialGrid::level(PixelId pixelId) const {
+	return lsst::sphgeom::HtmPixelization::level(pixelId);
 }
 
 HtmSpatialGrid::PixelId
@@ -49,6 +59,21 @@ HtmSpatialGrid::childrenCount(PixelId pixel) const {
 std::unique_ptr<HtmSpatialGrid::TreeNode>
 HtmSpatialGrid::tree(CellIterator begin, CellIterator end) const {
 	return std::unique_ptr<HtmSpatialGrid::TreeNode>();
+}
+
+
+uint64_t
+HtmSpatialGrid::area(PixelId pixel) const {
+	return HtmPixelization::triangle(pixel).getBoundingCircle().getArea();
+}
+
+
+sserialize::spatial::GeoRect
+HtmSpatialGrid::bbox(PixelId pixel) const {
+	lsst::sphgeom::Box box = HtmPixelization::triangle(pixel).getBoundingBox();
+	auto lat = box.getLat();
+	auto lon = box.getLon();
+	return sserialize::spatial::GeoRect(lat.getA().asDegrees(), lat.getB().asDegrees(), lon.getA().asDegrees(), lon.getB().asDegrees());
 }
 
 HtmSpatialGrid::HtmSpatialGrid(uint32_t levels) {

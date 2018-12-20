@@ -9,6 +9,8 @@
 #include <liboscar/AdvancedOpTree.h>
 #include <lsst/sphgeom/HtmPixelization.h>
 
+#include "SpatialGrid.h"
+
 namespace hic {
 	class OscarSearchHtmIndex;
 }
@@ -16,8 +18,9 @@ namespace hic {
 namespace hic::Static {
 
 /**
- *  struct HtmInfo: Version(1) {
- *      uint<8> htmLevels;
+ *  struct SpatialGridInfo: Version(1) {
+ *      uint<8> type;
+ *      uint<8> levels;
  *      sserialize::BoundedCompactUintArray trixelId2HtmIndexId;
  *      sserialize::Static::Map<uint64_t, uint32_t> htmIndexId2TrixelId; 
  *      sserialize::BoundedCompactUintArray trixelItemIndexIds;
@@ -25,24 +28,29 @@ namespace hic::Static {
  *  
  *  struct OscarSearchHtmIndex: Version(1) {
  *      uint<8> supportedQueries;
- *      HtmInfo htmInfo;
+ *      SpatialGridInfo htmInfo;
  *      sserialize::Static::FlatTrie<sserialize::Static::CellTextCompleter::Payload> trie;
  *  };
  **/
 
 namespace ssinfo {
-namespace HtmInfo {
+namespace SpatialGridInfo {
 	class Data;
 	
     class MetaData final {
-	public:
+	public: 
 		enum class DataMembers : int {
-			htmLevels,
+			type,
+			levels,
 			trixelId2HtmIndexId,
 			htmIndexId2TrixelId,
 			trixelItemIndexIds
 		};
-        static constexpr uint8_t version{1};
+        static constexpr uint8_t version{2};
+		enum SpatialGridTypes : uint8_t {
+			SG_HTM=0,
+			SG_H3=1
+		};
 	public:
 		MetaData(Data const * d) : m_d(d) {}
 	public:
@@ -55,7 +63,10 @@ namespace HtmInfo {
 	template<MetaData::DataMembers TMember>
 	struct Types;
 	
-	template<> struct Types<MetaData::DataMembers::htmLevels>
+	template<> struct Types<MetaData::DataMembers::type>
+	{ using type = MetaData::SpatialGridTypes; };
+	
+	template<> struct Types<MetaData::DataMembers::levels>
 	{ using type = uint8_t; };
 	
 	template<> struct Types<MetaData::DataMembers::trixelId2HtmIndexId>
@@ -72,12 +83,14 @@ namespace HtmInfo {
 		Data(const sserialize::UByteArrayAdapter & d);
 		~Data() {}
 	public:
-		inline Types<MetaData::DataMembers::htmLevels>::type const & htmLevels() const { return m_htmLevels; }
+		inline Types<MetaData::DataMembers::type>::type const & type() const { return m_type; }
+		inline Types<MetaData::DataMembers::levels>::type const & levels() const { return m_levels; }
 		inline Types<MetaData::DataMembers::trixelId2HtmIndexId>::type const & trixelId2HtmIndexId() const { return m_trixelId2HtmIndexId; }
 		inline Types<MetaData::DataMembers::htmIndexId2TrixelId>::type const & htmIndexId2TrixelId() const { return m_htmIndexId2TrixelId; }
 		inline Types<MetaData::DataMembers::trixelItemIndexIds>::type const & trixelItemIndexIds() const { return m_trixelItemIndexIds; }
 	private:
-		Types<MetaData::DataMembers::htmLevels>::type m_htmLevels;
+		Types<MetaData::DataMembers::type>::type m_type;
+		Types<MetaData::DataMembers::levels>::type m_levels;
 		Types<MetaData::DataMembers::trixelId2HtmIndexId>::type m_trixelId2HtmIndexId;
 		Types<MetaData::DataMembers::htmIndexId2TrixelId>::type m_htmIndexId2TrixelId;
 		Types<MetaData::DataMembers::trixelItemIndexIds>::type m_trixelItemIndexIds;
@@ -85,30 +98,31 @@ namespace HtmInfo {
 } //end namespace HtmInfo
 }//end namespace ssinfo
 
-class HtmInfo final {
+class SpatialGridInfo final {
 public:
 	using SizeType = uint32_t;
-	using IndexId = uint32_t;
-	using TrixelId = uint32_t;
-	using HtmIndexId = uint64_t;
+	using ItemIndexId = uint32_t;
+	using CPixelId = uint32_t; //compressed pixel id
+	using SGPixelId = hic::interface::SpatialGrid::PixelId;
 public:
-	using MetaData = ssinfo::HtmInfo::MetaData;
+	using MetaData = ssinfo::SpatialGridInfo::MetaData;
 public:
-	HtmInfo(const sserialize::UByteArrayAdapter & d);
-	~HtmInfo();
+	SpatialGridInfo(const sserialize::UByteArrayAdapter & d);
+	~SpatialGridInfo();
 	MetaData metaData() const;
 public:
 	sserialize::UByteArrayAdapter::SizeType getSizeInBytes() const;
 public:
+	auto type() const { return m_d.type(); }
 	int levels() const;
 	SizeType trixelCount() const;
 public:
-	IndexId trixelItemIndexId(TrixelId trixelId) const;
+	ItemIndexId itemIndexId(CPixelId rmPixelId) const;
 public:
-	TrixelId trixelId(HtmIndexId htmIndex) const;
-	HtmIndexId htmIndex(TrixelId trixelId) const;
+	CPixelId cPixelId(SGPixelId sgIndex) const;
+	SGPixelId sgIndex(CPixelId cPixeld) const;
 private:
-	ssinfo::HtmInfo::Data m_d;
+	ssinfo::SpatialGridInfo::Data m_d;
 };
 
 class OscarSearchHtmIndex: public sserialize::RefCountObject {
@@ -136,16 +150,16 @@ public:
 	template<typename T_CQR_TYPE>
 	T_CQR_TYPE complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
 public:
-	inline HtmInfo const & htmInfo() const { return m_htmInfo; }
-	inline lsst::sphgeom::HtmPixelization const & htm() const { return m_hp; }
+	inline SpatialGridInfo const & sgInfo() const { return m_sgInfo; }
+	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
 private:
     OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
     char m_sq;
-	HtmInfo m_htmInfo;
+	SpatialGridInfo m_sgInfo;
     Trie m_trie;
     sserialize::Static::ItemIndexStore m_idxStore;
-	lsst::sphgeom::HtmPixelization m_hp;
+	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
     int m_flags{ sserialize::CellQueryResult::FF_CELL_GLOBAL_ITEM_IDS };
 };
 

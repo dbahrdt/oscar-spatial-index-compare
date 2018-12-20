@@ -1,12 +1,21 @@
 #include <liboscar/StaticOsmCompleter.h>
 #include "htm-index.h"
+#include "H3SpatialGrid.h"
+#include "HtmSpatialGrid.h"
+
+
+enum IndexType {
+	IT_HTM,
+	IT_H3
+};
 
 struct Config {
-    int htmLevel{8};
+    int levels{8};
 	uint32_t threadCount{0};
 	uint32_t serializeThreadCount{0};
     std::string filename;
     std::string outdir;
+	IndexType it{IT_HTM};
 };
 
 struct State {
@@ -15,7 +24,7 @@ struct State {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> -l <htm levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
+	std::cerr << "prg -f <oscar files> --index-type (htm|h3) -l <levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -25,9 +34,23 @@ int main(int argc, char const * argv[] ) {
     for(int i(1); i < argc; ++i) {
         std::string token(argv[i]);
         if (token == "-l" && i+1 < argc ) {
-            cfg.htmLevel = std::atoi(argv[i+1]);
+            cfg.levels = std::atoi(argv[i+1]);
             ++i;
         }
+		else if (token == "--index-type" && i+1 < argc) {
+			token = std::string(argv[i+1]);
+			if (token == "htm") {
+				cfg.it = IT_HTM;
+			}
+			else if (token == "h3") {
+				cfg.it = IT_H3;
+			}
+			else {
+				std::cerr << "Invalid index type" << std::endl;
+				return -1;
+			}
+			++i;
+		}
         else if (token == "-f" && i+1 < argc) {
             cfg.filename = std::string(argv[i+1]);
             ++i;
@@ -77,8 +100,21 @@ int main(int argc, char const * argv[] ) {
 
     state.indexFile = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index");
     state.searchFile = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/search");
+	
+	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg;
+	switch(cfg.it) {
+		case IT_HTM:
+			sg = hic::HtmSpatialGrid::make(cfg.levels);
+			break;
+		case IT_H3:
+			sg = hic::H3SpatialGrid::make(cfg.levels);
+			break;
+		default:
+			std::cerr << "Invalid spatial index type" << std::endl;
+			return -1;
+	}
 
-    auto ohi = std::make_shared<hic::OscarHtmIndex>(cmp->store(), cmp->indexStore(), cfg.htmLevel);
+    auto ohi = std::make_shared<hic::OscarHtmIndex>(cmp->store(), cmp->indexStore(), sg);
 	
 	std::cout << "Creating htm index..." << std::endl;
 	ohi->create(cfg.threadCount);

@@ -16,6 +16,8 @@
 #include <tuple>
 #include <chrono>
 
+#include "HtmSpatialGrid.h"
+
 namespace hic {
 namespace {
 class WorkerData {
@@ -55,10 +57,10 @@ namespace std {
 
 namespace hic {
 	
-OscarHtmIndex::OscarHtmIndex(Store const & store, IndexStore const & idxStore, int levels) :
+OscarHtmIndex::OscarHtmIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<interface::SpatialGrid> const & sg) :
 m_store(store),
 m_idxStore(idxStore),
-m_hp(levels)
+m_sg(sg)
 {}
 
 OscarHtmIndex::~OscarHtmIndex() {}
@@ -124,11 +126,7 @@ void OscarHtmIndex::create(uint32_t threadCount) {
 							return;
 						}
 						this->m_tcd.emplace(
-							this->state->that->m_hp.index(
-								lsst::sphgeom::UnitVector3d(
-									lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
-								)
-							),
+							this->state->that->sg().index(p.lat(), p.lon()),
 							cellId,
 							itemId
 						);
@@ -138,11 +136,7 @@ void OscarHtmIndex::create(uint32_t threadCount) {
 					SSERIALIZE_CHEAP_ASSERT_EQUAL(cellId, item.payload().cells().at(0));
 					item.geoShape().visitPoints([this,cellId,itemId](const sserialize::Static::spatial::GeoPoint & p) {
 						this->m_tcd.emplace(
-							this->state->that->m_hp.index(
-								lsst::sphgeom::UnitVector3d(
-									lsst::sphgeom::LonLat::fromDegrees(p.lon(), p.lat())
-								)
-							),
+							this->state->that->sg().index(p.lat(), p.lon()),
 							cellId,
 							itemId
 						);
@@ -241,7 +235,7 @@ void OscarHtmIndex::stats() {
 			trixelItemCount[x.first] += y.second.size();
 		}
 		trixelCellCount[x.first] += x.second.size();
-		trixelAreas.push_back( (12700/2)*(12700/2) * m_hp.triangle(x.first).getBoundingCircle().getArea() );
+		trixelAreas.push_back( (12700/2)*(12700/2) * sg().area(x.first));
 	}
 	
 	auto tic_range = trixelItemCount | boost::adaptors::map_values;
@@ -662,7 +656,7 @@ OscarSearchHtmIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t threa
 	
 	//HtmInfo
 	dest.putUint8(1); //version
-	dest.putUint8(m_ohi->htm().getLevel());
+	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{
 		std::vector<std::pair<uint64_t, uint32_t>> tmp(trixelIdMap().m_htmIndex2TrixelId.begin(), trixelIdMap().m_htmIndex2TrixelId.end());
@@ -742,7 +736,7 @@ OscarSearchHtmIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	
 	//HtmInfo
 	dest.putUint8(1); //version
-	dest.putUint8(m_ohi->htm().getLevel());
+	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{
 		std::vector<std::pair<uint64_t, uint32_t>> tmp(trixelIdMap().m_htmIndex2TrixelId.begin(), trixelIdMap().m_htmIndex2TrixelId.end());
@@ -848,11 +842,7 @@ OscarSearchHtmIndexCellInfo::cellSize() const {
 }
 sserialize::spatial::GeoRect
 OscarSearchHtmIndexCellInfo::cellBoundary(CellId cellId) const {
-	auto htmIdx = m_d->trixelIdMap().htmIndex(cellId);
-	lsst::sphgeom::Box box = m_d->ohi()->htm().triangle(htmIdx).getBoundingBox();
-	auto lat = box.getLat();
-	auto lon = box.getLon();
-	return sserialize::spatial::GeoRect(lat.getA().asDegrees(), lat.getB().asDegrees(), lon.getA().asDegrees(), lon.getB().asDegrees());
+	return m_d->ohi()->sg().bbox(m_d->trixelIdMap().htmIndex(cellId));
 }
 
 OscarSearchHtmIndexCellInfo::SizeType
