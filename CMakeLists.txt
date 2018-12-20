@@ -15,7 +15,7 @@ add_subdirectory(vendor/lsst/sphgeom sphgeom)
 add_subdirectory(vendor/h3 h3lib)
 
 set(LIB_SOURCES_CPP
-	src/htm-index.cpp
+	src/OscarSearchWithSg.cpp
 	src/OscarSgIndex.cpp
 	src/OscarSearchSgIndex.cpp
 	src/static-htm-index.cpp
@@ -25,7 +25,7 @@ set(LIB_SOURCES_CPP
 )
 
 set(LIB_SOURCES_H
-	src/htm-index.h
+	src/OscarSearchWithSg.h
 	src/OscarSgIndex.h
 	src/OscarSearchSgIndex.h
 	src/static-htm-index.h

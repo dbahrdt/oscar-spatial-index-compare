@@ -1,5 +1,5 @@
 #include <liboscar/StaticOsmCompleter.h>
-#include "htm-index.h"
+#include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
 

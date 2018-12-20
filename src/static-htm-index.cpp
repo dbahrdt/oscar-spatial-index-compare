@@ -204,33 +204,33 @@ SgOpTree::Calc::Calc::calc(const Node * node) {
 			sserialize::StringCompleter::QuerryType qt = sserialize::StringCompleter::QT_NONE;
 			qt = sserialize::StringCompleter::normalize(qstr);
 			if (node->subType == Node::STRING_ITEM) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: item string query");
+				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item string query");
 			}
 			else if (node->subType == Node::STRING_REGION) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: region string query");
+				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region string query");
 			}
 			else {
 				return m_d->complete<CQRType>(qstr, qt);
 			}
 		}
 		case Node::REGION:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: region query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region query");
 		case Node::REGION_EXCLUSIVE_CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: region exclusive cells");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region exclusive cells");
 		case Node::CELL:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: cell");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell");
 		case Node::CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: cells");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cells");
 		case Node::RECT:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: rectangle");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: rectangle");
 		case Node::POLYGON:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: polygon");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: polygon");
 		case Node::PATH:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: path");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: path");
 		case Node::POINT:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: point");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: point");
 		case Node::ITEM:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: item");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item");
 		default:
 			break;
 		};
@@ -240,19 +240,19 @@ SgOpTree::Calc::Calc::calc(const Node * node) {
 		case Node::FM_CONVERSION_OP:
 			return calc(node->children.at(0)).allToFull();
 		case Node::CELL_DILATION_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: cell dilation");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell dilation");
 		case Node::REGION_DILATION_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: region dilation");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region dilation");
 		case Node::COMPASS_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: compass");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: compass");
 		case Node::IN_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: in query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: in query");
 		case Node::NEAR_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: near query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: near query");
 		case Node::RELEVANT_ELEMENT_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: relevant item query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: relevant item query");
 		case Node::QUERY_EXCLUSIVE_CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: query exclusive cells");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: query exclusive cells");
 		default:
 			break;
 		};
@@ -275,7 +275,7 @@ SgOpTree::Calc::Calc::calc(const Node * node) {
 			};
 			break;
 		case Node::BETWEEN_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithHtm: between query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: between query");
 		default:
 			break;
 		};
@@ -326,10 +326,10 @@ OscarSearchSgIndexCellInfo::cellItemsPtr(CellId cellId) const {
 }//end namespace detail
 //END Static::detail::OscarSearchSgIndexCellInfo
 
-//BEGIN OscarSearchHtmCompleter
+//BEGIN OscarSearchSgCompleter
 
 void
-OscarSearchHtmCompleter::energize(std::string const & files) {
+OscarSearchSgCompleter::energize(std::string const & files) {
 	auto indexData = sserialize::UByteArrayAdapter::openRo(files + "/index", false);
 	auto searchData = sserialize::UByteArrayAdapter::openRo(files + "/search", false);
 	auto idxStore = sserialize::Static::ItemIndexStore(indexData);
@@ -337,12 +337,12 @@ OscarSearchHtmCompleter::energize(std::string const & files) {
 }
 
 sserialize::CellQueryResult
-OscarSearchHtmCompleter::complete(std::string const & str) {
+OscarSearchSgCompleter::complete(std::string const & str) {
 	SgOpTree opTree(m_d);
 	opTree.parse(str);
 	return opTree.calc();
 }
 
-//END OscarSearchHtmCompleter
+//END OscarSearchSgCompleter
 	
 }//end namespace hic::Static

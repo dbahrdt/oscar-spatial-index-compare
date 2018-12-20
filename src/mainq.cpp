@@ -117,7 +117,7 @@ int main(int argc, char const * argv[] ) {
     }
 
     auto cmp = std::make_shared<liboscar::Static::OsmCompleter>();
-	auto hcmp = std::make_shared<hic::Static::OscarSearchHtmCompleter>();
+	auto hcmp = std::make_shared<hic::Static::OscarSearchSgCompleter>();
 	
     cmp->setAllFilesFromPrefix(cfg.oscarFiles);
     try {

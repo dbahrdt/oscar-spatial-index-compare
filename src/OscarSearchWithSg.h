@@ -24,10 +24,10 @@ private:
 	std::shared_ptr<OscarSearchSgIndex> m_d;
 };
 
-class OscarSearchWithHtm {
+class OscarSearchWithSg {
 public:
-	OscarSearchWithHtm(std::shared_ptr<OscarSearchSgIndex> d);
-	~OscarSearchWithHtm();
+	OscarSearchWithSg(std::shared_ptr<OscarSearchSgIndex> d);
+	~OscarSearchWithSg();
 public:
 	sserialize::CellQueryResult complete(std::string const & qstr, sserialize::StringCompleter::QuerryType qt);
 	sserialize::CellQueryResult complete(liboscar::AdvancedOpTree const & optree);

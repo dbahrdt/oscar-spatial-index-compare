@@ -1,5 +1,5 @@
 #include <liboscar/StaticOsmCompleter.h>
-#include "htm-index.h"
+#include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
 
@@ -156,7 +156,7 @@ int main(int argc, char const * argv[] ) {
 				break;
 		};
 		
-		auto oswh = std::make_shared<hic::OscarSearchWithHtm>(oshi);
+		auto oswh = std::make_shared<hic::OscarSearchWithSg>(oshi);
 		
 		liboscar::AdvancedOpTree opTree;
 		for(std::string const & q : cfg.queries) {

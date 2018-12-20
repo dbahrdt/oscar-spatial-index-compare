@@ -205,10 +205,10 @@ private:
     sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
-class OscarSearchHtmCompleter {
+class OscarSearchSgCompleter {
 public:
-	OscarSearchHtmCompleter() {}
-	~OscarSearchHtmCompleter() {}
+	OscarSearchSgCompleter() {}
+	~OscarSearchSgCompleter() {}
 public:
 	void energize(std::string const & files);
 public:
