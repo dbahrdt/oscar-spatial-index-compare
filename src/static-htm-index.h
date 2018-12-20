@@ -7,12 +7,11 @@
 #include <sserialize/Static/CellTextCompleter.h>
 #include <sserialize/Static/Map.h>
 #include <liboscar/AdvancedOpTree.h>
-#include <lsst/sphgeom/HtmPixelization.h>
 
 #include "SpatialGrid.h"
 
 namespace hic {
-	class OscarSearchHtmIndex;
+	class OscarSearchSgIndex;
 }
 
 namespace hic::Static {
@@ -26,7 +25,7 @@ namespace hic::Static {
  *      sserialize::BoundedCompactUintArray trixelItemIndexIds;
  *  };
  *  
- *  struct OscarSearchHtmIndex: Version(1) {
+ *  struct OscarSearchSgIndex: Version(1) {
  *      uint<8> supportedQueries;
  *      SpatialGridInfo htmInfo;
  *      sserialize::Static::FlatTrie<sserialize::Static::CellTextCompleter::Payload> trie;
@@ -115,7 +114,7 @@ public:
 public:
 	auto type() const { return m_d.type(); }
 	int levels() const;
-	SizeType trixelCount() const;
+	SizeType cPixelCount() const;
 public:
 	ItemIndexId itemIndexId(CPixelId rmPixelId) const;
 public:
@@ -125,9 +124,9 @@ private:
 	ssinfo::SpatialGridInfo::Data m_d;
 };
 
-class OscarSearchHtmIndex: public sserialize::RefCountObject {
+class OscarSearchSgIndex: public sserialize::RefCountObject {
 public:
-    using Self = OscarSearchHtmIndex;
+    using Self = OscarSearchSgIndex;
     using Payload = sserialize::Static::CellTextCompleter::Payload;
 	using Trie = sserialize::UnicodeStringMap<Payload>;
 	using FlatTrieType = sserialize::Static::UnicodeTrie::UnicodeStringMapFlatTrie<Payload>;
@@ -137,7 +136,7 @@ public:
     };
 public:
     static sserialize::RCPtrWrapper<Self> make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
-    virtual ~OscarSearchHtmIndex() override;
+    virtual ~OscarSearchSgIndex() override;
     sserialize::UByteArrayAdapter::SizeType getSizeInBytes() const;
 	const sserialize::Static::ItemIndexStore & idxStore() const;
     int flags() const;
@@ -153,7 +152,7 @@ public:
 	inline SpatialGridInfo const & sgInfo() const { return m_sgInfo; }
 	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
 private:
-    OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
+    OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
     char m_sq;
 	SpatialGridInfo m_sgInfo;
@@ -165,13 +164,13 @@ private:
 
 namespace detail {
 
-class OscarSearchHtmIndexCellInfo: public sserialize::interface::CQRCellInfoIface {
+class OscarSearchSgIndexCellInfo: public sserialize::interface::CQRCellInfoIface {
 public:
 	using RCType = sserialize::RCPtrWrapper<sserialize::interface::CQRCellInfoIface>;
-    using IndexType = hic::Static::OscarSearchHtmIndex;
+    using IndexType = hic::Static::OscarSearchSgIndex;
 public:
-	OscarSearchHtmIndexCellInfo(const sserialize::RCPtrWrapper<IndexType> & d);
-	virtual ~OscarSearchHtmIndexCellInfo() override;
+	OscarSearchSgIndexCellInfo(const sserialize::RCPtrWrapper<IndexType> & d);
+	virtual ~OscarSearchSgIndexCellInfo() override;
 public:
 	static RCType makeRc(const sserialize::RCPtrWrapper<IndexType> & d);
 public:
@@ -180,15 +179,15 @@ public:
 	virtual SizeType cellItemsCount(CellId cellId) const override;
 	virtual IndexId cellItemsPtr(CellId cellId) const override;
 private:
-	sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
+	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
 }//end namespace detail
 
-class HtmOpTree: public liboscar::AdvancedOpTree {
+class SgOpTree: public liboscar::AdvancedOpTree {
 public:
-    HtmOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> const & d);
-    virtual ~HtmOpTree() {}
+    SgOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
+    virtual ~SgOpTree() {}
 public:
     sserialize::CellQueryResult calc();
 private:
@@ -196,14 +195,14 @@ private:
     public:
         using CQRType = sserialize::CellQueryResult;
     public:
-        Calc(sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> const & d) : m_d(d) {}
+        Calc(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) : m_d(d) {}
         ~Calc() {}
         CQRType calc(const Node * node);
     private:
-        sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
+        sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
     };
 private:
-    sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
+    sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
 class OscarSearchHtmCompleter {
@@ -215,7 +214,7 @@ public:
 public:
 	sserialize::CellQueryResult complete(std::string const & str);
 private:
-	sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> m_d;
+	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
 }//end namespace hic::Static
@@ -224,9 +223,9 @@ private:
 namespace hic::Static {
 
 template<typename T_CQR_TYPE>
-T_CQR_TYPE OscarSearchHtmIndex::complete(const std::string& qstr, const sserialize::StringCompleter::QuerryType qt) const {
-	using CellInfo = hic::Static::detail::OscarSearchHtmIndexCellInfo;
-    auto ci = CellInfo::makeRc( sserialize::RCPtrWrapper<Self>(const_cast<OscarSearchHtmIndex*>(this)) );
+T_CQR_TYPE OscarSearchSgIndex::complete(const std::string& qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
+    auto ci = CellInfo::makeRc( sserialize::RCPtrWrapper<Self>(const_cast<OscarSearchSgIndex*>(this)) );
     try {
 		Payload::Type t(typeFromCompletion(qstr, qt));
 		return T_CQR_TYPE(idxStore().at( t.fmPtr() ), idxStore().at( t.pPtr() ), t.pItemsPtrBegin(), ci, idxStore(), flags());

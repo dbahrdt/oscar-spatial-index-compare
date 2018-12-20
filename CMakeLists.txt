@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(htm-index-compare)
+project(osi-compare)
 
 set(CMAKE_MODULE_PATH
 	${CMAKE_SOURCE_DIR}/cmake
@@ -16,6 +16,8 @@ add_subdirectory(vendor/h3 h3lib)
 
 set(LIB_SOURCES_CPP
 	src/htm-index.cpp
+	src/OscarSgIndex.cpp
+	src/OscarSearchSgIndex.cpp
 	src/static-htm-index.cpp
 	src/SpatialGrid.h
 	src/HtmSpatialGrid.cpp
@@ -24,6 +26,8 @@ set(LIB_SOURCES_CPP
 
 set(LIB_SOURCES_H
 	src/htm-index.h
+	src/OscarSgIndex.h
+	src/OscarSearchSgIndex.h
 	src/static-htm-index.h
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h

@@ -114,14 +114,14 @@ int main(int argc, char const * argv[] ) {
 			return -1;
 	}
 
-    auto ohi = std::make_shared<hic::OscarHtmIndex>(cmp->store(), cmp->indexStore(), sg);
+    auto ohi = std::make_shared<hic::OscarSgIndex>(cmp->store(), cmp->indexStore(), sg);
 	
 	std::cout << "Creating htm index..." << std::endl;
 	ohi->create(cfg.threadCount);
 	
 	ohi->stats();
 	
-    auto oshi = std::make_shared<hic::OscarSearchHtmIndex>(cmp, ohi);
+    auto oshi = std::make_shared<hic::OscarSearchSgIndex>(cmp, ohi);
 		
     oshi->idxFactory().setType(cmp->indexStore().indexTypes());
     oshi->idxFactory().setDeduplication(true);

@@ -61,7 +61,7 @@ int SpatialGridInfo::levels() const {
 }
 
 SpatialGridInfo::SizeType
-SpatialGridInfo::trixelCount() const {
+SpatialGridInfo::cPixelCount() const {
 	return m_d.trixelId2HtmIndexId().size();
 }
 
@@ -80,13 +80,13 @@ SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
 	return m_d.trixelId2HtmIndexId().at64(cPixelId);
 }
 
-OscarSearchHtmIndex::OscarSearchHtmIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
+OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(d.at(1)),
 m_sgInfo( d+2 ),
 m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+sgInfo().getSizeInBytes()))) ),
 m_idxStore(idxStore)
 {
-	SSERIALIZE_VERSION_MISSMATCH_CHECK(MetaData::version, d.at(0), "hic::Static::OscarSearchHtmIndex");
+	SSERIALIZE_VERSION_MISSMATCH_CHECK(MetaData::version, d.at(0), "hic::Static::OscarSearchSgIndex");
 	switch(sgInfo().type()) {
 		case SpatialGridInfo::MetaData::SG_HTM:
 			m_sg = hic::HtmSpatialGrid::make(sgInfo().levels());
@@ -101,43 +101,43 @@ m_idxStore(idxStore)
 }
 
 
-sserialize::RCPtrWrapper<OscarSearchHtmIndex>
-OscarSearchHtmIndex::make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) {
-    return sserialize::RCPtrWrapper<OscarSearchHtmIndex>( new OscarSearchHtmIndex(d, idxStore) );
+sserialize::RCPtrWrapper<OscarSearchSgIndex>
+OscarSearchSgIndex::make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) {
+    return sserialize::RCPtrWrapper<OscarSearchSgIndex>( new OscarSearchSgIndex(d, idxStore) );
 }
 
-OscarSearchHtmIndex::~OscarSearchHtmIndex() {}
+OscarSearchSgIndex::~OscarSearchSgIndex() {}
 
 sserialize::UByteArrayAdapter::SizeType
-OscarSearchHtmIndex::getSizeInBytes() const {
+OscarSearchSgIndex::getSizeInBytes() const {
     return 0;
 }
 
 sserialize::Static::ItemIndexStore const &
-OscarSearchHtmIndex::idxStore() const {
+OscarSearchSgIndex::idxStore() const {
     return m_idxStore;
 }
 
 int
-OscarSearchHtmIndex::flags() const {
+OscarSearchSgIndex::flags() const {
     return m_flags;
 }
 
 std::ostream &
-OscarSearchHtmIndex::printStats(std::ostream & out) const {
-	out << "OscarSearchHtmIndex::BEGIN_STATS" << std::endl;
+OscarSearchSgIndex::printStats(std::ostream & out) const {
+	out << "OscarSearchSgIndex::BEGIN_STATS" << std::endl;
 	m_trie.printStats(out);
-	out << "OscarSearchHtmIndex::END_STATS" << std::endl;
+	out << "OscarSearchSgIndex::END_STATS" << std::endl;
 	return out;
 }
 
 sserialize::StringCompleter::SupportedQuerries
-OscarSearchHtmIndex::getSupportedQueries() const {
+OscarSearchSgIndex::getSupportedQueries() const {
     return sserialize::StringCompleter::SupportedQuerries(m_sq);
 }
 
-OscarSearchHtmIndex::Payload::Type
-OscarSearchHtmIndex::typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt) const {
+OscarSearchSgIndex::Payload::Type
+OscarSearchSgIndex::typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt) const {
 	std::string qstr;
 	if (m_sq & sserialize::StringCompleter::SQ_CASE_INSENSITIVE) {
 		qstr = sserialize::unicode_to_lower(qs);
@@ -161,31 +161,31 @@ OscarSearchHtmIndex::typeFromCompletion(const std::string& qs, const sserialize:
 			t = p.type(sserialize::StringCompleter::QT_EXACT);
 		}
 		else {
-			throw sserialize::OutOfBoundsException("OscarSearchHtmIndex::typeFromCompletion");
+			throw sserialize::OutOfBoundsException("OscarSearchSgIndex::typeFromCompletion");
 		}
 	}
 	else if (p.types() & sserialize::StringCompleter::QT_EXACT) { //qt is either prefix, suffix, exact
 		t = p.type(sserialize::StringCompleter::QT_EXACT);
 	}
 	else {
-		throw sserialize::OutOfBoundsException("OscarSearchHtmIndex::typeFromCompletion");
+		throw sserialize::OutOfBoundsException("OscarSearchSgIndex::typeFromCompletion");
 	}
 	return t;
 }
 
-//BEGIN HtmOpTree
+//BEGIN SgOpTree
 
-HtmOpTree::HtmOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchHtmIndex> const & d) :
+SgOpTree::SgOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) :
 m_d(d)
 {}
 
 sserialize::CellQueryResult
-HtmOpTree::calc() {
+SgOpTree::calc() {
     return Calc(m_d).calc(root());
 }
 
-HtmOpTree::Calc::CQRType
-HtmOpTree::Calc::Calc::calc(const Node * node) {
+SgOpTree::Calc::CQRType
+SgOpTree::Calc::Calc::calc(const Node * node) {
     if (!node) {
         return CQRType();
     }
@@ -286,45 +286,45 @@ HtmOpTree::Calc::Calc::calc(const Node * node) {
 	return CQRType();
 }
 
-//END HtmOpTree
+//END SgOpTree
 
-//BEGIN Static::detail::OscarSearchHtmIndexCellInfo
+//BEGIN Static::detail::OscarSearchSgIndexCellInfo
 namespace detail {
 
 
-OscarSearchHtmIndexCellInfo::OscarSearchHtmIndexCellInfo(const sserialize::RCPtrWrapper<IndexType> & d) :
+OscarSearchSgIndexCellInfo::OscarSearchSgIndexCellInfo(const sserialize::RCPtrWrapper<IndexType> & d) :
 m_d(d)
 {}
-OscarSearchHtmIndexCellInfo::~OscarSearchHtmIndexCellInfo()
+OscarSearchSgIndexCellInfo::~OscarSearchSgIndexCellInfo()
 {}
 
 
-OscarSearchHtmIndexCellInfo::RCType
-OscarSearchHtmIndexCellInfo::makeRc(const sserialize::RCPtrWrapper<IndexType> & d) {
-	return sserialize::RCPtrWrapper<sserialize::interface::CQRCellInfoIface>( new OscarSearchHtmIndexCellInfo(d) );
+OscarSearchSgIndexCellInfo::RCType
+OscarSearchSgIndexCellInfo::makeRc(const sserialize::RCPtrWrapper<IndexType> & d) {
+	return sserialize::RCPtrWrapper<sserialize::interface::CQRCellInfoIface>( new OscarSearchSgIndexCellInfo(d) );
 }
 
-OscarSearchHtmIndexCellInfo::SizeType
-OscarSearchHtmIndexCellInfo::cellSize() const {
-	return m_d->sgInfo().trixelCount();
+OscarSearchSgIndexCellInfo::SizeType
+OscarSearchSgIndexCellInfo::cellSize() const {
+	return m_d->sgInfo().cPixelCount();
 }
 sserialize::spatial::GeoRect
-OscarSearchHtmIndexCellInfo::cellBoundary(CellId cellId) const {
+OscarSearchSgIndexCellInfo::cellBoundary(CellId cellId) const {
 	return m_d->sg().bbox(m_d->sgInfo().sgIndex(cellId));
 }
 
-OscarSearchHtmIndexCellInfo::SizeType
-OscarSearchHtmIndexCellInfo::cellItemsCount(CellId cellId) const {
+OscarSearchSgIndexCellInfo::SizeType
+OscarSearchSgIndexCellInfo::cellItemsCount(CellId cellId) const {
 	return m_d->idxStore().idxSize(cellItemsPtr(cellId));
 }
 
-OscarSearchHtmIndexCellInfo::IndexId
-OscarSearchHtmIndexCellInfo::cellItemsPtr(CellId cellId) const {
+OscarSearchSgIndexCellInfo::IndexId
+OscarSearchSgIndexCellInfo::cellItemsPtr(CellId cellId) const {
 	return m_d->sgInfo().itemIndexId(cellId);
 }
-	
+
 }//end namespace detail
-//END Static::detail::OscarSearchHtmIndexCellInfo
+//END Static::detail::OscarSearchSgIndexCellInfo
 
 //BEGIN OscarSearchHtmCompleter
 
@@ -333,12 +333,12 @@ OscarSearchHtmCompleter::energize(std::string const & files) {
 	auto indexData = sserialize::UByteArrayAdapter::openRo(files + "/index", false);
 	auto searchData = sserialize::UByteArrayAdapter::openRo(files + "/search", false);
 	auto idxStore = sserialize::Static::ItemIndexStore(indexData);
-	m_d = hic::Static::OscarSearchHtmIndex::make(searchData, idxStore);
+	m_d = hic::Static::OscarSearchSgIndex::make(searchData, idxStore);
 }
 
 sserialize::CellQueryResult
 OscarSearchHtmCompleter::complete(std::string const & str) {
-	HtmOpTree opTree(m_d);
+	SgOpTree opTree(m_d);
 	opTree.parse(str);
 	return opTree.calc();
 }

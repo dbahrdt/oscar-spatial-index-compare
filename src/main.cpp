@@ -123,7 +123,7 @@ int main(int argc, char const * argv[] ) {
 			return -1;
 	}
 
-    auto ohi = std::make_shared<hic::OscarHtmIndex>(cmp->store(), cmp->indexStore(), sg);
+    auto ohi = std::make_shared<hic::OscarSgIndex>(cmp->store(), cmp->indexStore(), sg);
 	
 	std::cout << "Creating htm index..." << std::endl;
 	ohi->create(cfg.threadCount);
@@ -132,7 +132,7 @@ int main(int argc, char const * argv[] ) {
 	
 	if (cfg.st != ST_NONE) {
 		
-		auto oshi = std::make_shared<hic::OscarSearchHtmIndex>(cmp, ohi);
+		auto oshi = std::make_shared<hic::OscarSearchSgIndex>(cmp, ohi);
 		
 		oshi->idxFactory().setType(sserialize::ItemIndex::T_RLE_DE);
 		oshi->idxFactory().setDeduplication(true);
@@ -144,7 +144,7 @@ int main(int argc, char const * argv[] ) {
 				oshi->create(cfg.searchCreationThreadCount);
 				break;
 			case ST_NOOP:
-				oshi->create(cfg.searchCreationThreadCount, hic::OscarSearchHtmIndex::FT_NO_OP);
+				oshi->create(cfg.searchCreationThreadCount, hic::OscarSearchSgIndex::FT_NO_OP);
 				break;
 			case ST_SS:
 			{
