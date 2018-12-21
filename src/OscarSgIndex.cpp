@@ -140,7 +140,6 @@ void OscarSgIndex::create(uint32_t threadCount) {
 				for(const auto & x : cellItems) {
 					sserialize::ItemIndex realCellItems = state->that->m_idxStore.at( state->gh.cellItemsPtr(x.first) );
 					sserialize::ItemIndex myCellItems(std::vector<uint32_t>(x.second.begin(), x.second.end()));
-					sserialize::breakHereIf(myCellItems != realCellItems);
 					SSERIALIZE_EXPENSIVE_ASSERT(myCellItems == realCellItems);
 				}
 			}
@@ -220,7 +219,7 @@ void OscarSgIndex::stats() {
 			trixelItemCount[x.first] += y.second.size();
 		}
 		trixelCellCount[x.first] += x.second.size();
-		trixelAreas.push_back( (12700/2)*(12700/2) * sg().area(x.first));
+		trixelAreas.push_back( sg().area(x.first));
 	}
 	
 	auto tic_range = trixelItemCount | boost::adaptors::map_values;

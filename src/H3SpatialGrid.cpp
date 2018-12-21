@@ -58,7 +58,7 @@ H3SpatialGrid::tree(CellIterator begin, CellIterator end) const {
 }
 
 
-uint64_t
+double
 H3SpatialGrid::area(PixelId pixel) const {
 	return h3_hexAreaKm2(level(pixel));
 }

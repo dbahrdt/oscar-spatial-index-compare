@@ -28,7 +28,7 @@ public:
 	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const = 0;
 public:
 	///in square kilometers
-	virtual uint64_t area(PixelId pixel) const = 0;
+	virtual double area(PixelId pixel) const = 0;
 	virtual sserialize::spatial::GeoRect bbox(PixelId pixel) const = 0;
 protected:
 	SpatialGrid() {}

@@ -61,10 +61,9 @@ HtmSpatialGrid::tree(CellIterator begin, CellIterator end) const {
 	return std::unique_ptr<HtmSpatialGrid::TreeNode>();
 }
 
-
-uint64_t
+double
 HtmSpatialGrid::area(PixelId pixel) const {
-	return HtmPixelization::triangle(pixel).getBoundingCircle().getArea();
+	return (12700/2)*(12700/2) * HtmPixelization::triangle(pixel).getBoundingCircle().getArea();
 }
 
 

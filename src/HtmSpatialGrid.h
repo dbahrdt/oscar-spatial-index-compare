@@ -21,7 +21,7 @@ public:
 	virtual Size childrenCount(PixelId pixelId) const override;
 	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const override;
 public:
-	virtual uint64_t area(PixelId pixel) const override;
+	virtual double area(PixelId pixel) const override;
 	virtual sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
 protected:
 	HtmSpatialGrid(uint32_t levels);
