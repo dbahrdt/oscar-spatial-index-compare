@@ -29,15 +29,23 @@ struct WorkDataSingleValue: public WorkData {
 };
 
 
+struct WorkDataBenchmark: public WorkData {
+	WorkDataBenchmark(std::string const & queryFileName, std::string const & rawStatsPrefix) :
+	queryFileName(queryFileName),
+	rawStatsPrefix(rawStatsPrefix)
+	{}
+	virtual ~WorkDataBenchmark() {}
+	std::string queryFileName;
+	std::string rawStatsPrefix;
+};
 
 using WorkDataString = WorkDataSingleValue<std::string>;
-using WorkDataQueryFile = WorkDataSingleValue<std::string>;
 using WorkDataU32 = WorkDataSingleValue<uint32_t>;
 
 struct WorkItem {
     enum Type {
         WI_QUERY_STRING,
-		WI_QUERY_FILE,
+		WI_BENCHMARK,
 		WI_NUM_THREADS,
         WI_HTM_QUERY,
         WI_OSCAR_QUERY,
@@ -114,16 +122,24 @@ struct Stats {
 	}
 };
 
-void doQueryFileCompletions(Completers & completers, std::string const & qfn) {
+void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
+	std::string header = "Query id; cqr time [us];flaten time[us];cell count; item count";
+	
 	std::vector<std::string> queries;
-	readCompletionStringsFromFile(qfn, std::back_inserter(queries));
+	readCompletionStringsFromFile(cfg.queryFileName, std::back_inserter(queries));
+	
+	auto sg_rsf = std::ofstream(cfg.rawStatsPrefix + "." + completers.sgcmp->index().sg().name() + ".raw.stats");
+	auto o_rsf = std::ofstream(cfg.rawStatsPrefix + ".oscar.raw.stats");
+	
+	sg_rsf << header << std::endl;
+	o_rsf << header << std::endl;
 	
 	Stats sg_stats, o_stats;
 	sg_stats.reserve(queries.size());
 	o_stats.reserve(queries.size());
 	
 	sserialize::ProgressInfo pinfo;
-	pinfo.begin(queries.size(), "Computing queries");
+	pinfo.begin(queries.size(), "Computing sg queries");
 	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
 		
 		auto start = std::chrono::high_resolution_clock::now();
@@ -138,9 +154,15 @@ void doQueryFileCompletions(Completers & completers, std::string const & qfn) {
 		sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
 		sg_stats.itemCount.emplace_back(sg_items.size());
 		
-		start = std::chrono::high_resolution_clock::now();
+		SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+	}
+	pinfo.end();
+	
+	pinfo.begin(queries.size(), "Computing oscar queries");
+	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+		auto start = std::chrono::high_resolution_clock::now();
 		auto o_cqr = completers.cmp->cqrComplete(queries[i]);
-		stop = std::chrono::high_resolution_clock::now();
+		auto stop = std::chrono::high_resolution_clock::now();
 		o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		
 		start = std::chrono::high_resolution_clock::now();
@@ -150,10 +172,27 @@ void doQueryFileCompletions(Completers & completers, std::string const & qfn) {
 		o_stats.cellCount.emplace_back(o_cqr.cellCount());
 		o_stats.itemCount.emplace_back(o_items.size());
 		
-		SSERIALIZE_EXPENSIVE_ASSERT(sg_items == o_items);
 	}
 	pinfo.end();
 	std::cout << sg_stats.cqr.back();
+	
+	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+		sg_rsf << i << ';'
+				<< sg_stats.cqr[i] << ';'
+				<< sg_stats.flaten[i] << ';'
+				<< sg_stats.cellCount[i] << ';'
+				<< sg_stats.itemCount[i] << '\n';
+		o_rsf << i << ';'
+				<< o_stats.cqr[i] << ';'
+				<< o_stats.flaten[i] << ';'
+				<< o_stats.cellCount[i] << ';'
+				<< o_stats.itemCount[i] << '\n';
+	}
+	sg_rsf << std::flush;
+	o_rsf << std::flush;
+	sg_rsf.close();
+	o_rsf.close();
+	
 	
 	using namespace sserialize::statistics;
 	std::cout << "SpatialIndex::cqr:" << std::endl;
@@ -172,7 +211,7 @@ void doQueryFileCompletions(Completers & completers, std::string const & qfn) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> " << std::endl;
 }
 
 int main(int argc, char const * argv[]) {
@@ -213,6 +252,16 @@ int main(int argc, char const * argv[]) {
 		}
 		else if (token == "--preload") {
             state.queue.emplace_back(WorkItem::WI_PRELOAD, std::nullptr_t());
+		}
+		else if (token == "--benchmark" && i+2 < argc) {
+			state.queue.emplace_back(
+				WorkItem::WI_BENCHMARK,
+				new WorkDataBenchmark(
+					std::string(argv[i+1]),
+					std::string(argv[i+2])
+				)
+			);
+			i += 2;
 		}
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
@@ -277,8 +326,8 @@ int main(int argc, char const * argv[]) {
 				std::cout << oqs << std::endl;
 			}
 				break;
-			case WorkItem::WI_QUERY_FILE:
-				doQueryFileCompletions(completers, wi.data->as<WorkDataQueryFile>()->value);
+			case WorkItem::WI_BENCHMARK:
+				benchmark(completers, *(wi.data->as<WorkDataBenchmark>()));
 				break;
 			case WorkItem::WI_PRELOAD:
 			{
