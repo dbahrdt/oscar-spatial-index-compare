@@ -13,6 +13,11 @@ HtmSpatialGrid::make(uint32_t levels) {
 	return sserialize::RCPtrWrapper<HtmSpatialGrid>(new HtmSpatialGrid(levels));
 }
 
+std::string
+HtmSpatialGrid::name() const {
+	return "htm-index";
+}
+
 HtmSpatialGrid::Level
 HtmSpatialGrid::maxLevel() const {
 	return m_hps.size()-1;

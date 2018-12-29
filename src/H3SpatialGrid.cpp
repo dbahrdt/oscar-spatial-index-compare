@@ -11,6 +11,11 @@ H3SpatialGrid::make(uint32_t defLevel) {
 	return sserialize::RCPtrWrapper<H3SpatialGrid>(new H3SpatialGrid(defLevel));
 }
 
+std::string
+H3SpatialGrid::name() const {
+	return "h3-index";
+}
+
 H3SpatialGrid::Level
 H3SpatialGrid::maxLevel() const {
 	return m_defaultLevel;

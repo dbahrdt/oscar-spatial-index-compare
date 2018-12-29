@@ -11,6 +11,7 @@ public:
 public:
 	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t levels);
 public:
+	virtual std::string name() const override;
 	virtual Level maxLevel() const override;
 	virtual Level defaultLevel() const override;
 	virtual Level level(PixelId pixelId) const override;

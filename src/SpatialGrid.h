@@ -16,6 +16,7 @@ public:
 	};
 	using CellIterator = sserialize::AbstractArrayIterator<PixelId>;
 public:
+	virtual std::string name() const = 0;
 	virtual Level maxLevel() const = 0;
 	virtual Level defaultLevel() const = 0;
 	virtual Level level(PixelId pixelId) const = 0;
