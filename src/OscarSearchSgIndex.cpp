@@ -3,6 +3,8 @@
 #include <sserialize/Static/Map.h>
 #include <sserialize/mt/ThreadPool.h>
 
+#include "static-htm-index.h"
+
 namespace hic {
 
 //BEGIN OscarSearchSgIndex
@@ -408,7 +410,16 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	dest.putUint8(ctc.getSupportedQuerries());
 	
 	//HtmInfo
-	dest.putUint8(1); //version
+	dest.putUint8(2); //version
+	if (m_ohi->sg().name() == "htm-index") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_HTM);
+	}
+	else if (m_ohi->sg().name() == "h3-index") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
+	}
+	else {
+		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
+	}
 	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{
@@ -488,7 +499,16 @@ OscarSearchSgIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	dest.putUint8(ctc.getSupportedQuerries());
 	
 	//HtmInfo
-	dest.putUint8(1); //version
+	dest.putUint8(2); //version
+	if (m_ohi->sg().name() == "htm-index") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_HTM);
+	}
+	else if (m_ohi->sg().name() == "h3-index") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
+	}
+	else {
+		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
+	}
 	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{

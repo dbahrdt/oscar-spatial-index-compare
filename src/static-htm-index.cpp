@@ -1,5 +1,6 @@
 #include "static-htm-index.h"
 #include <sserialize/strings/unicode_case_functions.h>
+#include <sserialize/Static/Version.h>
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
@@ -36,7 +37,7 @@ MetaData::offset(DataMembers member) const {
 
 
 Data::Data(const sserialize::UByteArrayAdapter & d) :
-m_type(decltype(m_type)(d.getUint8(1))),
+m_type(decltype(m_type)(sserialize::Static::ensureVersion(d, MetaData::version, d.getUint8(0)).getUint8(1))),
 m_levels(d.getUint8(2)),
 m_trixelId2HtmIndexId(d+3),
 m_htmIndexId2TrixelId(d+(3+m_trixelId2HtmIndexId.getSizeInBytes())),
@@ -81,12 +82,11 @@ SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
 }
 
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
-m_sq(d.at(1)),
+m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
 m_sgInfo( d+2 ),
 m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+sgInfo().getSizeInBytes()))) ),
 m_idxStore(idxStore)
 {
-	SSERIALIZE_VERSION_MISSMATCH_CHECK(MetaData::version, d.at(0), "hic::Static::OscarSearchSgIndex");
 	switch(sgInfo().type()) {
 		case SpatialGridInfo::MetaData::SG_HTM:
 			m_sg = hic::HtmSpatialGrid::make(sgInfo().levels());
