@@ -278,7 +278,7 @@ int main(int argc, char const * argv[]) {
         completers.cmp->energize();
     }
     catch (std::exception const & e) {
-        std::cerr << "Error occured: " << e.what() << std::endl;
+        std::cerr << "Error occured while loading oscar files: " << e.what() << std::endl;
 		help();
 		return -1;
     }
@@ -286,7 +286,7 @@ int main(int argc, char const * argv[]) {
 		completers.sgcmp->energize(cfg.htmFiles);
 	}
     catch (std::exception const & e) {
-        std::cerr << "Error occured: " << e.what() << std::endl;
+        std::cerr << "Error occured while loading spatial grid files: " << e.what() << std::endl;
 		help();
 		return -1;
     }
