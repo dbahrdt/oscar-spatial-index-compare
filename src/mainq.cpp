@@ -47,8 +47,10 @@ struct WorkItem {
         WI_QUERY_STRING,
 		WI_BENCHMARK,
 		WI_NUM_THREADS,
-        WI_HTM_QUERY,
-        WI_OSCAR_QUERY,
+        WI_SG_CQR,
+        WI_SG_TCQR,
+        WI_OSCAR_CQR,
+        WI_OSCAR_TCQR,
         WI_PRELOAD
     };
 
@@ -143,7 +145,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
 		
 		auto start = std::chrono::high_resolution_clock::now();
-		auto sg_cqr = completers.sgcmp->complete(queries[i]);
+		auto sg_cqr = completers.sgcmp->complete(queries[i], false);
 		auto stop = std::chrono::high_resolution_clock::now();
 		sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		
@@ -239,10 +241,16 @@ int main(int argc, char const * argv[]) {
 			++i;
 		}
         else if (token == "-hq") {
-            state.queue.emplace_back(WorkItem::WI_HTM_QUERY, std::nullptr_t());
+            state.queue.emplace_back(WorkItem::WI_SG_CQR, std::nullptr_t());
+        }
+        else if (token == "-thq") {
+            state.queue.emplace_back(WorkItem::WI_SG_TCQR, std::nullptr_t());
         }
         else if (token == "-oq") {
-            state.queue.emplace_back(WorkItem::WI_OSCAR_QUERY, std::nullptr_t());
+            state.queue.emplace_back(WorkItem::WI_OSCAR_CQR, std::nullptr_t());
+        }
+        else if (token == "-toq") {
+            state.queue.emplace_back(WorkItem::WI_OSCAR_TCQR, std::nullptr_t());
         }
 		else if (token == "--tempdir" && i+1 < argc) {
 			token = std::string(argv[i+1]);
@@ -302,10 +310,11 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_NUM_THREADS:
 				state.numThreads = wi.data->as<WorkDataU32>()->value;
 				break;
-			case WorkItem::WI_HTM_QUERY:
+			case WorkItem::WI_SG_CQR:
+			case WorkItem::WI_SG_TCQR:
 			{
 				hqs.cqrTime.begin();
-				hqs.cqr = completers.sgcmp->complete(state.str);
+				hqs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR);
 				hqs.cqrTime.end();
 				hqs.flatenTime.begin();
 				hqs.items = hqs.cqr.flaten(state.numThreads);
@@ -314,10 +323,11 @@ int main(int argc, char const * argv[]) {
 				std::cout << hqs << std::endl;
 			}
 				break;
-			case WorkItem::WI_OSCAR_QUERY:
+			case WorkItem::WI_OSCAR_CQR:
+			case WorkItem::WI_OSCAR_TCQR:
 			{
 				oqs.cqrTime.begin();
-				oqs.cqr = completers.cmp->cqrComplete(state.str);
+				oqs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR);
 				oqs.cqrTime.end();
 				oqs.flatenTime.begin();
 				oqs.items = oqs.cqr.flaten(state.numThreads);

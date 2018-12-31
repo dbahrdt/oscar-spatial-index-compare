@@ -1,6 +1,7 @@
 #include "static-htm-index.h"
 #include <sserialize/strings/unicode_case_functions.h>
 #include <sserialize/Static/Version.h>
+#include <sserialize/spatial/TreedCQR.h>
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
@@ -179,112 +180,7 @@ SgOpTree::SgOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> con
 m_d(d)
 {}
 
-sserialize::CellQueryResult
-SgOpTree::calc() {
-    return Calc(m_d).calc(root());
-}
 
-SgOpTree::Calc::CQRType
-SgOpTree::Calc::Calc::calc(const Node * node) {
-    if (!node) {
-        return CQRType();
-    }
-	switch (node->baseType) {
-	case Node::LEAF:
-		switch (node->subType) {
-		case Node::STRING:
-		case Node::STRING_REGION:
-		case Node::STRING_ITEM:
-		{
-			if (!node->value.size()) {
-				return CQRType();
-			}
-			const std::string & str = node->value;
-			std::string qstr(str);
-			sserialize::StringCompleter::QuerryType qt = sserialize::StringCompleter::QT_NONE;
-			qt = sserialize::StringCompleter::normalize(qstr);
-			if (node->subType == Node::STRING_ITEM) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item string query");
-			}
-			else if (node->subType == Node::STRING_REGION) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region string query");
-			}
-			else {
-				return m_d->complete<CQRType>(qstr, qt);
-			}
-		}
-		case Node::REGION:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region query");
-		case Node::REGION_EXCLUSIVE_CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region exclusive cells");
-		case Node::CELL:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell");
-		case Node::CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cells");
-		case Node::RECT:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: rectangle");
-		case Node::POLYGON:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: polygon");
-		case Node::PATH:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: path");
-		case Node::POINT:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: point");
-		case Node::ITEM:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item");
-		default:
-			break;
-		};
-		break;
-	case Node::UNARY_OP:
-		switch(node->subType) {
-		case Node::FM_CONVERSION_OP:
-			return calc(node->children.at(0)).allToFull();
-		case Node::CELL_DILATION_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell dilation");
-		case Node::REGION_DILATION_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region dilation");
-		case Node::COMPASS_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: compass");
-		case Node::IN_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: in query");
-		case Node::NEAR_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: near query");
-		case Node::RELEVANT_ELEMENT_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: relevant item query");
-		case Node::QUERY_EXCLUSIVE_CELLS:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: query exclusive cells");
-		default:
-			break;
-		};
-		break;
-	case Node::BINARY_OP:
-		switch(node->subType) {
-		case Node::SET_OP:
-			switch (node->value.at(0)) {
-			case '+':
-				return calc(node->children.front()) + calc(node->children.back());
-			case '/':
-			case ' ':
-				return calc(node->children.front()) / calc(node->children.back());
-			case '-':
-				return calc(node->children.front()) - calc(node->children.back());
-			case '^':
-				return calc(node->children.front()) ^ calc(node->children.back());
-			default:
-				return CQRType();
-			};
-			break;
-		case Node::BETWEEN_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: between query");
-		default:
-			break;
-		};
-		break;
-	default:
-		break;
-	};
-	return CQRType();
-}
 
 //END SgOpTree
 
@@ -337,10 +233,15 @@ OscarSearchSgCompleter::energize(std::string const & files) {
 }
 
 sserialize::CellQueryResult
-OscarSearchSgCompleter::complete(std::string const & str) {
+OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr) {
 	SgOpTree opTree(m_d);
 	opTree.parse(str);
-	return opTree.calc();
+	if (treedCqr) {
+		return opTree.calc<sserialize::TreedCellQueryResult>().toCQR();
+	}
+	else {
+		return opTree.calc<sserialize::CellQueryResult>();
+	}
 }
 
 //END OscarSearchSgCompleter

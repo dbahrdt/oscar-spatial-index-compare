@@ -189,11 +189,15 @@ public:
     SgOpTree(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
     virtual ~SgOpTree() {}
 public:
-    sserialize::CellQueryResult calc();
+	template<typename TCQRType>
+    TCQRType calc() {
+		return Calc<TCQRType>(m_d).calc(root());
+	}
 private:
+	template<typename TCQRType>
     class Calc final {
     public:
-        using CQRType = sserialize::CellQueryResult;
+        using CQRType = TCQRType;
     public:
         Calc(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) : m_d(d) {}
         ~Calc() {}
@@ -214,7 +218,7 @@ public:
 public:
 	inline hic::Static::OscarSearchSgIndex const & index() const { return *m_d; }
 public:
-	sserialize::CellQueryResult complete(std::string const & str);
+	sserialize::CellQueryResult complete(std::string const & str, bool treedCqr);
 private:
 	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
@@ -224,6 +228,112 @@ private:
 //BEGIN Template function implementations
 namespace hic::Static {
 
+//BEGIN SgOpTree
+
+template<typename TCQRType>
+typename SgOpTree::Calc<TCQRType>::CQRType
+SgOpTree::Calc<TCQRType>::Calc::calc(const Node * node) {
+    if (!node) {
+        return CQRType();
+    }
+	switch (node->baseType) {
+	case Node::LEAF:
+		switch (node->subType) {
+		case Node::STRING:
+		case Node::STRING_REGION:
+		case Node::STRING_ITEM:
+		{
+			if (!node->value.size()) {
+				return CQRType();
+			}
+			const std::string & str = node->value;
+			std::string qstr(str);
+			sserialize::StringCompleter::QuerryType qt = sserialize::StringCompleter::QT_NONE;
+			qt = sserialize::StringCompleter::normalize(qstr);
+			if (node->subType == Node::STRING_ITEM) {
+				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item string query");
+			}
+			else if (node->subType == Node::STRING_REGION) {
+				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region string query");
+			}
+			else {
+				return m_d->complete<CQRType>(qstr, qt);
+			}
+		}
+		case Node::REGION:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region query");
+		case Node::REGION_EXCLUSIVE_CELLS:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region exclusive cells");
+		case Node::CELL:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell");
+		case Node::CELLS:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cells");
+		case Node::RECT:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: rectangle");
+		case Node::POLYGON:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: polygon");
+		case Node::PATH:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: path");
+		case Node::POINT:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: point");
+		case Node::ITEM:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item");
+		default:
+			break;
+		};
+		break;
+	case Node::UNARY_OP:
+		switch(node->subType) {
+		case Node::FM_CONVERSION_OP:
+			return calc(node->children.at(0)).allToFull();
+		case Node::CELL_DILATION_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell dilation");
+		case Node::REGION_DILATION_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region dilation");
+		case Node::COMPASS_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: compass");
+		case Node::IN_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: in query");
+		case Node::NEAR_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: near query");
+		case Node::RELEVANT_ELEMENT_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: relevant item query");
+		case Node::QUERY_EXCLUSIVE_CELLS:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: query exclusive cells");
+		default:
+			break;
+		};
+		break;
+	case Node::BINARY_OP:
+		switch(node->subType) {
+		case Node::SET_OP:
+			switch (node->value.at(0)) {
+			case '+':
+				return calc(node->children.front()) + calc(node->children.back());
+			case '/':
+			case ' ':
+				return calc(node->children.front()) / calc(node->children.back());
+			case '-':
+				return calc(node->children.front()) - calc(node->children.back());
+			case '^':
+				return calc(node->children.front()) ^ calc(node->children.back());
+			default:
+				return CQRType();
+			};
+			break;
+		case Node::BETWEEN_OP:
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: between query");
+		default:
+			break;
+		};
+		break;
+	default:
+		break;
+	};
+	return CQRType();
+}
+//END SgOpTree
+	
 template<typename T_CQR_TYPE>
 T_CQR_TYPE OscarSearchSgIndex::complete(const std::string& qstr, const sserialize::StringCompleter::QuerryType qt) const {
 	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
