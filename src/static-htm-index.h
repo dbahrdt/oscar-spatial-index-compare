@@ -17,7 +17,7 @@ namespace hic {
 namespace hic::Static {
 
 /**
- *  struct SpatialGridInfo: Version(1) {
+ *  struct SpatialGridInfo: Version(2) {
  *      uint<8> type;
  *      uint<8> levels;
  *      sserialize::BoundedCompactUintArray trixelId2HtmIndexId;
