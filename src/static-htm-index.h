@@ -5,6 +5,7 @@
 #include <sserialize/containers/CompactUintArray.h>
 #include <sserialize/search/StringCompleter.h>
 #include <sserialize/Static/CellTextCompleter.h>
+#include <sserialize/Static/UnicodeTrie/FlatTrie.h>
 #include <sserialize/Static/Map.h>
 #include <liboscar/AdvancedOpTree.h>
 
@@ -25,10 +26,13 @@ namespace hic::Static {
  *      sserialize::BoundedCompactUintArray trixelItemIndexIds;
  *  };
  *  
- *  struct OscarSearchSgIndex: Version(1) {
+ *  struct OscarSearchSgIndex: Version(2) {
  *      uint<8> supportedQueries;
  *      SpatialGridInfo htmInfo;
- *      sserialize::Static::FlatTrie<sserialize::Static::CellTextCompleter::Payload> trie;
+ *      sserialize::Static::FlatTrieBase trie;
+ *      sserialize::Static::Array<sserialize::Static::CellTextCompleter::Payload> mixed;
+ *      sserialize::Static::Array<sserialize::Static::CellTextCompleter::Payload> regions;
+ *      sserialize::Static::Array<sserialize::Static::CellTextCompleter::Payload> items;
  *  };
  **/
 
@@ -128,8 +132,8 @@ class OscarSearchSgIndex: public sserialize::RefCountObject {
 public:
     using Self = OscarSearchSgIndex;
     using Payload = sserialize::Static::CellTextCompleter::Payload;
-	using Trie = sserialize::UnicodeStringMap<Payload>;
-	using FlatTrieType = sserialize::Static::UnicodeTrie::UnicodeStringMapFlatTrie<Payload>;
+	using Trie = sserialize::Static::UnicodeTrie::FlatTrieBase;
+	using Payloads = sserialize::Static::Array<Payload>;
 public:
     struct MetaData {
         static constexpr uint8_t version{1};
@@ -144,19 +148,26 @@ public:
 public:
     sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
 
-    Payload::Type typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt) const;
-
 	template<typename T_CQR_TYPE>
 	T_CQR_TYPE complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
+	template<typename T_CQR_TYPE>
+	T_CQR_TYPE items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
+	template<typename T_CQR_TYPE>
+	T_CQR_TYPE regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
 public:
 	inline SpatialGridInfo const & sgInfo() const { return m_sgInfo; }
 	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
 private:
     OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
+    Payload::Type typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt, Payloads const & pd) const;
+private:
     char m_sq;
 	SpatialGridInfo m_sgInfo;
     Trie m_trie;
+	Payloads m_mixed;
+	Payloads m_regions;
+	Payloads m_items;
     sserialize::Static::ItemIndexStore m_idxStore;
 	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
     int m_flags{ sserialize::CellQueryResult::FF_CELL_GLOBAL_ITEM_IDS };
@@ -251,10 +262,10 @@ SgOpTree::Calc<TCQRType>::Calc::calc(const Node * node) {
 			sserialize::StringCompleter::QuerryType qt = sserialize::StringCompleter::QT_NONE;
 			qt = sserialize::StringCompleter::normalize(qstr);
 			if (node->subType == Node::STRING_ITEM) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: item string query");
+				return m_d->items<CQRType>(qstr, qt);
 			}
 			else if (node->subType == Node::STRING_REGION) {
-				throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region string query");
+				return m_d->regions<CQRType>(qstr, qt);
 			}
 			else {
 				return m_d->complete<CQRType>(qstr, qt);
@@ -339,7 +350,33 @@ T_CQR_TYPE OscarSearchSgIndex::complete(const std::string& qstr, const sserializ
 	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
     auto ci = CellInfo::makeRc( sserialize::RCPtrWrapper<Self>(const_cast<OscarSearchSgIndex*>(this)) );
     try {
-		Payload::Type t(typeFromCompletion(qstr, qt));
+		Payload::Type t(typeFromCompletion(qstr, qt, m_mixed));
+		return T_CQR_TYPE(idxStore().at( t.fmPtr() ), idxStore().at( t.pPtr() ), t.pItemsPtrBegin(), ci, idxStore(), flags());
+	}
+	catch (const sserialize::OutOfBoundsException & e) {
+		return T_CQR_TYPE(ci, idxStore(), flags());
+	}
+}
+
+template<typename T_CQR_TYPE>
+T_CQR_TYPE OscarSearchSgIndex::regions(const std::string& qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
+    auto ci = CellInfo::makeRc( sserialize::RCPtrWrapper<Self>(const_cast<OscarSearchSgIndex*>(this)) );
+    try {
+		Payload::Type t(typeFromCompletion(qstr, qt, m_regions));
+		return T_CQR_TYPE(idxStore().at( t.fmPtr() ), idxStore().at( t.pPtr() ), t.pItemsPtrBegin(), ci, idxStore(), flags());
+	}
+	catch (const sserialize::OutOfBoundsException & e) {
+		return T_CQR_TYPE(ci, idxStore(), flags());
+	}
+}
+
+template<typename T_CQR_TYPE>
+T_CQR_TYPE OscarSearchSgIndex::items(const std::string& qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
+    auto ci = CellInfo::makeRc( sserialize::RCPtrWrapper<Self>(const_cast<OscarSearchSgIndex*>(this)) );
+    try {
+		Payload::Type t(typeFromCompletion(qstr, qt, m_items));
 		return T_CQR_TYPE(idxStore().at( t.fmPtr() ), idxStore().at( t.pPtr() ), t.pItemsPtrBegin(), ci, idxStore(), flags());
 	}
 	catch (const sserialize::OutOfBoundsException & e) {

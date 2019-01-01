@@ -419,7 +419,7 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	auto ctc = this->ctc();
 	auto trie = this->trie();
 	//OscarSearchSgIndex
-	dest.putUint8(1); //version
+	dest.putUint8(2); //version
 	dest.putUint8(ctc.getSupportedQuerries());
 	
 	//HtmInfo
@@ -449,14 +449,12 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	
 	State state;
 	Config cfg;
-	SerializationState sstate(dest);
 	
 	state.idxStore = m_cmp->indexStore();
 	state.gh = m_cmp->store().geoHierarchy();
 	state.trie = this->trie();
 	state.strCount = state.trie.size();
 	state.that = this;
-	state.itemMatchType = IM_ITEMS | IM_REGIONS;
 	
 	for(uint32_t ptr : m_trixelItems) {
 		state.trixelItemSize.push_back(m_idxFactory.idxSize(ptr));
@@ -475,17 +473,23 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	}
 	cfg.workerCacheSize = std::size_t(threadCount)*128*1024*1024/sizeof(uint64_t);
 	
-	state.pinfo.begin(state.strCount, "OscarSearchSgIndex: processing");
-	if (threadCount == 1) {
-		SerializationFlusher(&sstate, &state, &cfg)();
-	}
-	else {
-		sserialize::ThreadPool::execute(SerializationFlusher(&sstate, &state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
-	}
-	state.pinfo.end();
-	SSERIALIZE_CHEAP_ASSERT_EQUAL(0, sstate.queuedEntries.size());
+	std::array<int, 3> itemMatcheTypes{{IM_ITEMS | IM_REGIONS, IM_REGIONS, IM_ITEMS}};
 	
-	sstate.ac.flush();
+	for(int im : itemMatcheTypes) {
+		SerializationState sstate(dest);
+		state.itemMatchType = im;
+		state.pinfo.begin(state.strCount, "OscarSearchSgIndex: processing");
+		if (threadCount == 1) {
+			SerializationFlusher(&sstate, &state, &cfg)();
+		}
+		else {
+			sserialize::ThreadPool::execute(SerializationFlusher(&sstate, &state, &cfg), threadCount, sserialize::ThreadPool::CopyTaskTag());
+		}
+		state.pinfo.end();
+		SSERIALIZE_CHEAP_ASSERT_EQUAL(0, sstate.queuedEntries.size());
+		
+		sstate.ac.flush();
+	}
 	return dest;
 }
 

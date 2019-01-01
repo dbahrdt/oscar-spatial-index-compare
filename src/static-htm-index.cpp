@@ -85,7 +85,10 @@ SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
 m_sgInfo( d+2 ),
-m_trie( Trie::PrivPtrType(new FlatTrieType(d+(2+sgInfo().getSizeInBytes()))) ),
+m_trie(d+(2+sgInfo().getSizeInBytes())),
+m_mixed(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes())),
+m_regions(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSizeInBytes())),
+m_items(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSizeInBytes()+m_regions.getSizeInBytes())),
 m_idxStore(idxStore)
 {
 	switch(sgInfo().type()) {
@@ -138,7 +141,7 @@ OscarSearchSgIndex::getSupportedQueries() const {
 }
 
 OscarSearchSgIndex::Payload::Type
-OscarSearchSgIndex::typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt) const {
+OscarSearchSgIndex::typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt, Payloads const & pd) const {
 	std::string qstr;
 	if (m_sq & sserialize::StringCompleter::SQ_CASE_INSENSITIVE) {
 		qstr = sserialize::unicode_to_lower(qs);
@@ -146,7 +149,13 @@ OscarSearchSgIndex::typeFromCompletion(const std::string& qs, const sserialize::
 	else {
 		qstr = qs;
 	}
-	Payload p( m_trie.at(qstr, (qt & sserialize::StringCompleter::QT_SUBSTRING || qt & sserialize::StringCompleter::QT_PREFIX)) );
+	auto pos = m_trie.find(qstr, (qt & sserialize::StringCompleter::QT_SUBSTRING || qt & sserialize::StringCompleter::QT_PREFIX));
+	
+	if (pos == m_trie.npos) {
+		throw sserialize::OutOfBoundsException("OscarSearchSgIndex::typeFromCompletion");
+	}
+	
+	Payload p( pd.at(pos) );
 	Payload::Type t;
 	if (p.types() & qt) {
 		t = p.type(qt);
