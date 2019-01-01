@@ -209,7 +209,7 @@ OscarSearchSgIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplete
 			realItems = state().that->ctc().complete(state().trie.strAt(strId), qt).flaten();
 		}
 		if (realItems != strItems) {
-			cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
+			auto cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
 			std::cerr << std::endl << "OscarSearchSgIndex: Items of entry " << strId << " = " << state().trie.strAt(strId) << " with qt=" << qt << " differ" << std::endl;
 			sserialize::ItemIndex tmp(std::vector<uint32_t>(strItems.begin(), strItems.end()));
 			sserialize::ItemIndex real_broken = realItems - tmp;
