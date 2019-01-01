@@ -476,6 +476,7 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	std::array<int, 3> itemMatcheTypes{{IM_ITEMS | IM_REGIONS, IM_REGIONS, IM_ITEMS}};
 	
 	for(int im : itemMatcheTypes) {
+		state.strId = 0;
 		SerializationState sstate(dest);
 		state.itemMatchType = im;
 		state.pinfo.begin(state.strCount, "OscarSearchSgIndex: processing");
