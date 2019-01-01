@@ -114,51 +114,55 @@ OscarSearchSgIndex::WorkerBase::process(uint32_t strId, sserialize::StringComple
 	}
 	sserialize::ItemIndex fmCells = state().idxStore.at( typeData.fmPtr() );
 	
-	for(auto cellId : fmCells) {
-		if (cellId >= state().that->m_ohi->cellTrixelMap().size()) {
-			std::cerr << std::endl << "Invalid cellId for string with id " << strId << " = " << state().trie.strAt(strId) << std::endl;
-		}
-		auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
-		for(HtmIndexId htmIndex : trixels) {
-			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
-			auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
-			auto const & trixelCellItems = trixelCells.at(cellId);
-			buffer.add(trixelId, trixelCellItems.begin(), trixelCellItems.end());
+	if (state().itemMatchType & IM_REGIONS) {
+		for(auto cellId : fmCells) {
+			if (cellId >= state().that->m_ohi->cellTrixelMap().size()) {
+				std::cerr << std::endl << "Invalid cellId for string with id " << strId << " = " << state().trie.strAt(strId) << std::endl;
+			}
+			auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
+			for(HtmIndexId htmIndex : trixels) {
+				TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
+				auto const & trixelCells = state().that->m_ohi->trixelData().at(htmIndex);
+				auto const & trixelCellItems = trixelCells.at(cellId);
+				buffer.add(trixelId, trixelCellItems.begin(), trixelCellItems.end());
+			}
 		}
 	}
 	
-	sserialize::ItemIndex pmCells = state().idxStore.at( typeData.pPtr() );
-	auto itemIdxIdIt = typeData.pItemsPtrBegin();
-	for(auto cellId : pmCells) {
-		uint32_t itemIdxId = *itemIdxIdIt;
-		sserialize::ItemIndex items = state().idxStore.at(itemIdxId);
-		
-		auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
-		for(HtmIndexId htmIndex : trixels) {
-			TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
-			auto const & trixelCellItems = state().that->m_ohi->trixelData().at(htmIndex).at(cellId);
-			{
-				auto fit = items.begin();
-				auto fend = items.end();
-				auto sit = trixelCellItems.begin();
-				auto send = trixelCellItems.end();
-				for(; fit!= fend && sit != send;) {
-					if (*fit < *sit) {
-						++fit;
-					}
-					else if (*sit < *fit) {
-						++sit;
-					}
-					else {
-						buffer.add(trixelId, *sit);
-						++fit;
-						++sit;
+	if (state().itemMatchType & IM_ITEMS) {
+		sserialize::ItemIndex pmCells = state().idxStore.at( typeData.pPtr() );
+		auto itemIdxIdIt = typeData.pItemsPtrBegin();
+		for(auto cellId : pmCells) {
+			uint32_t itemIdxId = *itemIdxIdIt;
+			sserialize::ItemIndex items = state().idxStore.at(itemIdxId);
+			
+			auto const & trixels = state().that->m_ohi->cellTrixelMap().at(cellId);
+			for(HtmIndexId htmIndex : trixels) {
+				TrixelId trixelId = state().that->m_trixelIdMap.trixelId(htmIndex);
+				auto const & trixelCellItems = state().that->m_ohi->trixelData().at(htmIndex).at(cellId);
+				{
+					auto fit = items.begin();
+					auto fend = items.end();
+					auto sit = trixelCellItems.begin();
+					auto send = trixelCellItems.end();
+					for(; fit!= fend && sit != send;) {
+						if (*fit < *sit) {
+							++fit;
+						}
+						else if (*sit < *fit) {
+							++sit;
+						}
+						else {
+							buffer.add(trixelId, *sit);
+							++fit;
+							++sit;
+						}
 					}
 				}
 			}
+			
+			++itemIdxIdIt;
 		}
-		
-		++itemIdxIdIt;
 	}
 	flush(strId, qt);
 }
@@ -194,8 +198,16 @@ OscarSearchSgIndex::WorkerBase::flush(uint32_t strId, sserialize::StringComplete
 	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(strId, state().trie.find(state().trie.strAt(strId), qt & (sserialize::StringCompleter::QT_PREFIX | sserialize::StringCompleter::QT_SUBSTRING)));
 	#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
 	{
-		auto cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
-		sserialize::ItemIndex realItems = cqr.flaten();
+		sserialize::ItemIndex realItems;
+		if (state().itemMatchType == IM_ITEMS) {
+			realItems = state().that->ctc().items(state().trie.strAt(strId), qt).flaten();
+		}
+		else if (state().itemMatchType == IM_REGIONS) {
+			realItems = state().that->ctc().regions(state().trie.strAt(strId), qt).flaten();
+		}
+		else {
+			realItems = state().that->ctc().complete(state().trie.strAt(strId), qt).flaten();
+		}
 		if (realItems != strItems) {
 			cqr = state().that->ctc().complete(state().trie.strAt(strId), qt);
 			std::cerr << std::endl << "OscarSearchSgIndex: Items of entry " << strId << " = " << state().trie.strAt(strId) << " with qt=" << qt << " differ" << std::endl;
@@ -358,6 +370,7 @@ void OscarSearchSgIndex::create(uint32_t threadCount, FlusherType ft) {
 	state.trie = this->trie();
 	state.strCount = state.trie.size();
 	state.that = this;
+	state.itemMatchType = IM_ITEMS | IM_REGIONS;
 	for(uint32_t ptr : m_trixelItems) {
 		state.trixelItemSize.push_back(m_idxFactory.idxSize(ptr));
 	}
@@ -443,6 +456,8 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	state.trie = this->trie();
 	state.strCount = state.trie.size();
 	state.that = this;
+	state.itemMatchType = IM_ITEMS | IM_REGIONS;
+	
 	for(uint32_t ptr : m_trixelItems) {
 		state.trixelItemSize.push_back(m_idxFactory.idxSize(ptr));
 	}

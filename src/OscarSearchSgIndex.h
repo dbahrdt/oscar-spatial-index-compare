@@ -59,10 +59,13 @@ public:
 	TrieType trie() const;
 	CellTextCompleter ctc() const;
 private:
+	enum ItemMatchType {IM_NONE=0x0, IM_ITEMS=0x1, IM_REGIONS=0x2};
+	
 	struct State {
 		std::atomic<uint32_t> strId{0};
 		uint32_t strCount{0};
 		std::vector<sserialize::StringCompleter::QuerryType> queryTypes;
+		int itemMatchType{IM_NONE};
 
 		sserialize::Static::ItemIndexStore idxStore;
 		sserialize::Static::spatial::GeoHierarchy gh;
