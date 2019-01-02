@@ -136,7 +136,7 @@ public:
 	using Payloads = sserialize::Static::Array<Payload>;
 public:
     struct MetaData {
-        static constexpr uint8_t version{1};
+        static constexpr uint8_t version{2};
     };
 public:
     static sserialize::RCPtrWrapper<Self> make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
