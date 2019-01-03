@@ -98,6 +98,9 @@ m_idxStore(idxStore)
 		case SpatialGridInfo::MetaData::SG_H3:
 			m_sg = hic::H3SpatialGrid::make(sgInfo().levels());
 			break;
+		case SpatialGridInfo::MetaData::SG_SIMPLEGRID:
+			m_sg = hic::SimpleGridSpatialGrid::make(sgInfo().levels());
+			break;
 		default:
 			throw sserialize::TypeMissMatchException("SpatialGridType is invalid: " + std::to_string(sgInfo().type()));
 			break;

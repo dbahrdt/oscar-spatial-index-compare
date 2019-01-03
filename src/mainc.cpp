@@ -2,11 +2,13 @@
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
+#include "SimpleGridSpatialGrid.h"
 
 
 enum IndexType {
 	IT_HTM,
-	IT_H3
+	IT_H3,
+	IT_SIMPLEGRID
 };
 
 struct Config {
@@ -24,7 +26,7 @@ struct State {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> --index-type (htm|h3) -l <levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
+	std::cerr << "prg -f <oscar files> --index-type (htm|h3|simplegrid) -l <levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -44,6 +46,9 @@ int main(int argc, char const * argv[] ) {
 			}
 			else if (token == "h3") {
 				cfg.it = IT_H3;
+			}
+			else if (token == "simplegrid") {
+				cfg.it = IT_SIMPLEGRID;
 			}
 			else {
 				std::cerr << "Invalid index type" << std::endl;
@@ -108,6 +113,9 @@ int main(int argc, char const * argv[] ) {
 			break;
 		case IT_H3:
 			sg = hic::H3SpatialGrid::make(cfg.levels);
+			break;
+		case IT_SIMPLEGRID:
+			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
 			break;
 		default:
 			std::cerr << "Invalid spatial index type" << std::endl;
