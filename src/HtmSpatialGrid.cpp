@@ -15,7 +15,7 @@ HtmSpatialGrid::make(uint32_t levels) {
 
 std::string
 HtmSpatialGrid::name() const {
-	return "htm-index";
+	return "htm";
 }
 
 HtmSpatialGrid::Level

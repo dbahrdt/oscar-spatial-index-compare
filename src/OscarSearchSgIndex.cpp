@@ -424,10 +424,10 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	
 	//HtmInfo
 	dest.putUint8(2); //version
-	if (m_ohi->sg().name() == "htm-index") {
+	if (m_ohi->sg().name() == "htm") {
 		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_HTM);
 	}
-	else if (m_ohi->sg().name() == "h3-index") {
+	else if (m_ohi->sg().name() == "h3") {
 		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
 	}
 	else {

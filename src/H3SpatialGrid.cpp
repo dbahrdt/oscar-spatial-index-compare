@@ -13,7 +13,7 @@ H3SpatialGrid::make(uint32_t defLevel) {
 
 std::string
 H3SpatialGrid::name() const {
-	return "h3-index";
+	return "h3";
 }
 
 H3SpatialGrid::Level
