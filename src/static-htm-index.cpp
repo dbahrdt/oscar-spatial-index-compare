@@ -5,6 +5,7 @@
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
+#include "SimpleGridSpatialGrid.h"
 
 namespace hic::Static {
 	
@@ -245,11 +246,11 @@ OscarSearchSgCompleter::energize(std::string const & files) {
 }
 
 sserialize::CellQueryResult
-OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr) {
+OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr, uint32_t threadCount) {
 	SgOpTree opTree(m_d);
 	opTree.parse(str);
 	if (treedCqr) {
-		return opTree.calc<sserialize::TreedCellQueryResult>().toCQR();
+		return opTree.calc<sserialize::TreedCellQueryResult>().toCQR(threadCount);
 	}
 	else {
 		return opTree.calc<sserialize::CellQueryResult>();

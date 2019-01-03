@@ -30,13 +30,17 @@ struct WorkDataSingleValue: public WorkData {
 
 
 struct WorkDataBenchmark: public WorkData {
-	WorkDataBenchmark(std::string const & queryFileName, std::string const & rawStatsPrefix) :
+	WorkDataBenchmark(std::string const & queryFileName, std::string const & rawStatsPrefix, bool treedCQR, uint32_t threadCount) :
 	queryFileName(queryFileName),
-	rawStatsPrefix(rawStatsPrefix)
+	rawStatsPrefix(rawStatsPrefix),
+	treedCQR(treedCQR),
+	threadCount(threadCount)
 	{}
 	virtual ~WorkDataBenchmark() {}
 	std::string queryFileName;
 	std::string rawStatsPrefix;
+	bool treedCQR;
+	uint32_t threadCount;
 };
 
 using WorkDataString = WorkDataSingleValue<std::string>;
@@ -47,6 +51,7 @@ struct WorkItem {
         WI_QUERY_STRING,
 		WI_BENCHMARK,
 		WI_NUM_THREADS,
+		WI_NUM_ITEMS,
         WI_SG_CQR,
         WI_SG_TCQR,
         WI_OSCAR_CQR,
@@ -63,6 +68,7 @@ struct WorkItem {
 struct State {
     std::vector<WorkItem> queue;
     std::string str;
+	int numItems{0};
 	uint32_t numThreads{1};
 };
 
@@ -145,12 +151,12 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
 		
 		auto start = std::chrono::high_resolution_clock::now();
-		auto sg_cqr = completers.sgcmp->complete(queries[i], false);
+		auto sg_cqr = completers.sgcmp->complete(queries[i], cfg.treedCQR, cfg.threadCount);
 		auto stop = std::chrono::high_resolution_clock::now();
 		sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		
 		start = std::chrono::high_resolution_clock::now();
-		auto sg_items = sg_cqr.flaten();
+		auto sg_items = sg_cqr.flaten(cfg.threadCount);
 		stop = std::chrono::high_resolution_clock::now();
 		sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
@@ -163,12 +169,12 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	pinfo.begin(queries.size(), "Computing oscar queries");
 	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
 		auto start = std::chrono::high_resolution_clock::now();
-		auto o_cqr = completers.cmp->cqrComplete(queries[i]);
+		auto o_cqr = completers.cmp->cqrComplete(queries[i], cfg.treedCQR, cfg.threadCount);
 		auto stop = std::chrono::high_resolution_clock::now();
 		o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		
 		start = std::chrono::high_resolution_clock::now();
-		auto o_items = o_cqr.flaten();
+		auto o_items = o_cqr.flaten(cfg.threadCount);
 		stop = std::chrono::high_resolution_clock::now();
 		o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 		o_stats.cellCount.emplace_back(o_cqr.cellCount());
@@ -213,7 +219,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> " << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount>" << std::endl;
 }
 
 int main(int argc, char const * argv[]) {
@@ -240,6 +246,10 @@ int main(int argc, char const * argv[]) {
 			state.queue.emplace_back(WorkItem::WI_NUM_THREADS, new WorkDataU32(std::atoi(argv[i+1])));
 			++i;
 		}
+		else if (token == "-v" && i+1 < argc) {
+			state.queue.emplace_back(WorkItem::WI_NUM_ITEMS, new WorkDataU32(std::atoi(argv[i+1])));
+			++i;
+		}
         else if (token == "-hq") {
             state.queue.emplace_back(WorkItem::WI_SG_CQR, std::nullptr_t());
         }
@@ -261,12 +271,14 @@ int main(int argc, char const * argv[]) {
 		else if (token == "--preload") {
             state.queue.emplace_back(WorkItem::WI_PRELOAD, std::nullptr_t());
 		}
-		else if (token == "--benchmark" && i+2 < argc) {
+		else if (token == "--benchmark" && i+4 < argc) {
 			state.queue.emplace_back(
 				WorkItem::WI_BENCHMARK,
 				new WorkDataBenchmark(
 					std::string(argv[i+1]),
-					std::string(argv[i+2])
+					std::string(argv[i+2]),
+					sserialize::toBool(std::string(argv[i+3])),
+					std::atoi(argv[i+4])
 				)
 			);
 			i += 2;
@@ -310,15 +322,20 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_NUM_THREADS:
 				state.numThreads = wi.data->as<WorkDataU32>()->value;
 				break;
+			case WorkItem::WI_NUM_ITEMS:
+				state.numItems = wi.data->as<WorkDataU32>()->value;
+				break;
 			case WorkItem::WI_SG_CQR:
 			case WorkItem::WI_SG_TCQR:
 			{
 				hqs.cqrTime.begin();
-				hqs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR);
+				hqs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR, state.numThreads);
 				hqs.cqrTime.end();
-				hqs.flatenTime.begin();
-				hqs.items = hqs.cqr.flaten(state.numThreads);
-				hqs.flatenTime.end();
+				if (state.numItems) {
+					hqs.flatenTime.begin();
+					hqs.items = hqs.cqr.flaten(state.numThreads);
+					hqs.flatenTime.end();
+				}
 				std::cout << "HtmIndex query: " << state.str << std::endl;
 				std::cout << hqs << std::endl;
 			}
@@ -327,11 +344,13 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_OSCAR_TCQR:
 			{
 				oqs.cqrTime.begin();
-				oqs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR);
+				oqs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR, state.numThreads);
 				oqs.cqrTime.end();
-				oqs.flatenTime.begin();
-				oqs.items = oqs.cqr.flaten(state.numThreads);
-				oqs.flatenTime.end();
+				if (state.numItems) {
+					oqs.flatenTime.begin();
+					oqs.items = oqs.cqr.flaten(state.numThreads);
+					oqs.flatenTime.end();
+				}
 				std::cout << "Oscar query: " << state.str << std::endl;
 				std::cout << oqs << std::endl;
 			}

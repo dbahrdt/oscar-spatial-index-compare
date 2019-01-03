@@ -230,7 +230,7 @@ public:
 public:
 	inline hic::Static::OscarSearchSgIndex const & index() const { return *m_d; }
 public:
-	sserialize::CellQueryResult complete(std::string const & str, bool treedCqr);
+	sserialize::CellQueryResult complete(std::string const & str, bool treedCqr, uint32_t threadCount);
 private:
 	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
