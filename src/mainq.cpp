@@ -136,8 +136,8 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	std::vector<std::string> queries;
 	readCompletionStringsFromFile(cfg.queryFileName, std::back_inserter(queries));
 	
-	auto sg_rsf = std::ofstream(cfg.rawStatsPrefix + "." + completers.sgcmp->index().sg().name() + ".raw.stats");
-	auto o_rsf = std::ofstream(cfg.rawStatsPrefix + ".oscar.raw.stats");
+	auto sg_rsf = std::ofstream(cfg.rawStatsPrefix + "." + completers.sgcmp->index().sg().name() + ".stats.raw");
+	auto o_rsf = std::ofstream(cfg.rawStatsPrefix + ".oscar.stats.raw");
 	
 	sg_rsf << header << std::endl;
 	o_rsf << header << std::endl;
