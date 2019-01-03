@@ -444,8 +444,6 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	
 	//OscarSearchSgIndex::Trie
 	dest.put(trie.data()); //FlatTrieBase
-	dest.putUint8(1); //FlatTrie Version
-	
 	
 	State state;
 	Config cfg;
