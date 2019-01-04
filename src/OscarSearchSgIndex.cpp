@@ -414,6 +414,10 @@ void OscarSearchSgIndex::create(uint32_t threadCount, FlusherType ft) {
 sserialize::UByteArrayAdapter &
 OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t threadCount) {
 	
+	if (!threadCount) {
+		threadCount = std::thread::hardware_concurrency();
+	}
+	
 	computeTrixelItems();
 	
 	auto ctc = this->ctc();
