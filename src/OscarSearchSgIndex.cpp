@@ -386,7 +386,7 @@ void OscarSearchSgIndex::create(uint32_t threadCount, FlusherType ft) {
 			}
 		}
 	}
-	cfg.workerCacheSize = 128*1024*1024/sizeof(uint64_t);
+	cfg.workerCacheSize = (std::size_t(128)*1024*1024)/sizeof(uint64_t);
 	
 	m_d.resize(state.strCount);
 	
@@ -472,7 +472,7 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 			}
 		}
 	}
-	cfg.workerCacheSize = std::size_t(threadCount)*128*1024*1024/sizeof(uint64_t);
+	cfg.workerCacheSize = (std::size_t(threadCount)*std::size_t(128)*1024*1024)/sizeof(uint64_t);
 	
 	std::array<int, 3> itemMatcheTypes{{IM_ITEMS | IM_REGIONS, IM_REGIONS, IM_ITEMS}};
 	
