@@ -281,7 +281,7 @@ int main(int argc, char const * argv[]) {
 					std::atoi(argv[i+4])
 				)
 			);
-			i += 2;
+			i += 4;
 		}
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
