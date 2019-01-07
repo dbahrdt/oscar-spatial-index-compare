@@ -17,7 +17,6 @@ public:
 	using CellTrixelMap = std::vector<std::set<TrixelId>>;
 	using TrixelData = std::unordered_map<TrixelId, TrixelCellItemMap>;
 public:
-	///This assumes that the gh ist NOT refined and NOT split!
 	OscarSgIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<interface::SpatialGrid> const & sg);
 	virtual ~OscarSgIndex();
 public:
