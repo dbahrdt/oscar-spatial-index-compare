@@ -273,7 +273,7 @@ SgOpTree::Calc<TCQRType>::Calc::calc(const Node * node) {
 			}
 		}
 		case Node::REGION:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region");
 		case Node::REGION_EXCLUSIVE_CELLS:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region exclusive cells");
 		case Node::CELL:
@@ -305,11 +305,11 @@ SgOpTree::Calc<TCQRType>::Calc::calc(const Node * node) {
 		case Node::COMPASS_OP:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: compass");
 		case Node::IN_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: in query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: in");
 		case Node::NEAR_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: near query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: near");
 		case Node::RELEVANT_ELEMENT_OP:
-			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: relevant item query");
+			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: relevant item");
 		case Node::QUERY_EXCLUSIVE_CELLS:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: query exclusive cells");
 		default:
