@@ -12,7 +12,8 @@ enum SearchType {
 
 enum IndexType {
 	IT_HTM,
-	IT_H3
+	IT_H3,
+	IT_SIMPLE_GRID
 };
 
 struct Config {
@@ -66,6 +67,9 @@ int main(int argc, char const * argv[] ) {
 			}
 			else if (token == "h3") {
 				cfg.it = IT_H3;
+			}
+			else if (token == "simplegrid") {
+				cfg.it = IT_SIMPLE_GRID;
 			}
 			else {
 				std::cerr << "Invalid index type" << std::endl;
