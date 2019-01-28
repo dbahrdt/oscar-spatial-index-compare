@@ -121,7 +121,7 @@ public:
 	int levels() const;
 	SizeType cPixelCount() const;
 public:
-	ItemIndexId itemIndexId(CPixelId rmPixelId) const;
+	ItemIndexId itemIndexId(CPixelId cPixelId) const;
 public:
 	CPixelId cPixelId(SGPixelId sgIndex) const;
 	SGPixelId sgIndex(CPixelId cPixeld) const;
