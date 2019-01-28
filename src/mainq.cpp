@@ -56,7 +56,8 @@ struct WorkItem {
         WI_SG_TCQR,
         WI_OSCAR_CQR,
         WI_OSCAR_TCQR,
-        WI_PRELOAD
+        WI_PRELOAD,
+		WI_STATS
     };
 
     WorkItem(Type t, WorkData * d) : data(d), type(t) {}
@@ -218,8 +219,24 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	StatPrinting::print(std::cout, o_stats.cellCount.begin(), o_stats.cellCount.end());
 }
 
+void printStats(Completers & completers) {
+	auto const & sgInfo = completers.sgcmp->index().sgInfo();
+	auto const & sg = completers.sgcmp->index().sg();
+	std::cout << "levels: " << sgInfo.levels() << std::endl;
+	std::cout << "cell count: " << sgInfo.cPixelCount() << std::endl;
+	sserialize::MinMax<double> area;
+	
+	for(uint32_t cellId(0), s(sgInfo.cPixelCount()); cellId < s; ++cellId) {
+		auto sgPixelId = sgInfo.sgIndex(cellId);
+		area.update( sg.area(sgPixelId) );
+	}
+	
+	std::cout << "min area: " << area.min() << std::endl;
+	std::cout << "max area: " << area.max() << std::endl;
+}
+
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount>" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount> --stats" << std::endl;
 }
 
 int main(int argc, char const * argv[]) {
@@ -282,6 +299,9 @@ int main(int argc, char const * argv[]) {
 				)
 			);
 			i += 4;
+		}
+		else if (token == "--stats") {
+			state.queue.emplace_back(WorkItem::WI_STATS, std::nullptr_t());
 		}
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
@@ -366,6 +386,11 @@ int main(int argc, char const * argv[]) {
 				}
 				htmState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.indexData.size());
 				htmState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.searchData.size());
+			}
+				break;
+			case WorkItem::WI_STATS:
+			{
+				printStats(completers);
 			}
 				break;
 			default:
