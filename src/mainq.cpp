@@ -132,6 +132,10 @@ struct Stats {
 };
 
 void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
+	std::cout << "Benchmarking\n";
+	std::cout << "threads: " << cfg.threadCount << '\n';
+	std::cout << "treedCQR: " << (cfg.treedCQR ? "yes" : "no") << std::endl;
+	
 	std::string header = "Query id; cqr time [us];flaten time[us];cell count; item count";
 	
 	std::vector<std::string> queries;
@@ -380,12 +384,14 @@ int main(int argc, char const * argv[]) {
 				break;
 			case WorkItem::WI_PRELOAD:
 			{
+				std::cout << "Preloading all data..." << std::flush;
 				for(int fc(liboscar::FC_BEGIN), fce(liboscar::FC_END); fc < fce; ++fc) {
 					auto data = completers.cmp->data(liboscar::FileConfig(fc));
 					data.advice(sserialize::UByteArrayAdapter::AT_LOAD, data.size());
 				}
 				htmState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.indexData.size());
 				htmState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.searchData.size());
+				std::cout << "done" << std::endl;
 			}
 				break;
 			case WorkItem::WI_STATS:
