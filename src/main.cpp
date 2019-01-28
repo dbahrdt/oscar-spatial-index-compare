@@ -2,6 +2,7 @@
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
+#include "SimpleGridSpatialGrid.h"
 
 enum SearchType {
 	ST_NONE,
@@ -121,6 +122,9 @@ int main(int argc, char const * argv[] ) {
 			break;
 		case IT_H3:
 			sg = hic::H3SpatialGrid::make(cfg.levels);
+			break;
+		case IT_SIMPLE_GRID:
+			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
 			break;
 		default:
 			std::cerr << "Invalid spatial index type" << std::endl;
