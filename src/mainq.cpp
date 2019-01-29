@@ -242,7 +242,7 @@ void printStats(Completers & completers) {
 	auto const & sg = completers.sgcmp->index().sg();
 	std::cout << "levels: " << sgInfo.levels() << std::endl;
 	std::cout << "cell count: " << sgInfo.cPixelCount() << std::endl;
-	sserialize::MinMax<double> area;
+	sserialize::MinMaxMean<double> area;
 	
 	for(uint32_t cellId(0), s(sgInfo.cPixelCount()); cellId < s; ++cellId) {
 		auto sgPixelId = sgInfo.sgIndex(cellId);
@@ -250,6 +250,7 @@ void printStats(Completers & completers) {
 	}
 	
 	std::cout << "min area: " << area.min() << std::endl;
+	std::cout << "mean area: " << area.mean() << std::endl;
 	std::cout << "max area: " << area.max() << std::endl;
 }
 
