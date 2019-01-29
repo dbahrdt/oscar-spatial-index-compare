@@ -132,98 +132,112 @@ struct Stats {
 };
 
 void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
+	using namespace sserialize::statistics;
+	
 	std::cout << "Benchmarking\n";
 	std::cout << "threads: " << cfg.threadCount << '\n';
 	std::cout << "treedCQR: " << (cfg.treedCQR ? "yes" : "no") << std::endl;
 	
 	std::string header = "Query id; cqr time [us];flaten time[us];cell count; item count";
 	
+	sserialize::ProgressInfo pinfo;
+	
 	std::vector<std::string> queries;
 	readCompletionStringsFromFile(cfg.queryFileName, std::back_inserter(queries));
 	
-	auto sg_rsf = std::ofstream(cfg.rawStatsPrefix + "." + completers.sgcmp->index().sg().name() + ".stats.raw");
-	auto o_rsf = std::ofstream(cfg.rawStatsPrefix + ".oscar.stats.raw");
-	
-	sg_rsf << header << std::endl;
-	o_rsf << header << std::endl;
-	
-	Stats sg_stats, o_stats;
-	sg_stats.reserve(queries.size());
-	o_stats.reserve(queries.size());
-	
-	sserialize::ProgressInfo pinfo;
-	pinfo.begin(queries.size(), "Computing sg queries");
-	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+	if (completers.sgcmp) {
+		Stats sg_stats;
+		auto sg_rsf = std::ofstream(cfg.rawStatsPrefix + "." + completers.sgcmp->index().sg().name() + ".stats.raw");
+
+		sg_rsf << header << std::endl;
+		sg_stats.reserve(queries.size());
 		
-		auto start = std::chrono::high_resolution_clock::now();
-		auto sg_cqr = completers.sgcmp->complete(queries[i], cfg.treedCQR, cfg.threadCount);
-		auto stop = std::chrono::high_resolution_clock::now();
-		sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+		pinfo.begin(queries.size(), "Computing sg queries");
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			auto start = std::chrono::high_resolution_clock::now();
+			auto sg_cqr = completers.sgcmp->complete(queries[i], cfg.treedCQR, cfg.threadCount);
+			auto stop = std::chrono::high_resolution_clock::now();
+			sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			
+			start = std::chrono::high_resolution_clock::now();
+			auto sg_items = sg_cqr.flaten(cfg.threadCount);
+			stop = std::chrono::high_resolution_clock::now();
+			sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
+			sg_stats.itemCount.emplace_back(sg_items.size());
+			
+			SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+		}
+		pinfo.end();
 		
-		start = std::chrono::high_resolution_clock::now();
-		auto sg_items = sg_cqr.flaten(cfg.threadCount);
-		stop = std::chrono::high_resolution_clock::now();
-		sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-		sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
-		sg_stats.itemCount.emplace_back(sg_items.size());
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			sg_rsf << i << ';'
+					<< sg_stats.cqr[i] << ';'
+					<< sg_stats.flaten[i] << ';'
+					<< sg_stats.cellCount[i] << ';'
+					<< sg_stats.itemCount[i] << '\n';
+		}
+		sg_rsf << std::flush;
+		sg_rsf.close();
 		
-		SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+		
+		std::cout << "SpatialIndex::cqr:" << std::endl;
+		StatPrinting::print(std::cout, sg_stats.cqr.begin(), sg_stats.cqr.end());
+		std::cout << "SpatialIndex::flaten:" << std::endl;
+		StatPrinting::print(std::cout, sg_stats.flaten.begin(), sg_stats.flaten.end());
+		std::cout << "SpatialIndex::cellCount:" << std::endl;
+		StatPrinting::print(std::cout, sg_stats.cellCount.begin(), sg_stats.cellCount.end());
+			
 	}
-	pinfo.end();
 	
-	pinfo.begin(queries.size(), "Computing oscar queries");
-	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
-		auto start = std::chrono::high_resolution_clock::now();
-		auto o_cqr = completers.cmp->cqrComplete(queries[i], cfg.treedCQR, cfg.threadCount);
-		auto stop = std::chrono::high_resolution_clock::now();
-		o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+	if (completers.cmp) {
+		Stats o_stats;
+		auto o_rsf = std::ofstream(cfg.rawStatsPrefix + ".oscar.stats.raw");
 		
-		start = std::chrono::high_resolution_clock::now();
-		auto o_items = o_cqr.flaten(cfg.threadCount);
-		stop = std::chrono::high_resolution_clock::now();
-		o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-		o_stats.cellCount.emplace_back(o_cqr.cellCount());
-		o_stats.itemCount.emplace_back(o_items.size());
-		
+		o_rsf << header << std::endl;
+		o_stats.reserve(queries.size());
+
+		pinfo.begin(queries.size(), "Computing oscar queries");
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			auto start = std::chrono::high_resolution_clock::now();
+			auto o_cqr = completers.cmp->cqrComplete(queries[i], cfg.treedCQR, cfg.threadCount);
+			auto stop = std::chrono::high_resolution_clock::now();
+			o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			
+			start = std::chrono::high_resolution_clock::now();
+			auto o_items = o_cqr.flaten(cfg.threadCount);
+			stop = std::chrono::high_resolution_clock::now();
+			o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			o_stats.cellCount.emplace_back(o_cqr.cellCount());
+			o_stats.itemCount.emplace_back(o_items.size());
+			
+		}
+		pinfo.end();
+	
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			o_rsf << i << ';'
+					<< o_stats.cqr[i] << ';'
+					<< o_stats.flaten[i] << ';'
+					<< o_stats.cellCount[i] << ';'
+					<< o_stats.itemCount[i] << '\n';
+		}
+		o_rsf << std::flush;
+		o_rsf.close();
+	
+		std::cout << "Oscar::cqr:" << std::endl;
+		StatPrinting::print(std::cout, o_stats.cqr.begin(), o_stats.cqr.end());
+		std::cout << "Oscar::flaten:" << std::endl;
+		StatPrinting::print(std::cout, o_stats.flaten.begin(), o_stats.flaten.end());
+		std::cout << "Oscar::cellCount:" << std::endl;
+		StatPrinting::print(std::cout, o_stats.cellCount.begin(), o_stats.cellCount.end());
 	}
-	pinfo.end();
-	std::cout << sg_stats.cqr.back();
-	
-	for(std::size_t i(0), s(queries.size()); i < s; ++i) {
-		sg_rsf << i << ';'
-				<< sg_stats.cqr[i] << ';'
-				<< sg_stats.flaten[i] << ';'
-				<< sg_stats.cellCount[i] << ';'
-				<< sg_stats.itemCount[i] << '\n';
-		o_rsf << i << ';'
-				<< o_stats.cqr[i] << ';'
-				<< o_stats.flaten[i] << ';'
-				<< o_stats.cellCount[i] << ';'
-				<< o_stats.itemCount[i] << '\n';
-	}
-	sg_rsf << std::flush;
-	o_rsf << std::flush;
-	sg_rsf.close();
-	o_rsf.close();
-	
-	
-	using namespace sserialize::statistics;
-	std::cout << "SpatialIndex::cqr:" << std::endl;
-	StatPrinting::print(std::cout, sg_stats.cqr.begin(), sg_stats.cqr.end());
-	std::cout << "SpatialIndex::flaten:" << std::endl;
-	StatPrinting::print(std::cout, sg_stats.flaten.begin(), sg_stats.flaten.end());
-	std::cout << "SpatialIndex::cellCount:" << std::endl;
-	StatPrinting::print(std::cout, sg_stats.cellCount.begin(), sg_stats.cellCount.end());
-	
-	std::cout << "Oscar::cqr:" << std::endl;
-	StatPrinting::print(std::cout, o_stats.cqr.begin(), o_stats.cqr.end());
-	std::cout << "Oscar::flaten:" << std::endl;
-	StatPrinting::print(std::cout, o_stats.flaten.begin(), o_stats.flaten.end());
-	std::cout << "Oscar::cellCount:" << std::endl;
-	StatPrinting::print(std::cout, o_stats.cellCount.begin(), o_stats.cellCount.end());
 }
 
 void printStats(Completers & completers) {
+	if (!completers.sgcmp) {
+		std::cerr << "printStats: No spatial grid info" << std::endl;
+		return;
+	}
 	auto const & sgInfo = completers.sgcmp->index().sgInfo();
 	auto const & sg = completers.sgcmp->index().sg();
 	std::cout << "levels: " << sgInfo.levels() << std::endl;
@@ -314,26 +328,30 @@ int main(int argc, char const * argv[]) {
         }
     }
 
-    completers.cmp = std::make_shared<liboscar::Static::OsmCompleter>();
-	completers.sgcmp = std::make_shared<hic::Static::OscarSearchSgCompleter>();
 	
-    completers.cmp->setAllFilesFromPrefix(cfg.oscarFiles);
-    try {
-        completers.cmp->energize();
-    }
-    catch (std::exception const & e) {
-        std::cerr << "Error occured while loading oscar files: " << e.what() << std::endl;
-		help();
-		return -1;
-    }
-    try {
-		completers.sgcmp->energize(cfg.htmFiles);
+	if (cfg.oscarFiles.size()) {
+		completers.cmp = std::make_shared<liboscar::Static::OsmCompleter>();
+		completers.cmp->setAllFilesFromPrefix(cfg.oscarFiles);
+		try {
+			completers.cmp->energize();
+		}
+		catch (std::exception const & e) {
+			std::cerr << "Error occured while loading oscar files: " << e.what() << std::endl;
+			help();
+			return -1;
+		}
 	}
-    catch (std::exception const & e) {
-        std::cerr << "Error occured while loading spatial grid files: " << e.what() << std::endl;
-		help();
-		return -1;
-    }
+	if (cfg.htmFiles.size()) {
+		completers.sgcmp = std::make_shared<hic::Static::OscarSearchSgCompleter>();
+		try {
+			completers.sgcmp->energize(cfg.htmFiles);
+		}
+		catch (std::exception const & e) {
+			std::cerr << "Error occured while loading spatial grid files: " << e.what() << std::endl;
+			help();
+			return -1;
+		}
+	}
 
 	QueryStats oqs, hqs;
 	for(uint32_t i(0), s(state.queue.size()); i < s; ++i) {
@@ -352,6 +370,10 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_SG_CQR:
 			case WorkItem::WI_SG_TCQR:
 			{
+				if (cfg.htmFiles.empty()) {
+					std::cerr << "No spatial grid available" << std::endl;
+					return -1;
+				}
 				hqs.cqrTime.begin();
 				hqs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR, state.numThreads);
 				hqs.cqrTime.end();
@@ -367,6 +389,10 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_OSCAR_CQR:
 			case WorkItem::WI_OSCAR_TCQR:
 			{
+				if (cfg.oscarFiles.empty()) {
+					std::cerr << "No oscar completion available" << std::endl;
+					return -1;
+				}
 				oqs.cqrTime.begin();
 				oqs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR, state.numThreads);
 				oqs.cqrTime.end();
@@ -385,12 +411,16 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_PRELOAD:
 			{
 				std::cout << "Preloading all data..." << std::flush;
-				for(int fc(liboscar::FC_BEGIN), fce(liboscar::FC_END); fc < fce; ++fc) {
-					auto data = completers.cmp->data(liboscar::FileConfig(fc));
-					data.advice(sserialize::UByteArrayAdapter::AT_LOAD, data.size());
+				if (cfg.oscarFiles.size()) {
+					for(int fc(liboscar::FC_BEGIN), fce(liboscar::FC_END); fc < fce; ++fc) {
+						auto data = completers.cmp->data(liboscar::FileConfig(fc));
+						data.advice(sserialize::UByteArrayAdapter::AT_LOAD, data.size());
+					}
 				}
-				htmState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.indexData.size());
-				htmState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.searchData.size());
+				if (cfg.htmFiles.size()) {
+					htmState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.indexData.size());
+					htmState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.searchData.size());
+				}
 				std::cout << "done" << std::endl;
 			}
 				break;
