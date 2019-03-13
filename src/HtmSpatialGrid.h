@@ -11,22 +11,25 @@ public:
 public:
 	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t levels);
 public:
-	virtual std::string name() const override;
-	virtual Level maxLevel() const override;
-	virtual Level defaultLevel() const override;
-	virtual Level level(PixelId pixelId) const override;
+	std::string name() const override;
+	Level maxLevel() const override;
+	Level defaultLevel() const override;
+	Level level(PixelId pixelId) const override;
+	bool isAncestor(PixelId ancestor, PixelId decendant) const override;
 public:
-	virtual PixelId index(double lat, double lon, Level level) const override;
-	virtual PixelId index(double lat, double lon) const override;
-	virtual PixelId index(PixelId parent, uint32_t childNumber) const override;
-	virtual Size childrenCount(PixelId pixelId) const override;
-	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const override;
+	PixelId index(double lat, double lon, Level level) const override;
+	PixelId index(double lat, double lon) const override;
+	PixelId index(PixelId parent, uint32_t childNumber) const override;
+	PixelId parent(PixelId child) const override;
 public:
-	virtual double area(PixelId pixel) const override;
-	virtual sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
+	Size childrenCount(PixelId pixelId) const override;
+	std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const override;
+public:
+	double area(PixelId pixel) const override;
+	sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
 protected:
 	HtmSpatialGrid(uint32_t levels);
-	virtual ~HtmSpatialGrid();
+	~HtmSpatialGrid() override;
 private:
 	std::vector<lsst::sphgeom::HtmPixelization> m_hps;
 };

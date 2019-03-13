@@ -7,7 +7,6 @@
 
 namespace hic {
 
-
 sserialize::RCPtrWrapper<HtmSpatialGrid>
 HtmSpatialGrid::make(uint32_t levels) {
 	return sserialize::RCPtrWrapper<HtmSpatialGrid>(new HtmSpatialGrid(levels));
@@ -34,6 +33,13 @@ HtmSpatialGrid::level(PixelId pixelId) const {
 	return lsst::sphgeom::HtmPixelization::level(pixelId);
 }
 
+bool
+HtmSpatialGrid::isAncestor(PixelId ancestor, PixelId decendant) const {
+	auto alvl = level(ancestor);
+	auto dlvl = level(decendant);
+	return (alvl < dlvl) && (decendant >> (2*(dlvl-alvl))) == ancestor;
+}
+
 HtmSpatialGrid::PixelId
 HtmSpatialGrid::index(double lat, double lon, Level level) const {
 	return m_hps.at(level).index(
@@ -54,6 +60,17 @@ HtmSpatialGrid::index(PixelId parent, uint32_t childNumber) const {
 		throw sserialize::OutOfBoundsException("HtmSpatialGrid only has 4 children");
 	}
 	return (parent << 2) | childNumber;
+}
+
+HtmSpatialGrid::PixelId
+HtmSpatialGrid::parent(PixelId child) const {
+	auto lvl = level(child);
+	if (lvl > 0) {
+		return child >> 2;
+	}
+	else {
+		throw hic::exceptions::InvalidPixelId("HtmSpatialGrid::parent with child=" + std::to_string(child));
+	}
 }
 
 HtmSpatialGrid::Size

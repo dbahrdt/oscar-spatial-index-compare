@@ -32,6 +32,19 @@ H3SpatialGrid::level(PixelId pixelId) const {
 	return h3_h3GetResolution(pixelId);
 }
 
+
+bool
+H3SpatialGrid::isAncestor(PixelId ancestor, PixelId decendant) const {
+	auto lvl = level(decendant);
+	for(;lvl > 0; --lvl) {
+		decendant = h3_h3ToParent(decendant, lvl-1);
+		if (decendant == ancestor) {
+			return true;
+		}
+	}
+	return false;
+}
+
 H3SpatialGrid::PixelId
 H3SpatialGrid::index(double lat, double lon, Level level) const {
 	GeoCoord coord;
@@ -50,6 +63,17 @@ H3SpatialGrid::index(PixelId parent, uint32_t childNumber) const {
 	std::vector<PixelId> c(childrenCount(parent));
 	h3_h3ToChildren(parent, 1, c.data());
 	return c.at(childNumber);
+}
+
+H3SpatialGrid::PixelId
+H3SpatialGrid::parent(PixelId child) const {
+	auto lvl = level(child);
+	if (lvl > 0) {
+		return h3_h3ToParent(child, lvl-1);
+	}
+	else {
+		throw hic::exceptions::InvalidPixelId("H3SpatialGrid::parent with child=" + std::to_string(child));
+	}
 }
 
 H3SpatialGrid::Size

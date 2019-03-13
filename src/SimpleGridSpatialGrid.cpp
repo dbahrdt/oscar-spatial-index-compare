@@ -32,6 +32,11 @@ SimpleGridSpatialGrid::level(PixelId pixelId) const {
 	return pixelId & LevelMask;
 }
 
+bool SimpleGridSpatialGrid::isAncestor(PixelId, PixelId) const {
+	throw sserialize::UnimplementedFunctionException("SimpleGridSpatialGrid is not hierarchical (yet)");
+	return false;
+}
+
 SimpleGridSpatialGrid::PixelId
 SimpleGridSpatialGrid::index(double lat, double lon, Level level) const {
 	return (m_grids.at(level).select(lat, lon).tile << 8) | uint8_t(level);
@@ -43,7 +48,13 @@ SimpleGridSpatialGrid::index(double lat, double lon) const {
 }
 
 SimpleGridSpatialGrid::PixelId
-SimpleGridSpatialGrid::index(PixelId parent, uint32_t childNumber) const {
+SimpleGridSpatialGrid::index(PixelId, uint32_t) const {
+	throw sserialize::UnimplementedFunctionException("SimpleGridSpatialGrid is not hierarchical (yet)");
+	return 0;
+}
+
+SimpleGridSpatialGrid::PixelId
+SimpleGridSpatialGrid::parent(PixelId) const {
 	throw sserialize::UnimplementedFunctionException("SimpleGridSpatialGrid is not hierarchical (yet)");
 	return 0;
 }
