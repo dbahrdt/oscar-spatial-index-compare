@@ -255,7 +255,7 @@ void printStats(Completers & completers) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -hq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount> --stats" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -t <number of threads> -thq -hq -toq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount> --stats" << std::endl;
 }
 
 int main(int argc, char const * argv[]) {
