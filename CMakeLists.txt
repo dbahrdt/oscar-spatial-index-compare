@@ -23,6 +23,7 @@ set(LIB_SOURCES_CPP
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
 	src/SimpleGridSpatialGrid.cpp
+	src/HCQR.cpp
 )
 
 set(LIB_SOURCES_H
@@ -33,6 +34,7 @@ set(LIB_SOURCES_H
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h
 	src/SimpleGridSpatialGrid.h
+	src/HCQR.h
 )
 
 set(SOURCES_CPP
