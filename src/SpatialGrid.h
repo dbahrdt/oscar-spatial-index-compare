@@ -14,9 +14,20 @@ public:
 }//end namespace hic::exceptions
 
 namespace hic::interface {
-	
+
 class SpatialGrid: public sserialize::RefCountObject {
 public:
+	class CompressedPixelId {
+	public:
+		CompressedPixelId(CompressedPixelId const &) = default;
+		explicit CompressedPixelId(uint32_t value) : m_v(value) {}
+		CompressedPixelId & operator=(CompressedPixelId const &) = default;
+	public:
+		uint32_t value() const;
+		void value(uint32_t v);
+	private:
+		uint32_t m_v;
+	};
 	using PixelId = uint64_t;
 	using Level = int32_t;
 	using Size = uint32_t;
