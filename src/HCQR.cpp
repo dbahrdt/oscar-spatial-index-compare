@@ -3,6 +3,27 @@
 
 namespace hic::impl {
 
+
+std::unique_ptr<HCQRSpatialGrid::TreeNode>
+HCQRSpatialGrid::TreeNode::shallowCopy() const {
+    SSERIALIZE_CHEAP_ASSERT(!isFetched());
+    return TreeNode::make_unique(pixelId(), m_f, m_itemIndexId);
+}
+
+std::unique_ptr<HCQRSpatialGrid::TreeNode>
+HCQRSpatialGrid::TreeNode::shallowCopy(uint32_t fetchedItemIndexId) const {
+    SSERIALIZE_CHEAP_ASSERT(isFetched());
+    return TreeNode::make_unique(pixelId(), m_f, fetchedItemIndexId);
+}
+
+std::unique_ptr<HCQRSpatialGrid::TreeNode>
+HCQRSpatialGrid::TreeNode::shallowCopy(Children && newChildren) const {
+    SSERIALIZE_CHEAP_ASSERT(isInternal())
+    auto result = TreeNode::make_unique(pixelId(), m_f);
+    result->children() = std::move(newChildren);
+    return result;
+}
+
 HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::depth() const {
     struct Recurser {
@@ -28,23 +49,58 @@ HCQRSpatialGrid::numberOfItems() const {
         HCQRSpatialGrid const & that;
         SizeType numberOfItems{0};
         void operator()(TreeNode const & node) {
-            if (node.fullMatch()) {
+            if (node.isInternal()) {
+                for(auto const & x : node.children()) {
+                    (*this)(*x);
+                }
+            }
+            else if (node.isFullMatch()) {
                 numberOfItems += that.m_items.idxSize( that.sgi().itemIndexId(node.pixelId()) );
             }
-            else {
-                if (node.isFetched()) {
-                    numberOfItems += that.fetchedItems().at(node.itemIndexId()).size();
-                }
-                else {
-                    numberOfItems += that.items().idxSize(node.itemIndexId());
-                }
+            else if (node.isFetched()) {
+                numberOfItems += that.fetchedItems().at(node.itemIndexId()).size();
+            }
+            else { //partial-match
+                numberOfItems += that.idxStore().idxSize(node.itemIndexId());
             }
         }
-        Recurser(HCQRSpatialGrid const &  that) : that(that) {}
+        Recurser(HCQRSpatialGrid const & that) : that(that) {}
     };
     Recurser r(*this);
     r(*m_root);
     return r.numberOfItems;
+}
+
+HCQRSpatialGrid::ItemIndex
+HCQRSpatialGrid::items() const {
+    struct Recurser {
+        HCQRSpatialGrid const & that;
+        ItemIndex operator()(std::unique_ptr<TreeNode> const & node) {
+            return (*this)(*node);
+        }
+        ItemIndex operator()(TreeNode const & node) {
+            if (node.isInternal()) {
+                std::vector<ItemIndex> tmp;
+                for(auto const & x : node.children()) {
+                    tmp.emplace_back((*this)(*x));
+                }
+                return ItemIndex::unite(tmp);
+            }
+            else if (node.isFullMatch()) {
+                return that.m_items.at( that.sgi().itemIndexId(node.pixelId()) );
+                SSERIALIZE_CHEAP_ASSERT(!node.children().size());
+            }
+            else if (node.isFetched()) {
+                return that.fetchedItems().at(node.itemIndexId());
+            }
+            else {
+                return that.idxStore().at(node.itemIndexId());
+            }
+        }
+        Recurser(HCQRSpatialGrid const & that) : that(that) {}
+    };
+    Recurser r(*this);
+    return r(*m_root);;
 }
 
 struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
@@ -53,9 +109,8 @@ struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
     std::unique_ptr<HCQRSpatialGrid::TreeNode> deepCopy(HCQRSpatialGrid const & src, HCQRSpatialGrid::TreeNode const & node) {
         std::unique_ptr<TreeNode> result;
         if (node.isFetched()) {
-            uint32_t nodeIdxId = dest.m_fetchedItems.size();
+            result = node.shallowCopy(dest.m_fetchedItems.size());
             dest.m_fetchedItems.emplace_back( src.items(node) );
-            result = TreeNode::make_unique(node.pixelId(), TreeNode::IS_FETCHED, nodeIdxId);
         }
         else {
             result = node.shallowCopy();
@@ -81,6 +136,12 @@ struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
             throw sserialize::BugException("Trying to compute common node for non-related tree nodes");
         }
     }
+
+    void sortChildren(TreeNode & node) {
+        sort(node.children().begin(), node.children().end(), [](std::unique_ptr<TreeNode> const & a, std::unique_ptr<TreeNode> const & b) {
+            return a->pixelId() < b->pixelId();
+        });
+    }
 };
 
 HCQRSpatialGrid::OperatorReturnValue
@@ -94,26 +155,24 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
         secondSg(secondSg)
         {}
         std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
-            if (firstNode.fullMatch()) {
+            if (firstNode.isFullMatch()) {
                 return deepCopy(secondSg, secondNode);
             }
-            else if (secondNode.fullMatch()) {
+            else if (secondNode.isFullMatch()) {
                 return deepCopy(firstSg, firstNode);
             }
+            else if (firstNode.isLeaf() && secondNode.isLeaf()) {
+                auto result = firstSg.items(firstNode) / secondSg.items(secondNode);
+                if (result.size()) {
+                    return std::unique_ptr<TreeNode>();
+                }
+                dest.m_fetchedItems.emplace_back(result);
+                return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+            }
             else {
-                std::unique_ptr<TreeNode> resNode;
-                sserialize::ItemIndex resNodeItems = firstSg.items(firstNode) / secondSg.items(secondNode);
-                
-                if (resNodeItems.size()) {
-                    uint32_t idxId = dest.m_fetchedItems.size();
-                    dest.m_fetchedItems[idxId] = resNodeItems; 
-                    resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, idxId);
-                }
-                else {
-                    resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode));
-                }
+                std::unique_ptr<TreeNode> resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode));
 
-                if (firstNode.children().size() && secondNode.children().size()) {
+                if (firstNode.isInternal() && secondNode.isInternal()) {
                     auto fIt = firstNode.children().begin();
                     auto fEnd = firstNode.children().end();
                     auto sIt = secondNode.children().begin();
@@ -133,7 +192,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                         }
                     }
                 }
-                else if (firstNode.children().size()) {
+                else if (firstNode.isInternal()) {
                     auto fIt = firstNode.children().begin();
                     auto fEnd = firstNode.children().end();
                     for( ;fIt != fEnd; ++fIt) {
@@ -143,7 +202,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                         }
                     }
                 }
-                else if (secondNode.children().size()) {
+                else if (secondNode.isInternal()) {
                     auto sIt = secondNode.children().begin();
                     auto sEnd = secondNode.children().end();
                     for( ;sIt != sEnd; ++sIt) {
@@ -154,7 +213,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                     }
                 }
 
-                if (resNode->isFetched() || resNode->children().size()) {
+                if (resNode->children().size()) {
                     return resNode;
                 }
                 else {
@@ -193,45 +252,49 @@ HCQRSpatialGrid::compactified(SizeType maxPMLevel) const {
         maxPMLevel(maxPMLevel)
         {}
         std::unique_ptr<TreeNode> operator()(TreeNode const & node) const {
-            if (node.children().size()) {
-                std::vector<std::unique_ptr<TreeNode>> children;
+            if (node.isInternal()) {
+                TreeNode::Children children;
                 bool hasFmChild = false;
                 bool hasPmChild = false;
                 bool childHasChildren = false;
                 for(auto const & x : node.children()) {
                     children.emplace_back((*this)(*x));
-                    hasFmChild = hasFmChild || children.back()->fullMatch();
-                    hasPmChild = hasPmChild || !children.back()->fullMatch();
+                    hasFmChild = hasFmChild || children.back()->isFullMatch();
+                    hasPmChild = hasPmChild || !children.back()->isFullMatch();
                     childHasChildren = childHasChildren || children.back()->children().size();
                 }
                 //check if we can compactify even further by merging partial-match indexes to parent nodes
                 if (!hasFmChild && !childHasChildren && that.sg().level(node.pixelId()) > maxPMLevel) {
                     sserialize::SizeType dataSize = 0;
                     std::vector<sserialize::ItemIndex> indexes;
-                    if (node.hasIndex()) {
-                        indexes.emplace_back( that.items(node) );
-                        dataSize += indexes.back().getSizeInBytes();
-                    }
                     for(auto & x : children) {
                         indexes.emplace_back( that.items(*x) );
                         dataSize += indexes.back().getSizeInBytes();
                     }
                     sserialize::ItemIndex merged = sserialize::ItemIndex::unite(indexes);
                     if (merged.getSizeInBytes() < dataSize) {
-                        uint32_t idxId = dest.m_fetchedItems.size();
+                        //we first have to get rid of those extra fetched indexes
+                        for(auto rit(children.rbegin()), rend(children.rend()); rit != rend; ++rit) {
+                            if ((*rit)->isFetched()) {
+                                SSERIALIZE_CHEAP_ASSERT((*rit)->itemIndexId() == dest.m_fetchedItems.size()-1);
+                                dest.m_fetchedItems.pop_back();
+                            }
+                        }
                         dest.m_fetchedItems.emplace_back(merged);
-                        return TreeNode::make_unique(node.pixelId(), TreeNode::IS_FETCHED, idxId);
+                        return TreeNode::make_unique(node.pixelId(), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
                     } 
                 }
                 //merging was not possible
-                if (node.isFetched() || hasPmChild || that.sg().childrenCount(node.pixelId()) != children.size()) {
-                    auto cpy = node.shallowCopy();
-                    cpy->children() = std::move(children);
-                    return cpy;
+                if (hasPmChild || that.sg().childrenCount(node.pixelId()) != children.size()) {
+                    return node.shallowCopy(std::move(children));
                 }
                 else {
                     return TreeNode::make_unique(node.pixelId(), TreeNode::IS_FULL_MATCH);
                 }
+            }
+            else if (node.isFetched()) {
+                dest.m_fetchedItems.emplace_back( that.items(node) );
+                return node.shallowCopy(dest.m_fetchedItems.size()-1);
             }
             else {
                 return node.shallowCopy();
@@ -245,10 +308,84 @@ HCQRSpatialGrid::compactified(SizeType maxPMLevel) const {
     return dest;
 }
 
+
+HCQRSpatialGrid::OperatorReturnValue
+HCQRSpatialGrid::expanded(SizeType level) const {
+    struct Recurser: HCQRSpatialGridOpHelper {
+        HCQRSpatialGrid const & that;
+        SizeType level;
+        Recurser(HCQRSpatialGrid & dest, HCQRSpatialGrid const & that, SizeType level) :
+        HCQRSpatialGridOpHelper(dest),
+        that(that),
+        level(level)
+        {}
+        std::unique_ptr<TreeNode> operator()(TreeNode const & node) {
+            return rec(node, 0);
+        }
+        std::unique_ptr<TreeNode> rec(TreeNode const & node, SizeType myLevel) {
+            if (myLevel >= level) {
+                return deepCopy(that, node);
+            }
+            if (node.isInternal()) {
+                TreeNode::Children children;
+                for(auto const & x : node.children()) {
+                    children.emplace_back( rec(*x, myLevel+1) );
+                }
+                return node.shallowCopy(std::move(children));
+            }
+            else if (node.isFullMatch()) {
+                auto result = node.shallowCopy();
+                expandFullMatchNode(*result, myLevel);
+                return result;
+            }
+            else {
+                auto result = TreeNode::make_unique(node.pixelId(), TreeNode::IS_INTERNAL);
+                expandPartialMatchNode(*result, myLevel, that.items(node));
+                return result;
+            }
+        }
+        void expandFullMatchNode(TreeNode & node, SizeType myLevel) {
+            if (myLevel >= level) {
+                return;
+            }
+            node.setFlags(TreeNode::IS_INTERNAL);
+            auto childrenCount = that.sg().childrenCount(node.pixelId());
+            for(decltype(childrenCount) i(0); i < childrenCount; ++i) {
+                node.children().emplace_back(TreeNode::make_unique(that.sg().index(node.pixelId(), i), TreeNode::IS_FULL_MATCH));
+            }
+            sortChildren(node);
+            for(auto & x : node.children()) {
+                expandFullMatchNode(*x, myLevel+1);
+            }
+        }
+        void expandPartialMatchNode(TreeNode & node, SizeType myLevel, sserialize::ItemIndex const & items) {
+            if (myLevel >= level) {
+                dest.m_fetchedItems.emplace_back(items);
+                node.setItemIndexId(dest.m_fetchedItems.size()-1);
+                node.setFlags(TreeNode::IS_FETCHED);
+                return;
+            }
+            auto childrenCount = that.sg().childrenCount(node.pixelId());
+            for(decltype(childrenCount) i(0); i < childrenCount; ++i) {
+                auto childPixelId = that.sg().index(node.pixelId(), i);
+                sserialize::ItemIndex childFmIdx = that.idxStore().at( that.sgi().itemIndexId(childPixelId) );
+                sserialize::ItemIndex childPmIdx = childFmIdx / items;
+                node.children().emplace_back(TreeNode::make_unique(childPixelId, TreeNode::IS_INTERNAL));
+                expandPartialMatchNode(*node.children().back(), myLevel+1, childPmIdx);
+            }
+        }
+    };
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    Recurser rec(*dest, *this, level);
+    dest->m_root = rec(*m_root);
+    return dest;
+}
+
 HCQRSpatialGrid::OperatorReturnValue
 HCQRSpatialGrid::allToFull() const {
-    throw sserialize::UnimplementedFunctionException("HCQRSpatialGrid::operator+");
-    return OperatorReturnValue();
+    struct Recurser: HCQRSpatialGridOpHelper {
+
+    };
 }
 
 } //end namespace hic::impl

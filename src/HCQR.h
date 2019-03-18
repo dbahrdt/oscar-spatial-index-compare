@@ -12,19 +12,24 @@ public:
     using Self = HCQR;
     using SizeType = uint32_t;
     using OperatorReturnValue = sserialize::RCPtrWrapper<Self>;
+    using ItemIndex = sserialize::ItemIndex;
 public:
     HCQR();
     virtual ~HCQR();
 public:
-    virtual SizeType depth() const;
-    virtual SizeType numberOfItems() const;
+    virtual SizeType depth() const = 0;
+    virtual SizeType numberOfItems() const = 0;
+    virtual ItemIndex items() const = 0;
 public:
     virtual OperatorReturnValue operator/(Self const & other) const = 0;
     virtual OperatorReturnValue operator+(Self const & other) const = 0;
     virtual OperatorReturnValue operator-(Self const & other) const = 0;
 public:
     ///@param maxPMLevel the highest level up to which merging of partial-match nodes should be considered
+    ///note that the level of the root-node is 0.
     virtual OperatorReturnValue compactified(SizeType maxPMLevel) const = 0;
+    ///param level up to which the tree should be expanded
+    virtual OperatorReturnValue expanded(SizeType level) const = 0;
     virtual OperatorReturnValue allToFull() const = 0;
 };
 
@@ -58,7 +63,6 @@ public:
     using PixelId = hic::interface::SpatialGridInfo::PixelId;
     using CompressedPixelId = hic::interface::SpatialGridInfo::CompressedPixelId;
     using ItemIndexId = uint32_t;
-    using ItemIndex = sserialize::ItemIndex;
     using Parent = interface::HCQR;
     using Self = HCQRSpatialGrid;
 public:
@@ -80,41 +84,52 @@ public:
 public:
     SizeType depth() const override;
     SizeType numberOfItems() const override;
+    ItemIndex items() const override;
 public:
     OperatorReturnValue operator/(Parent::Self const & other) const override;
     OperatorReturnValue operator+(Parent::Self const & other) const override;
     OperatorReturnValue operator-(Parent::Self const & other) const override;
 public:
     OperatorReturnValue compactified(SizeType maxPMLevel = 0) const override;
+    OperatorReturnValue expanded(SizeType level) const override;
     OperatorReturnValue allToFull() const override;
 private:
     /**
      * We assume the following: 
-     * Internal nodes may contain items as well
-     * BUT it shall not be necessary to include them in set operations of children
-     * EXCEPT if the node does NOT have children
+     * A Node is either an internal node and only has children OR a leaf node.
+     * A Node is either a full-match node or a partial-match node
      * 
      */
     class TreeNode {
     public:
         using Children = std::vector<std::unique_ptr<TreeNode>>;
-        enum : int {HAS_INDEX=0x1, IS_FULL_MATCH=0x2|HAS_INDEX, IS_FETCHED=0x4|HAS_INDEX } Flags;
+        enum : int {IS_INTERNAL=0x0, IS_FULL_MATCH=0x2, IS_FETCHED=0x4} Flags;
     public:
         TreeNode();
         TreeNode(TreeNode const &) = delete;
         ~TreeNode();
+        //copies flags, pixelId and itemIndexId if IS_FETCHED is false 
         std::unique_ptr<TreeNode> shallowCopy() const; 
+        //copies flags, pixelId if IS_FETCHED is true and sets the new fetchedItemIndexId 
+        std::unique_ptr<TreeNode> shallowCopy(uint32_t fetchedItemIndexId) const;
+        //copies flags, pixelId if isInternal() is true
+        std::unique_ptr<TreeNode> shallowCopy(Children && newChildren) const; 
     public:
         static std::unique_ptr<TreeNode> make_unique(PixelId pixelId, int flags = 0, uint32_t itemIndexId = 0);
     public:
         inline PixelId pixelId() const { return m_pid; }
-        inline bool fullMatch() const { return m_f & IS_FULL_MATCH; }
+        inline bool isInternal() const { return children().size(); }
+        inline bool isLeaf() const { return !children().size(); }
+        inline bool isFullMatch() const { return m_f & IS_FULL_MATCH; }
         inline bool isFetched() const { return m_f & IS_FETCHED; }
-        inline bool hasIndex() const { return m_f & HAS_INDEX; }
 
         inline uint32_t itemIndexId() const { return m_itemIndexId; }
         ///children HAVE to be sorted according to their pixelId
         inline Children const & children() const { return m_children; }
+        inline int flags() const { return m_f; }
+    public:
+        inline void setItemIndexId(uint32_t id) { m_itemIndexId = id; }
+        inline void setFlags(int f) { m_f = f; }
         inline Children & children() { return m_children; }
     private:
         PixelId m_pid;
@@ -126,7 +141,7 @@ private:
 private:
     sserialize::ItemIndex items(TreeNode const & node) const;
 private:
-    auto const & items() const { return m_items; }
+    sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
     auto const & fetchedItems() const { return m_fetchedItems; }
     auto const & sg() const { return *m_sg; }
     auto const & sgi() const { return *m_sgi; } 
@@ -179,6 +194,15 @@ HCQRSpatialGrid(idxStore, sg, sgi)
             parent->children().emplace_back( std::move(x.second) );
         }
         clevel = std::move(plevel);
+        ///children have to be sorted according to their PixelId
+        for(auto & x : clevel) {
+            using std::sort;
+            sort(x.second->children().begin(), x.second->children().end(),
+                [](std::unique_ptr<TreeNode> const & a, std::unique_ptr<TreeNode> const & b) -> bool {
+                    return a->pixelId() < b->pixelId();
+                }
+            );
+        }
     }
     m_root = std::move(clevel.begin()->second);
 }
