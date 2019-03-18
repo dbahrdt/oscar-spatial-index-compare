@@ -16,7 +16,7 @@ public:
     HCQRIndex() {}
     virtual ~HCQRIndex() {}
 public:
-    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
+    virtual sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const = 0;
 
 	virtual HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;
 	virtual HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;

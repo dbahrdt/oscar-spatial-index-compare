@@ -26,6 +26,7 @@ set(LIB_SOURCES_CPP
 	src/HCQR.cpp
 	src/HcqrOpTree.cpp
 	src/HCQRIndexFromCellIndex.cpp
+	src/HCQRIndexWithCache.cpp
 )
 
 set(LIB_SOURCES_H
@@ -39,6 +40,7 @@ set(LIB_SOURCES_H
 	src/HCQR.h
 	src/HcqrOpTree.h
 	src/HCQRIndexFromCellIndex.h
+	src/HCQRIndexWithCache.h
 )
 
 set(SOURCES_CPP

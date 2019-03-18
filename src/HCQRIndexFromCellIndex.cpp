@@ -49,4 +49,32 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
 
 }//end namespace detail::HCQRIndexFromCellIndex
 
+
+class HCQRIndexFromCellIndex: public interface::HCQRIndex {
+public:
+    using CellIndex = hic::detail::HCQRIndexFromCellIndex::interface::CellIndex;
+    using CellIndexPtr = sserialize::RCPtrWrapper<CellIndex>
+
+    using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGridPtr>;
+    using SpatialGridInfoPtr = sserialize::RCPtrWrapper<SpatialGridInfo>;
+
+    using PixelId = SpatialGrid::PixelId;
+public:
+    HCQRIndexFromCellIndex(
+        SpatialGridPtr const & sg,
+        SpatialGridInfoPtr const & sgi,
+        CellIndexPtr const & ci
+    );
+    virtual ~HCQRIndexFromCellIndex();
+public:
+    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
+	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+public:
+	SpatialGridInfo const & sgi() const override;
+	SpatialGrid const & sg() const override;
+public:
+    CellIndex const & ci() const;
+
 }//end namespace
