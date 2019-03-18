@@ -11,7 +11,7 @@ class HCQR: public sserialize::RefCountObject {
 public:
     using Self = HCQR;
     using SizeType = uint32_t;
-    using OperatorReturnValue = sserialize::RCPtrWrapper<Self>;
+    using HCQRPtr = sserialize::RCPtrWrapper<Self>;
     using ItemIndex = sserialize::ItemIndex;
 public:
     HCQR();
@@ -21,16 +21,16 @@ public:
     virtual SizeType numberOfItems() const = 0;
     virtual ItemIndex items() const = 0;
 public:
-    virtual OperatorReturnValue operator/(Self const & other) const = 0;
-    virtual OperatorReturnValue operator+(Self const & other) const = 0;
-    virtual OperatorReturnValue operator-(Self const & other) const = 0;
+    virtual HCQRPtr operator/(Self const & other) const = 0;
+    virtual HCQRPtr operator+(Self const & other) const = 0;
+    virtual HCQRPtr operator-(Self const & other) const = 0;
 public:
     ///@param maxPMLevel the highest level up to which merging of partial-match nodes should be considered
     ///note that the level of the root-node is 0.
-    virtual OperatorReturnValue compactified(SizeType maxPMLevel) const = 0;
+    virtual HCQRPtr compactified(SizeType maxPMLevel) const = 0;
     ///param level up to which the tree should be expanded
-    virtual OperatorReturnValue expanded(SizeType level) const = 0;
-    virtual OperatorReturnValue allToFull() const = 0;
+    virtual HCQRPtr expanded(SizeType level) const = 0;
+    virtual HCQRPtr allToFull() const = 0;
 };
 
 }//end namespace interface
@@ -40,17 +40,13 @@ namespace interface {
 class SpatialGridInfo: public sserialize::RefCountObject {
 public:
     using PixelId = SpatialGrid::PixelId;
-    using CompressedPixelId = hic::interface::SpatialGrid::CompressedPixelId;
-    using ItemIndexId = uint32_t;
     using SizeType = uint32_t;
     using ItemIndex = sserialize::ItemIndex;
 public:
-    SpatialGridInfo();
-    virtual ~SpatialGridInfo();
-    virtual ItemIndexId itemIndexId(PixelId pid) const = 0;
-public:
-    virtual CompressedPixelId cPixelId(PixelId pixelId) const = 0;
-    virtual PixelId pixelId(CompressedPixelId cPixelId) const = 0;
+    SpatialGridInfo() {}
+    virtual ~SpatialGridInfo() {}
+    virtual SizeType itemCount(PixelId pid) const = 0;
+    virtual ItemIndex items(PixelId pid) const = 0;
 };
 
 }//end namespace
@@ -86,13 +82,13 @@ public:
     SizeType numberOfItems() const override;
     ItemIndex items() const override;
 public:
-    OperatorReturnValue operator/(Parent::Self const & other) const override;
-    OperatorReturnValue operator+(Parent::Self const & other) const override;
-    OperatorReturnValue operator-(Parent::Self const & other) const override;
+    HCQRPtr operator/(Parent::Self const & other) const override;
+    HCQRPtr operator+(Parent::Self const & other) const override;
+    HCQRPtr operator-(Parent::Self const & other) const override;
 public:
-    OperatorReturnValue compactified(SizeType maxPMLevel = 0) const override;
-    OperatorReturnValue expanded(SizeType level) const override;
-    OperatorReturnValue allToFull() const override;
+    HCQRPtr compactified(SizeType maxPMLevel = 0) const override;
+    HCQRPtr expanded(SizeType level) const override;
+    HCQRPtr allToFull() const override;
 private:
     /**
      * We assume the following: 

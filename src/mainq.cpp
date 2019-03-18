@@ -30,16 +30,18 @@ struct WorkDataSingleValue: public WorkData {
 
 
 struct WorkDataBenchmark: public WorkData {
-	WorkDataBenchmark(std::string const & queryFileName, std::string const & rawStatsPrefix, bool treedCQR, uint32_t threadCount) :
+	WorkDataBenchmark(std::string const & queryFileName, std::string const & rawStatsPrefix, bool treedCQR, bool hcqr, uint32_t threadCount) :
 	queryFileName(queryFileName),
 	rawStatsPrefix(rawStatsPrefix),
 	treedCQR(treedCQR),
+	hcqr(hcqr),
 	threadCount(threadCount)
 	{}
 	virtual ~WorkDataBenchmark() {}
 	std::string queryFileName;
 	std::string rawStatsPrefix;
 	bool treedCQR;
+	bool hcqr;
 	uint32_t threadCount;
 };
 
@@ -54,8 +56,10 @@ struct WorkItem {
 		WI_NUM_ITEMS,
         WI_SG_CQR,
         WI_SG_TCQR,
+		WI_SG_HCQR,
         WI_OSCAR_CQR,
         WI_OSCAR_TCQR,
+		WI_OSCAR_HCQR,
         WI_PRELOAD,
 		WI_STATS
     };
@@ -255,7 +259,7 @@ void printStats(Completers & completers) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -t <number of threads> -thq -hq -toq -oq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <threadCount> --stats" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats" << std::endl;
 }
 
 int main(int argc, char const * argv[]) {
@@ -286,17 +290,23 @@ int main(int argc, char const * argv[]) {
 			state.queue.emplace_back(WorkItem::WI_NUM_ITEMS, new WorkDataU32(std::atoi(argv[i+1])));
 			++i;
 		}
-        else if (token == "-hq") {
+        else if (token == "-sq") {
             state.queue.emplace_back(WorkItem::WI_SG_CQR, std::nullptr_t());
         }
-        else if (token == "-thq") {
+        else if (token == "-tsq") {
             state.queue.emplace_back(WorkItem::WI_SG_TCQR, std::nullptr_t());
+        }
+        else if (token == "-hsq") {
+            state.queue.emplace_back(WorkItem::WI_SG_HCQR, std::nullptr_t());
         }
         else if (token == "-oq") {
             state.queue.emplace_back(WorkItem::WI_OSCAR_CQR, std::nullptr_t());
         }
         else if (token == "-toq") {
             state.queue.emplace_back(WorkItem::WI_OSCAR_TCQR, std::nullptr_t());
+        }
+        else if (token == "-hoq") {
+            state.queue.emplace_back(WorkItem::WI_OSCAR_HCQR, std::nullptr_t());
         }
 		else if (token == "--tempdir" && i+1 < argc) {
 			token = std::string(argv[i+1]);
@@ -314,10 +324,11 @@ int main(int argc, char const * argv[]) {
 					std::string(argv[i+1]),
 					std::string(argv[i+2]),
 					sserialize::toBool(std::string(argv[i+3])),
-					std::atoi(argv[i+4])
+					sserialize::toBool(std::string(argv[i+4])),
+					std::atoi(argv[i+5])
 				)
 			);
-			i += 4;
+			i += 5;
 		}
 		else if (token == "--stats") {
 			state.queue.emplace_back(WorkItem::WI_STATS, std::nullptr_t());

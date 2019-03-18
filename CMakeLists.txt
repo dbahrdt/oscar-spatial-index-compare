@@ -24,6 +24,8 @@ set(LIB_SOURCES_CPP
 	src/H3SpatialGrid.cpp
 	src/SimpleGridSpatialGrid.cpp
 	src/HCQR.cpp
+	src/HcqrOpTree.cpp
+	src/HCQRIndexFromCellIndex.cpp
 )
 
 set(LIB_SOURCES_H
@@ -35,6 +37,8 @@ set(LIB_SOURCES_H
 	src/H3SpatialGrid.h
 	src/SimpleGridSpatialGrid.h
 	src/HCQR.h
+	src/HcqrOpTree.h
+	src/HCQRIndexFromCellIndex.h
 )
 
 set(SOURCES_CPP
