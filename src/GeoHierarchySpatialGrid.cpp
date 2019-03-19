@@ -3,6 +3,38 @@
 
 namespace hic::impl {
 	
+//BEGIN GeoHierarchySpatialGrid Cost functions
+	
+double
+GeoHierarchySpatialGrid::SimpleCostFunction::operator()(
+	sserialize::Static::spatial::GeoHierarchy::Region const & /*region*/,
+	sserialize::ItemIndex const & regionCells,
+	sserialize::ItemIndex const & cellsCoveredByRegion,
+	sserialize::ItemIndex const & /*coveredCells*/,
+	sserialize::ItemIndex const & /*coverableCells*/
+) const
+{
+	return double(regionCells.size()) / cellsCoveredByRegion.size(); 
+}
+	
+GeoHierarchySpatialGrid::PenalizeDoubleCoverCostFunction::PenalizeDoubleCoverCostFunction(double penalFactor) :
+penalFactor(penalFactor)
+{}
+
+double
+GeoHierarchySpatialGrid::PenalizeDoubleCoverCostFunction::operator()(
+	sserialize::Static::spatial::GeoHierarchy::Region const & /*region*/,
+	sserialize::ItemIndex const & regionCells,
+	sserialize::ItemIndex const & cellsCoveredByRegion,
+	sserialize::ItemIndex const & /*coveredCells*/,
+	sserialize::ItemIndex const & /*coverableCells*/
+) const
+{
+	return double(regionCells.size() + penalFactor * (regionCells.size() - cellsCoveredByRegion.size()))/cellsCoveredByRegion.size();
+}
+	
+//END GeoHierarchySpatialGrid Cost functions
+	
 //BEGIN GeoHierarchySpatialGrid::TreeNode
 	
 GeoHierarchySpatialGrid::TreeNode::TreeNode(PixelId pid, SizeType parent) :
@@ -222,7 +254,7 @@ GeoHierarchySpatialGrid::make(
 						it = selectableRegions.erase(it);
 					}
 					else {
-						double c = costFn(region, regionCells, cellsCoveredByRegion);
+						double c = costFn(region, regionCells, cellsCoveredByRegion, coveredCells, coverableCells);
 						if (c < bestCost) {
 							bestCost = c;
 							bestRegion = *it;
@@ -258,6 +290,17 @@ GeoHierarchySpatialGrid::make(
 		w(i);
 	}
 	return result;
+}
+
+
+sserialize::Static::spatial::GeoHierarchy const &
+GeoHierarchySpatialGrid::gh() const {
+	return m_gh;
+}
+
+sserialize::Static::ItemIndexStore const &
+GeoHierarchySpatialGrid::idxStore() const {
+	return m_idxStore;
 }
 
 bool

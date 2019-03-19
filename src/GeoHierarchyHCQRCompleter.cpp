@@ -19,7 +19,7 @@ SpatialGridInfo::ItemIndex
 SpatialGridInfo::items(PixelId pid) const {
 	if (m_base->isRegion(pid)) {
 		if (m_base->gh().hasRegionItems()) {
-			m_base->idxStore().at( m_base->gh().regionItemsPtr( m_base->regionId(pid) ) );
+			return m_base->idxStore().at( m_base->gh().regionItemsPtr( m_base->regionId(pid) ) );
 		}
 		else {
 			sserialize::ItemIndex regionCells;
@@ -77,7 +77,8 @@ GeoHierarchyHCQRCompleter::GeoHierarchyHCQRCompleter(liboscar::Static::OsmComple
 	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
 	using MySpatialGrid = hic::impl::GeoHierarchySpatialGrid;
 
-	MySpatialGrid::PenalizeDoubleCoverCostFunction costfn(10);
+	MySpatialGrid::PenalizeDoubleCoverCostFunction baseCostfn(10);
+	MySpatialGrid::PreferLargeCostFunction<decltype(baseCostfn)> costfn(baseCostfn);
 	auto sg = MySpatialGrid::make(d.store().geoHierarchy(), d.indexStore(), costfn);
 	HCQRIndexImp::SpatialGridInfoPtr sgi( new hic::detail::GeoHierarchyHCQRCompleter::SpatialGridInfo(sg) );
 	HCQRIndexImp::CellIndexPtr ci( new hic::detail::GeoHierarchyHCQRCompleter::CellIndex(d) );

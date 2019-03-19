@@ -5,6 +5,7 @@
 #include <sserialize/stats/TimeMeasuerer.h>
 #include <sserialize/stats/statfuncs.h>
 #include "static-htm-index.h"
+#include "GeoHierarchyHCQRCompleter.h"
 
 struct Config {
     std::string oscarFiles;
@@ -87,6 +88,7 @@ struct Completers {
     std::shared_ptr<liboscar::Static::OsmCompleter> cmp;
 	std::shared_ptr<hic::Static::OscarSearchSgCompleter> sgcmp;
 	std::shared_ptr<hic::Static::HCQROscarSearchSgCompleter> hsgcmp;
+	std::shared_ptr<hic::GeoHierarchyHCQRCompleter> hocmp;
 };
 
 struct QueryStats {
@@ -369,6 +371,22 @@ int main(int argc, char const * argv[]) {
 			help();
 			return -1;
 		}
+		bool needsHCQR = false;
+		for(auto const & x : state.queue) {
+			if (x.type == WorkItem::WI_OSCAR_HCQR) {
+				needsHCQR = true;
+				break;
+			}
+		}
+		if (needsHCQR) {
+			try {
+				completers.hocmp = std::make_shared<hic::GeoHierarchyHCQRCompleter>(*completers.cmp);
+			}
+			catch (std::exception const & e) {
+				std::cerr << "Error while computing HCQR Index for OSCAR search files" << std::endl;
+				return -1;
+			}
+		}
 	}
 	if (cfg.htmFiles.size()) {
 		completers.sgcmp = std::make_shared<hic::Static::OscarSearchSgCompleter>();
@@ -380,12 +398,21 @@ int main(int argc, char const * argv[]) {
 			help();
 			return -1;
 		}
-		try {
-			completers.hsgcmp = std::make_shared<hic::Static::HCQROscarSearchSgCompleter>(completers.sgcmp->indexPtr());
+		bool needsHCQR = false;
+		for(auto const & x : state.queue) {
+			if (x.type == WorkItem::WI_SG_HCQR) {
+				needsHCQR = true;
+				break;
+			}
 		}
-		catch (std::exception const & e) {
-			std::cerr << "Failed to initialize hierachical spatial grid completer: " << e.what() << std::endl;
-			return -1;
+		if (needsHCQR) {
+			try {
+				completers.hsgcmp = std::make_shared<hic::Static::HCQROscarSearchSgCompleter>(completers.sgcmp->indexPtr());
+			}
+			catch (std::exception const & e) {
+				std::cerr << "Failed to initialize hierachical spatial grid completer: " << e.what() << std::endl;
+				return -1;
+			}
 		}
 	}
 

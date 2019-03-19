@@ -12,31 +12,63 @@ namespace hic::impl {
 class GeoHierarchySpatialGrid: public hic::interface::SpatialGrid {
 public:
 	struct CostFunction {
+		CostFunction() {}
+		CostFunction(CostFunction const &) = default;
+		virtual ~CostFunction() {}
 		virtual double operator()(
 			sserialize::Static::spatial::GeoHierarchy::Region const & region,
 			sserialize::ItemIndex const & regionCells,
-			sserialize::ItemIndex const & cellsCoveredByRegion
+			sserialize::ItemIndex const & cellsCoveredByRegion,
+			sserialize::ItemIndex const & coveredCells,
+			sserialize::ItemIndex const & coverableCells
 		) const = 0;
 	};
 	
 	///cost = regionCells.size() / cellsCoveredByRegion.size()
 	struct SimpleCostFunction: public CostFunction {
+		SimpleCostFunction(SimpleCostFunction const &) = default;
+		~SimpleCostFunction() override {}
 		double operator()(
 			sserialize::Static::spatial::GeoHierarchy::Region const & region,
 			sserialize::ItemIndex const & regionCells,
-			sserialize::ItemIndex const & cellsCoveredByRegion
+			sserialize::ItemIndex const & cellsCoveredByRegion,
+			sserialize::ItemIndex const & coveredCells,
+			sserialize::ItemIndex const & coverableCells
 		) const override;
 	};
 	
 	///cost = (regionCells.size() + penalFactor * (regionCells.size() - cellsCoveredByRegion.size()))/cellsCoveredByRegion.size()
 	struct PenalizeDoubleCoverCostFunction: public CostFunction {
 		PenalizeDoubleCoverCostFunction(double penalFactor);
+		PenalizeDoubleCoverCostFunction(PenalizeDoubleCoverCostFunction const &) = default;
+		~PenalizeDoubleCoverCostFunction() override {}
 		double operator()(
 			sserialize::Static::spatial::GeoHierarchy::Region const & region,
 			sserialize::ItemIndex const & regionCells,
-			sserialize::ItemIndex const & cellsCoveredByRegion
+			sserialize::ItemIndex const & cellsCoveredByRegion,
+			sserialize::ItemIndex const & coveredCells,
+			sserialize::ItemIndex const & coverableCells
 		) const override;
 		double penalFactor;
+	};
+	
+	/// 1/log_2(cellsCoveredByRegion.size())
+	template<typename T_BASE>
+	struct PreferLargeCostFunction: public CostFunction {
+		PreferLargeCostFunction(PreferLargeCostFunction const &) = default;
+		PreferLargeCostFunction(T_BASE const & base) : m_base(base) {}
+		~PreferLargeCostFunction() override {}
+		double operator()(
+			sserialize::Static::spatial::GeoHierarchy::Region const & region,
+			sserialize::ItemIndex const & regionCells,
+			sserialize::ItemIndex const & cellsCoveredByRegion,
+			sserialize::ItemIndex const & coveredCells,
+			sserialize::ItemIndex const & coverableCells
+		) const override {
+			double baseCost = m_base(region, regionCells, cellsCoveredByRegion, coveredCells, coverableCells);
+			return baseCost/std::log2(cellsCoveredByRegion.size()+1); //+1 makes sure that result is >= 1
+		}
+		T_BASE m_base;
 	};
 public:
 	~GeoHierarchySpatialGrid() override;
