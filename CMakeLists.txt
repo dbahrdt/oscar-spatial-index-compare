@@ -23,10 +23,10 @@ set(LIB_SOURCES_CPP
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
 	src/SimpleGridSpatialGrid.cpp
-	src/HCQR.cpp
 	src/HcqrOpTree.cpp
 	src/HCQRIndexFromCellIndex.cpp
 	src/HCQRIndexWithCache.cpp
+	src/HCQR.cpp
 )
 
 set(LIB_SOURCES_H
@@ -37,10 +37,10 @@ set(LIB_SOURCES_H
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h
 	src/SimpleGridSpatialGrid.h
-	src/HCQR.h
 	src/HcqrOpTree.h
 	src/HCQRIndexFromCellIndex.h
 	src/HCQRIndexWithCache.h
+	src/HCQR.h
 )
 
 set(SOURCES_CPP

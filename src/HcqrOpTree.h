@@ -13,7 +13,7 @@ public:
     HcqrOpTree(SearchIndex const & si);
     virtual ~HcqrOpTree();
 public:
-    HCQRPtr calc()
+    HCQRPtr calc();
 private:
     class Calc final {
     public:

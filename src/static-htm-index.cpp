@@ -125,6 +125,11 @@ HCQRCellInfo::items(PixelId pid) const {
 	}
 }
 
+HCQRCellInfo::PixelId
+HCQRCellInfo::pixelId(CompressedPixelId const & cpid) const {
+	return m_sgi->sgIndex(cpid.value());
+}
+
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
 m_sgInfo( std::make_shared<SpatialGridInfo>(d+2) ),

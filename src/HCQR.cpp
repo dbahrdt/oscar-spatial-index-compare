@@ -1,28 +1,61 @@
 #include "HCQR.h"
 #include <sserialize/utility/exceptions.h>
+#include <memory>
 
-namespace hic::impl {
+namespace hic::interface {
+	
 
+HCQR::HCQR() {}
+HCQR::~HCQR() {}
+	
+}//end namespace hic::interface
 
-std::unique_ptr<HCQRSpatialGrid::TreeNode>
-HCQRSpatialGrid::TreeNode::shallowCopy() const {
+namespace hic::impl::detail::HCQRSpatialGrid {
+
+TreeNode::TreeNode(PixelId pixelId, int flags, uint32_t itemIndexId) :
+m_pid(pixelId),
+m_f(flags),
+m_itemIndexId(itemIndexId)
+{}
+
+std::unique_ptr<TreeNode>
+TreeNode::make_unique(PixelId pixelId, int flags, uint32_t itemIndexId) {
+	return std::unique_ptr<TreeNode>( new TreeNode(pixelId, flags, itemIndexId) );
+}
+
+std::unique_ptr<TreeNode>
+TreeNode::shallowCopy() const {
     SSERIALIZE_CHEAP_ASSERT(!isFetched());
     return TreeNode::make_unique(pixelId(), m_f, m_itemIndexId);
 }
 
-std::unique_ptr<HCQRSpatialGrid::TreeNode>
-HCQRSpatialGrid::TreeNode::shallowCopy(uint32_t fetchedItemIndexId) const {
+std::unique_ptr<TreeNode>
+TreeNode::shallowCopy(uint32_t fetchedItemIndexId) const {
     SSERIALIZE_CHEAP_ASSERT(isFetched());
     return TreeNode::make_unique(pixelId(), m_f, fetchedItemIndexId);
 }
 
-std::unique_ptr<HCQRSpatialGrid::TreeNode>
-HCQRSpatialGrid::TreeNode::shallowCopy(Children && newChildren) const {
+std::unique_ptr<TreeNode>
+TreeNode::shallowCopy(Children && newChildren) const {
     SSERIALIZE_CHEAP_ASSERT(isInternal())
     auto result = TreeNode::make_unique(pixelId(), m_f);
     result->children() = std::move(newChildren);
     return result;
 }
+
+}//end namespace hic::impl::detail::HCQRSpatialGrid
+
+namespace hic::impl {
+
+HCQRSpatialGrid::HCQRSpatialGrid(
+	sserialize::Static::ItemIndexStore idxStore,
+	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
+	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
+) :
+m_items(idxStore),
+m_sg(sg),
+m_sgi(sgi)
+{}
 
 HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::depth() const {
@@ -400,6 +433,20 @@ HCQRSpatialGrid::allToFull() const {
     Recurser rec;
     dest->m_root = rec(*m_root);
     return dest;
+}
+
+sserialize::ItemIndex
+HCQRSpatialGrid::items(TreeNode const & node) const {
+	if (node.isFullMatch()) {
+		return m_sgi->items(node.pixelId());
+	}
+	else if (node.isFetched()) {
+		return m_fetchedItems.at(node.itemIndexId());
+	}
+	else {
+		return m_items.at(node.itemIndexId());
+	}
+	
 }
 
 } //end namespace hic::impl

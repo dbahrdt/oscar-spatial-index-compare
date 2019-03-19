@@ -140,6 +140,7 @@ public:
 public:
     bool hasPixel(PixelId pid) const override;
     ItemIndex items(PixelId pid) const override;
+	PixelId pixelId(CompressedPixelId const & cpid) const override;
 private:
 	sserialize::Static::ItemIndexStore m_idxStore;
 	std::shared_ptr<SpatialGridInfo> m_sgi;

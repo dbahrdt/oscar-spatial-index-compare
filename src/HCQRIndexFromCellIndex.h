@@ -3,12 +3,12 @@
 #include <sserialize/spatial/CellQueryResult.h>
 #include <sserialize/containers/LFUCache.h>
 
+#include "SpatialGrid.h"
 #include "HCQRIndex.h"
 
 
 namespace hic {
-namespace detail::HCQRIndexFromCellIndex {
-namespace interface {
+namespace detail::HCQRIndexFromCellIndex::interface {
 
 class CellIndex: public sserialize::RefCountObject {
 public:
@@ -24,7 +24,7 @@ public:
 	virtual CellQueryResult regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;
 };
 
-class CellInfo: sserialize::RefCountObject {
+class CellInfo: public sserialize::RefCountObject {
 public:
     using SpatialGrid = hic::interface::SpatialGrid;
     using PixelId = SpatialGrid::PixelId;
@@ -38,18 +38,19 @@ public:
 public:
     virtual bool hasPixel(PixelId pid) const = 0;
     virtual ItemIndex items(PixelId pid) const = 0;
+	virtual PixelId pixelId(CompressedPixelId const & cpid) const = 0;
 };
 
-}//end namespace interface
+}//end namespace detail::HCQRIndexFromCellIndex::interface
 
-namespace impl {
+namespace detail::HCQRIndexFromCellIndex::impl {
 
 class SpatialGridInfoFromCellIndex: public hic::interface::SpatialGridInfo {
 public:
     using SizeType = uint32_t;
     using ItemIndex = sserialize::ItemIndex;
 
-    using CellInfo = interface::CellInfo;
+    using CellInfo = hic::detail::HCQRIndexFromCellIndex::interface::CellInfo;
     using SpatialGrid = hic::interface::SpatialGrid;
 
     using CellInfoPtr = sserialize::RCPtrWrapper<CellInfo>;
@@ -58,17 +59,17 @@ public:
     SpatialGridInfoFromCellIndex(SpatialGridPtr const & sg, CellInfoPtr const & ci);
     SizeType itemCount(PixelId pid) const override;
     ItemIndex items(PixelId pid) const override;
+	PixelId pixelId(CompressedPixelId const & cpid) const override;
 private:
     using PixelItemsCache = sserialize::LFUCache<PixelId, sserialize::ItemIndex>;
 private:
     SpatialGridPtr m_sg;
     CellInfoPtr m_ci;
-    PixelItemsCache m_cache;
+	mutable std::mutex m_cacheLock;
+    mutable PixelItemsCache m_cache;
 };
 
-}//end namespace impl
-
-} //end namespace detail::HCQRIndexFromCellIndex
+}//end namespace detail::HCQRIndexFromCellIndex::impl
 
 class HCQRIndexFromCellIndex: public hic::interface::HCQRIndex {
 public:

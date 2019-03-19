@@ -1,6 +1,18 @@
 #include "HcqrOpTree.h"
 
 namespace hic {
+	
+	
+HcqrOpTree::HcqrOpTree(SearchIndex const & si) :
+m_d(si)
+{}
+
+HcqrOpTree::~HcqrOpTree() {}
+
+HcqrOpTree::HCQRPtr
+HcqrOpTree::calc() {
+	return Calc(m_d).calc(root());
+}
 
 HcqrOpTree::HCQRPtr
 HcqrOpTree::Calc::Calc::calc(const Node * node) {
@@ -15,7 +27,7 @@ HcqrOpTree::Calc::Calc::calc(const Node * node) {
 		case Node::STRING_ITEM:
 		{
 			if (!node->value.size()) {
-				return HCQR();
+				return HCQRPtr();
 			}
 			const std::string & str = node->value;
 			std::string qstr(str);
@@ -108,7 +120,7 @@ HcqrOpTree::Calc::Calc::calc(const Node * node) {
             case '/':
 			case ' ':
 				if (firstOperand && secondOperand) {
-                    return *firstOperand / secondOperand;
+                    return *firstOperand / *secondOperand;
                 }
                 else {
                     return HCQRPtr();

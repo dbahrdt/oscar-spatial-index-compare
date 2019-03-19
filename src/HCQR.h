@@ -4,8 +4,7 @@
 #include <sserialize/Static/ItemIndexStore.h>
 #include "SpatialGrid.h"
 
-namespace hic {
-namespace interface {
+namespace hic::interface {
 
 class HCQR: public sserialize::RefCountObject {
 public:
@@ -33,13 +32,10 @@ public:
     virtual HCQRPtr allToFull() const = 0;
 };
 
-}//end namespace interface
-
-namespace interface {
-
 class SpatialGridInfo: public sserialize::RefCountObject {
 public:
     using PixelId = SpatialGrid::PixelId;
+	using CompressedPixelId = SpatialGrid::CompressedPixelId;
     using SizeType = uint32_t;
     using ItemIndex = sserialize::ItemIndex;
 public:
@@ -47,14 +43,65 @@ public:
     virtual ~SpatialGridInfo() {}
     virtual SizeType itemCount(PixelId pid) const = 0;
     virtual ItemIndex items(PixelId pid) const = 0;
+	virtual PixelId pixelId(CompressedPixelId const & cpid) const = 0;
 };
 
-}//end namespace
+}//end namespace hic::interface
 
-namespace impl {
+namespace hic::impl {
+namespace detail::HCQRSpatialGrid {
+
+/**
+	* We assume the following: 
+	* A Node is either an internal node and only has children OR a leaf node.
+	* A Node is either a full-match node or a partial-match node
+	* 
+	*/
+class TreeNode final {
+public:
+	using Children = std::vector<std::unique_ptr<TreeNode>>;
+	using PixelId = hic::interface::SpatialGrid::PixelId;
+	enum : int {IS_INTERNAL=0x0, IS_PARTIAL_MATCH=0x1, IS_FULL_MATCH=0x2, IS_FETCHED=0x4} Flags;
+public:
+	TreeNode();
+	TreeNode(TreeNode const &) = delete;
+	~TreeNode() {}
+	//copies flags, pixelId and itemIndexId if IS_FETCHED is false 
+	std::unique_ptr<TreeNode> shallowCopy() const; 
+	//copies flags, pixelId if IS_FETCHED is true and sets the new fetchedItemIndexId 
+	std::unique_ptr<TreeNode> shallowCopy(uint32_t fetchedItemIndexId) const;
+	//copies flags, pixelId if isInternal() is true
+	std::unique_ptr<TreeNode> shallowCopy(Children && newChildren) const; 
+public:
+	static std::unique_ptr<TreeNode> make_unique(PixelId pixelId, int flags = 0, uint32_t itemIndexId = 0);
+public:
+	inline PixelId pixelId() const { return m_pid; }
+	inline bool isInternal() const { return children().size(); }
+	inline bool isLeaf() const { return !children().size(); }
+	inline bool isFullMatch() const { return m_f & IS_FULL_MATCH; }
+	inline bool isFetched() const { return m_f & IS_FETCHED; }
+
+	inline uint32_t itemIndexId() const { return m_itemIndexId; }
+	///children HAVE to be sorted according to their pixelId
+	inline Children const & children() const { return m_children; }
+	inline int flags() const { return m_f; }
+public:
+	inline void setItemIndexId(uint32_t id) { m_itemIndexId = id; }
+	inline void setFlags(int f) { m_f = f; }
+	inline Children & children() { return m_children; }
+private:
+	TreeNode(PixelId pixelId, int flags, uint32_t itemIndexId);
+private:
+	PixelId m_pid;
+	int m_f;
+	uint32_t m_itemIndexId;
+	Children m_children;
+};
+	
+} //end namespace detail::HCQRSpatialGrid
 
 ///In memory variant
-class HCQRSpatialGrid: public interface::HCQR {
+class HCQRSpatialGrid: public hic::interface::HCQR {
 public:
     using PixelId = hic::interface::SpatialGridInfo::PixelId;
     using CompressedPixelId = hic::interface::SpatialGridInfo::CompressedPixelId;
@@ -90,49 +137,7 @@ public:
     HCQRPtr expanded(SizeType level) const override;
     HCQRPtr allToFull() const override;
 private:
-    /**
-     * We assume the following: 
-     * A Node is either an internal node and only has children OR a leaf node.
-     * A Node is either a full-match node or a partial-match node
-     * 
-     */
-    class TreeNode {
-    public:
-        using Children = std::vector<std::unique_ptr<TreeNode>>;
-        enum : int {IS_INTERNAL=0x0, IS_FULL_MATCH=0x2, IS_FETCHED=0x4} Flags;
-    public:
-        TreeNode();
-        TreeNode(TreeNode const &) = delete;
-        ~TreeNode();
-        //copies flags, pixelId and itemIndexId if IS_FETCHED is false 
-        std::unique_ptr<TreeNode> shallowCopy() const; 
-        //copies flags, pixelId if IS_FETCHED is true and sets the new fetchedItemIndexId 
-        std::unique_ptr<TreeNode> shallowCopy(uint32_t fetchedItemIndexId) const;
-        //copies flags, pixelId if isInternal() is true
-        std::unique_ptr<TreeNode> shallowCopy(Children && newChildren) const; 
-    public:
-        static std::unique_ptr<TreeNode> make_unique(PixelId pixelId, int flags = 0, uint32_t itemIndexId = 0);
-    public:
-        inline PixelId pixelId() const { return m_pid; }
-        inline bool isInternal() const { return children().size(); }
-        inline bool isLeaf() const { return !children().size(); }
-        inline bool isFullMatch() const { return m_f & IS_FULL_MATCH; }
-        inline bool isFetched() const { return m_f & IS_FETCHED; }
-
-        inline uint32_t itemIndexId() const { return m_itemIndexId; }
-        ///children HAVE to be sorted according to their pixelId
-        inline Children const & children() const { return m_children; }
-        inline int flags() const { return m_f; }
-    public:
-        inline void setItemIndexId(uint32_t id) { m_itemIndexId = id; }
-        inline void setFlags(int f) { m_f = f; }
-        inline Children & children() { return m_children; }
-    private:
-        PixelId m_pid;
-        int m_f;
-        uint32_t m_itemIndexId;
-        Children m_children;
-    };
+	using TreeNode = detail::HCQRSpatialGrid::TreeNode;
     struct HCQRSpatialGridOpHelper;
 private:
     sserialize::ItemIndex items(TreeNode const & node) const;
@@ -149,9 +154,7 @@ private:
     sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> m_sgi;
 };
 
-} //end namespace impl
-
-}//end namespace hic
+} //end namespace hic::impl
 
 //Implementation of template functions
 namespace hic::impl {
@@ -173,11 +176,11 @@ HCQRSpatialGrid(idxStore, sg, sgi)
     clevel.reserve(fmCells.size()+pmCells.size());
     for(uint32_t x : fmCells) {
         PixelId pId = this->sgi().pixelId( CompressedPixelId(x) );
-        clevel[pId] = std::make_unique<TreeNode>(pId, true);
+        clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_FULL_MATCH);
     }
     for(auto it(pmCells.begin()), end(pmCells.end()); it != end; ++it, ++pmIndexIt) {
         PixelId pId = this->sgi().pixelId( CompressedPixelId(*it) );
-        clevel[pId] = std::make_unique<TreeNode>(pId, false, false,*pmIndexIt);
+        clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_PARTIAL_MATCH,*pmIndexIt);
     }
     while (clevel.size() > 1) {
         std::unordered_map<PixelId, std::unique_ptr<TreeNode>> plevel;
@@ -185,7 +188,7 @@ HCQRSpatialGrid(idxStore, sg, sgi)
             PixelId pPId = this->sg().parent( x.second->pixelId() );
             auto & parent = plevel[pPId];
             if (!parent) {
-                parent = std::make_unique<TreeNode>(pPId);
+                parent = TreeNode::make_unique(pPId);
             }
             parent->children().emplace_back( std::move(x.second) );
         }

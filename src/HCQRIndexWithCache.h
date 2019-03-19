@@ -4,8 +4,7 @@
 
 #include "HCQRIndex.h"
 
-namespace hic {
-namespace detail::HCQRIndexWithCache {
+namespace hic::detail::HCQRIndexWithCache {
 
 struct CacheKey {
     enum {ITEMS_AND_REGIONS, ITEMS, REGIONS} ItemType;
@@ -14,12 +13,32 @@ struct CacheKey {
     {}
     CacheKey(CacheKey const &) = default;
     CacheKey(CacheKey &&) = default;
+	inline bool operator==(CacheKey const & other) const {
+		return (itemType == other.itemType) && (qt == other.qt) && (qstr == other.qstr);
+	}
     uint8_t itemType;
     uint8_t qt;
     std::string qstr;
 }; 
 
-} //end namespace detail::HCQRIndexWithCache
+} //end namespace hic::detail::HCQRIndexWithCache
+
+
+namespace std {
+
+template<>
+struct hash<hic::detail::HCQRIndexWithCache::CacheKey> {
+    std::hash<std::string> hash;
+	inline std::size_t operator()(hic::detail::HCQRIndexWithCache::CacheKey const & v) const {
+		std::size_t seed = std::size_t(v.itemType) << 8 | v.qt;
+		::hash_combine(seed, v.qstr, hash);
+		return seed;
+	}
+};
+
+} //end namespace std
+
+namespace hic {
 
 class HCQRIndexWithCache: public hic::interface::HCQRIndex {
 public:
@@ -48,17 +67,3 @@ private:
 };
 
 }//end namespace hic
-
-namespace std {
-
-template<>
-struct hash<hic::detail::HCQRIndexWithCache::CacheKey> {
-    std::hash<std::string> hash;
-	inline std::size_t operator()(hic::detail::HCQRIndexWithCache::CacheKey const & v) const {
-		std::size_t seed = std::size_t(v.itemType) << 8 | v.qt;
-		::hash_combine(seed, v.qstr, hash);
-		return seed;
-	}
-};
-
-}

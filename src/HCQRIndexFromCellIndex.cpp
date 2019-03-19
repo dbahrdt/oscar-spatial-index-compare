@@ -16,9 +16,11 @@ SpatialGridInfoFromCellIndex::itemCount(PixelId pid) const {
 
 SpatialGridInfoFromCellIndex::ItemIndex
 SpatialGridInfoFromCellIndex::items(PixelId pid) const {
+	std::unique_lock<std::mutex> cacheLck(m_cacheLock);
     if (m_cache.count(pid)) {
         return m_cache.find(pid);
     }
+    cacheLck.unlock();
     struct Recurser {
         SpatialGridInfoFromCellIndex const & that;
         Recurser(SpatialGridInfoFromCellIndex const & that) : that(that) {}
@@ -30,7 +32,7 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
                 std::vector<ItemIndex> tmp;
                 auto numChildren = that.m_sg->childrenCount(pid);
                 for(decltype(numChildren) i(0); i < numChildren; ++i) {
-                    tmp.emplace_back( (*this)(that.m_sg->index(pid, i) );
+                    tmp.emplace_back( (*this)( that.m_sg->index(pid, i) ) );
                 }
                 return ItemIndex::unite(tmp);
             }
@@ -41,8 +43,15 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
     };
     Recurser rec(*this);
     ItemIndex result = rec(pid);
+	cacheLck.lock();
     m_cache.insert(pid, result);
+	cacheLck.unlock();
     return result;
+}
+
+SpatialGridInfoFromCellIndex::PixelId
+SpatialGridInfoFromCellIndex::pixelId(CompressedPixelId const & cpid) const {
+	return m_ci->pixelId(cpid);
 }
 
 }//end namespace impl

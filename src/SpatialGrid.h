@@ -23,8 +23,8 @@ public:
 		explicit CompressedPixelId(uint32_t value) : m_v(value) {}
 		CompressedPixelId & operator=(CompressedPixelId const &) = default;
 	public:
-		uint32_t value() const;
-		void value(uint32_t v);
+		inline uint32_t value() const { return m_v; }
+		inline void value(uint32_t v) { m_v = v; }
 	private:
 		uint32_t m_v;
 	};
