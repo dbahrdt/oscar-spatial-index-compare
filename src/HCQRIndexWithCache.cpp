@@ -2,14 +2,15 @@
 
 namespace hic {
 
-HCQRIndexWithCache::HCQRIndexWithCache(HCQRIndex & base) :
+HCQRIndexWithCache::HCQRIndexWithCache(HCQRIndexPtr const & base) :
 m_base(base)
 {}
 
 HCQRIndexWithCache::~HCQRIndexWithCache() {}
 
 void
-HCQRIndexWithCache::setCacheSize(uint32_t size) const {
+HCQRIndexWithCache::setCacheSize(uint32_t size) {
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     m_cache.setSize(size);
 }
 
@@ -20,6 +21,7 @@ HCQRIndexWithCache::getSupportedQueries() const {
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::ITEMS_AND_REGIONS, qt, qstr);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);
@@ -31,6 +33,7 @@ HCQRIndexWithCache::complete(const std::string & qstr, const sserialize::StringC
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::ITEMS, qt, qstr);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);
@@ -42,6 +45,7 @@ HCQRIndexWithCache::items(const std::string & qstr, const sserialize::StringComp
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::REGIONS, qt, qstr);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);

@@ -21,14 +21,14 @@ struct CacheKey {
 
 } //end namespace detail::HCQRIndexWithCache
 
-class HCQRIndexWithCache: hic::interface::HCQRIndex {
+class HCQRIndexWithCache: public hic::interface::HCQRIndex {
 public:
     using HCQRIndexPtr = sserialize::RCPtrWrapper<hic::interface::HCQRIndex>;
 public:
-    HCQRIndexWithCache(HCQRIndex & base);
+    HCQRIndexWithCache(HCQRIndexPtr const & base);
     ~HCQRIndexWithCache() override;
 public:
-    void setCacheSize(uint32_t size) const;
+    void setCacheSize(uint32_t size);
 public:
     sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const override;
 public:
@@ -43,7 +43,22 @@ private:
     using Cache = sserialize::LFUCache<CacheKey, HCQRPtr>;
 private:
     HCQRIndexPtr m_base;
-    Cache m_cache;
+    mutable std::mutex m_cacheLock;
+    mutable Cache m_cache;
 };
 
 }//end namespace hic
+
+namespace std {
+
+template<>
+struct hash<hic::detail::HCQRIndexWithCache::CacheKey> {
+    std::hash<std::string> hash;
+	inline std::size_t operator()(hic::detail::HCQRIndexWithCache::CacheKey const & v) const {
+		std::size_t seed = std::size_t(v.itemType) << 8 | v.qt;
+		::hash_combine(seed, v.qstr, hash);
+		return seed;
+	}
+};
+
+}

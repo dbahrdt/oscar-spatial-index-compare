@@ -70,17 +70,17 @@ private:
 
 } //end namespace detail::HCQRIndexFromCellIndex
 
-class HCQRIndexFromCellIndex: public interface::HCQRIndex {
+class HCQRIndexFromCellIndex: public hic::interface::HCQRIndex {
 public:
-    using ItemIndexStore = sserialze::Static::ItemIndexStore;
+    using ItemIndexStore = sserialize::Static::ItemIndexStore;
 
     using CellIndex = hic::detail::HCQRIndexFromCellIndex::interface::CellIndex;
-    using CellIndexPtr = sserialize::RCPtrWrapper<CellIndex>
+    using CellIndexPtr = sserialize::RCPtrWrapper<CellIndex>;
 
-    using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGridPtr>;
+    using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGrid>;
     using SpatialGridInfoPtr = sserialize::RCPtrWrapper<SpatialGridInfo>;
 
-    using MyHCQR = hic::HCQRSpatialGrid;
+    using MyHCQR = hic::impl::HCQRSpatialGrid;
 
     using PixelId = SpatialGrid::PixelId;
 public:
@@ -105,7 +105,6 @@ private:
     SpatialGridPtr m_sg;
     SpatialGridInfoPtr m_sgi;
     CellIndexPtr m_ci;
-    PixelItemsCache m_pixelItems;
 };
 
 }//end namespace hic

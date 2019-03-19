@@ -7,6 +7,10 @@
 #include "H3SpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
 
+#include "HcqrOpTree.h"
+#include "HCQRIndexWithCache.h"
+#include "HCQRIndexFromCellIndex.h"
+
 namespace hic::Static {
 	
 namespace ssinfo::SpatialGridInfo {
@@ -123,7 +127,7 @@ HCQRCellInfo::items(PixelId pid) const {
 
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
-m_sgInfo( d+2 ),
+m_sgInfo( std::make_shared<SpatialGridInfo>(d+2) ),
 m_trie(d+(2+sgInfo().getSizeInBytes())),
 m_mixed(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes())),
 m_regions(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSizeInBytes())),
@@ -327,5 +331,34 @@ OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr, uint32_
 }
 
 //END OscarSearchSgCompleter
-	
+
+//BEGIN HCQROscarSearchSgCompleter
+
+HCQROscarSearchSgCompleter::HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
+	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
+
+	HCQRIndexImp::SpatialGridInfoPtr sgi;
+	HCQRIndexImp::CellIndexPtr ci;
+
+	sserialize::RCPtrWrapper<HCQRIndexImp> uncachedIndex(
+		new HCQRIndexImp(
+			d->sgPtr(),
+			sgi,
+			ci
+		)
+	);
+	m_d.reset( new HCQRIndexWithCache(uncachedIndex) );
+}
+
+HCQROscarSearchSgCompleter::~HCQROscarSearchSgCompleter() {}
+
+sserialize::RCPtrWrapper<hic::interface::HCQR>
+HCQROscarSearchSgCompleter::complete(std::string const & str) {
+	hic::HcqrOpTree opTree(m_d);
+	opTree.parse(str);
+	return opTree.calc();
+}
+
+//END HCQROscarSearchSgCompleter
+
 }//end namespace hic::Static

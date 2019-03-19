@@ -172,15 +172,17 @@ public:
 	template<typename T_CQR_TYPE>
 	T_CQR_TYPE regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
 public:
-	inline SpatialGridInfo const & sgInfo() const { return m_sgInfo; }
+	inline SpatialGridInfo const & sgInfo() const { return *m_sgInfo; }
+	inline std::shared_ptr<SpatialGridInfo> const & sgInfoPtr() const { return m_sgInfo; }
 	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
+	inline sserialize::RCPtrWrapper<interface::SpatialGrid> const & sgPtr() const { return m_sg; }
 private:
     OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
     Payload::Type typeFromCompletion(const std::string& qs, const sserialize::StringCompleter::QuerryType qt, Payloads const & pd) const;
 private:
     char m_sq;
-	SpatialGridInfo m_sgInfo;
+	std::shared_ptr<SpatialGridInfo> m_sgInfo;
     Trie m_trie;
 	Payloads m_mixed;
 	Payloads m_regions;
@@ -262,6 +264,19 @@ public:
 	sserialize::CellQueryResult complete(std::string const & str, bool treedCqr, uint32_t threadCount);
 private:
 	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
+};
+
+class HCQROscarSearchSgCompleter {
+public:
+	HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
+	~HCQROscarSearchSgCompleter();
+public:
+	sserialize::RCPtrWrapper<hic::interface::HCQR> complete(std::string const & str);
+private:
+	using HCQRIndex = hic::interface::HCQRIndex;
+	using HCQRIndexPtr = sserialize::RCPtrWrapper<HCQRIndex>;
+private:
+	HCQRIndexPtr m_d;
 };
 
 }//end namespace hic::Static
