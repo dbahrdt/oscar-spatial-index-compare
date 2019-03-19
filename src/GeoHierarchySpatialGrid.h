@@ -12,7 +12,31 @@ namespace hic::impl {
 class GeoHierarchySpatialGrid: public hic::interface::SpatialGrid {
 public:
 	struct CostFunction {
-		virtual double operator()(uint32_t regionId, std::vector<uint32_t> const & coveredCells);
+		virtual double operator()(
+			sserialize::Static::spatial::GeoHierarchy::Region const & region,
+			sserialize::ItemIndex const & regionCells,
+			sserialize::ItemIndex const & cellsCoveredByRegion
+		) const = 0;
+	};
+	
+	///cost = regionCells.size() / cellsCoveredByRegion.size()
+	struct SimpleCostFunction: public CostFunction {
+		double operator()(
+			sserialize::Static::spatial::GeoHierarchy::Region const & region,
+			sserialize::ItemIndex const & regionCells,
+			sserialize::ItemIndex const & cellsCoveredByRegion
+		) const override;
+	};
+	
+	///cost = (regionCells.size() + penalFactor * (regionCells.size() - cellsCoveredByRegion.size()))/cellsCoveredByRegion.size()
+	struct PenalizeDoubleCoverCostFunction: public CostFunction {
+		PenalizeDoubleCoverCostFunction(double penalFactor);
+		double operator()(
+			sserialize::Static::spatial::GeoHierarchy::Region const & region,
+			sserialize::ItemIndex const & regionCells,
+			sserialize::ItemIndex const & cellsCoveredByRegion
+		) const override;
+		double penalFactor;
 	};
 public:
 	~GeoHierarchySpatialGrid() override;
@@ -37,30 +61,40 @@ public:
 	static sserialize::RCPtrWrapper<GeoHierarchySpatialGrid> make(
 		sserialize::Static::spatial::GeoHierarchy const & gh,
 		sserialize::Static::ItemIndexStore const & idxStore,
-		CostFunction & costs);
+		CostFunction const & costs);
+public:
+	sserialize::Static::spatial::GeoHierarchy const & gh() const;
+	sserialize::Static::ItemIndexStore const & idxStore() const;
 public:
 	static bool isCell(PixelId pid);
 	static bool isRegion(PixelId pid);
 	static PixelId regionIdToPixelId(uint32_t rid);
 	static PixelId cellIdToPixelId(uint32_t cid);
+	static uint32_t regionId(PixelId pid);
+	static uint32_t cellId(PixelId pid);
 private:
 	class TreeNode {
 	public:
-		static constexpr std::size_t npos = std::numeric_limits<std::size_t>::max();
+		using SizeType = uint32_t;
+		static constexpr SizeType npos = std::numeric_limits<SizeType>::max();
 	public:
-		inline PixelId pixelId() const { return m_pid; }
+		TreeNode(PixelId pid, SizeType parent);
 	public:
+		PixelId pixelId() const;
 		bool isRegion() const;
 		bool isCell() const;
-		std::size_t numberOfChildren() const;
-		std::size_t parentPos() const;
-		std::size_t childrenBegin() const;
-		std::size_t childrenEnd() const;
+		SizeType numberOfChildren() const;
+		SizeType parentPos() const;
+		SizeType childrenBegin() const;
+		SizeType childrenEnd() const;
+	public:
+		void setChildrenBegin(SizeType v);
+		void setChildrenEnd(SizeType v);
 	private:
 		PixelId m_pid;
-		std::size_t m_parentPos;
-		std::size_t m_childrenBegin;
-		std::size_t m_childrenEnd; //one passed the end
+		SizeType m_parentPos;
+		SizeType m_childrenBegin;
+		SizeType m_childrenEnd; //one passed the end
 	};
 	enum class PixelType : int { REGION=0x0, CELL=0x1};
 private:

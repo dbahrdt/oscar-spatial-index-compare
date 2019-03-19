@@ -28,6 +28,7 @@ set(LIB_SOURCES_CPP
 	src/HCQRIndexWithCache.cpp
 	src/HCQR.cpp
 	src/GeoHierarchySpatialGrid.cpp
+	src/GeoHierarchyHCQRCompleter.cpp
 )
 
 set(LIB_SOURCES_H
@@ -43,6 +44,7 @@ set(LIB_SOURCES_H
 	src/HCQRIndexWithCache.h
 	src/HCQR.h
 	src/GeoHierarchySpatialGrid.h
+	src/GeoHierarchyHCQRCompleter.h
 )
 
 set(SOURCES_CPP
