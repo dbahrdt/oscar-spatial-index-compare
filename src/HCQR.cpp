@@ -399,7 +399,7 @@ HCQRSpatialGrid::expanded(SizeType level) const {
             }
         }
         void expandFullMatchNode(TreeNode & node, SizeType myLevel) {
-            if (myLevel >= level) {
+            if (myLevel >= level || !that.sg().childrenCount(node.pixelId())) {
                 return;
             }
             node.setFlags(TreeNode::IS_INTERNAL);
@@ -413,7 +413,7 @@ HCQRSpatialGrid::expanded(SizeType level) const {
             }
         }
         void expandPartialMatchNode(TreeNode & node, SizeType myLevel, sserialize::ItemIndex const & items) {
-            if (myLevel >= level) {
+            if (myLevel >= level || !that.sg().childrenCount(node.pixelId())) {
                 dest.m_fetchedItems.emplace_back(items);
                 node.setItemIndexId(dest.m_fetchedItems.size()-1);
                 node.setFlags(TreeNode::IS_FETCHED);
