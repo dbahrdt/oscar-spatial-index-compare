@@ -57,6 +57,8 @@ m_sg(sg),
 m_sgi(sgi)
 {}
 
+HCQRSpatialGrid::~HCQRSpatialGrid() {}
+
 HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::depth() const {
     struct Recurser {
@@ -102,6 +104,26 @@ HCQRSpatialGrid::numberOfItems() const {
     Recurser r(*this);
     r(*m_root);
     return r.numberOfItems;
+}
+
+HCQRSpatialGrid::SizeType
+HCQRSpatialGrid::numberOfNodes() const {
+    struct Recurser {
+        HCQRSpatialGrid const & that;
+        SizeType numberOfNodes{0};
+        void operator()(TreeNode const & node) {
+			numberOfNodes += 1;
+            if (node.isInternal()) {
+                for(auto const & x : node.children()) {
+                    (*this)(*x);
+                }
+            }
+        }
+        Recurser(HCQRSpatialGrid const & that) : that(that) {}
+    };
+    Recurser r(*this);
+    r(*m_root);
+    return r.numberOfNodes;
 }
 
 HCQRSpatialGrid::ItemIndex

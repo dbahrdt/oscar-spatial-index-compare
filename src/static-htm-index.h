@@ -261,6 +261,7 @@ public:
 	void energize(std::string const & files);
 public:
 	inline hic::Static::OscarSearchSgIndex const & index() const { return *m_d; }
+	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & indexPtr() const { return m_d; }
 public:
 	sserialize::CellQueryResult complete(std::string const & str, bool treedCqr, uint32_t threadCount);
 private:
@@ -273,6 +274,8 @@ public:
 	~HCQROscarSearchSgCompleter();
 public:
 	sserialize::RCPtrWrapper<hic::interface::HCQR> complete(std::string const & str);
+public:
+	void setCacheSize(uint32_t size);
 private:
 	using HCQRIndex = hic::interface::HCQRIndex;
 	using HCQRIndexPtr = sserialize::RCPtrWrapper<HCQRIndex>;

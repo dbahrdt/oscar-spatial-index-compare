@@ -17,6 +17,7 @@ public:
     virtual ~HCQR();
 public:
     virtual SizeType depth() const = 0;
+	virtual SizeType numberOfNodes() const = 0;
     virtual SizeType numberOfItems() const = 0;
     virtual ItemIndex items() const = 0;
 public:
@@ -48,8 +49,7 @@ public:
 
 }//end namespace hic::interface
 
-namespace hic::impl {
-namespace detail::HCQRSpatialGrid {
+namespace hic::impl::detail::HCQRSpatialGrid {
 
 /**
 	* We assume the following: 
@@ -98,7 +98,9 @@ private:
 	Children m_children;
 };
 	
-} //end namespace detail::HCQRSpatialGrid
+} //end namespace hic::impl::detail::HCQRSpatialGrid
+
+namespace hic::impl {
 
 ///In memory variant
 class HCQRSpatialGrid: public hic::interface::HCQR {
@@ -123,10 +125,11 @@ public:
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
     );
-    virtual ~HCQRSpatialGrid();
+    ~HCQRSpatialGrid() override;
 public:
     SizeType depth() const override;
     SizeType numberOfItems() const override;
+	SizeType numberOfNodes() const override;
     ItemIndex items() const override;
 public:
     HCQRPtr operator/(Parent::Self const & other) const override;

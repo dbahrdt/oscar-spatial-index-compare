@@ -86,10 +86,18 @@ struct HtmState {
 struct Completers {
     std::shared_ptr<liboscar::Static::OsmCompleter> cmp;
 	std::shared_ptr<hic::Static::OscarSearchSgCompleter> sgcmp;
+	std::shared_ptr<hic::Static::HCQROscarSearchSgCompleter> hsgcmp;
 };
 
 struct QueryStats {
 	sserialize::CellQueryResult cqr;
+	sserialize::ItemIndex items;
+	sserialize::TimeMeasurer cqrTime;
+	sserialize::TimeMeasurer flatenTime;
+};
+
+struct HQueryStats {
+	sserialize::RCPtrWrapper<hic::interface::HCQR> hcqr;
 	sserialize::ItemIndex items;
 	sserialize::TimeMeasurer cqrTime;
 	sserialize::TimeMeasurer flatenTime;
@@ -114,11 +122,20 @@ void readCompletionStringsFromFile(const std::string & fileName, T_OUTPUT_ITERAT
 std::ostream & operator<<(std::ostream & out, QueryStats const & ts) {
 	out << "# cells: " << ts.cqr.cellCount() << '\n';
 	out << "# items: " << ts.items.size() << '\n';
-	out << "Cell time: " << ts.cqrTime << '\n';
+	out << "Set op time: " << ts.cqrTime << '\n';
 	out << "Flaten time: " << ts.flatenTime << '\n';
 	return out;
 }
-	
+
+std::ostream & operator<<(std::ostream & out, HQueryStats const & qs) {
+	out << "depth: " << qs.hcqr->depth() << '\n';
+	out << "# nodes: " << qs.hcqr->numberOfNodes() << '\n';
+	out << "# items: " << qs.items.size() << '\n';
+	out << "Set op time: " << qs.cqrTime << '\n';
+	out << "Flaten time: " << qs.flatenTime << '\n';
+	return out;
+}
+
 std::string const meas_res_unit{"us"};
 
 struct Stats {
@@ -363,9 +380,17 @@ int main(int argc, char const * argv[]) {
 			help();
 			return -1;
 		}
+		try {
+			completers.hsgcmp = std::make_shared<hic::Static::HCQROscarSearchSgCompleter>(completers.sgcmp->indexPtr());
+		}
+		catch (std::exception const & e) {
+			std::cerr << "Failed to initialize hierachical spatial grid completer: " << e.what() << std::endl;
+			return -1;
+		}
 	}
 
 	QueryStats oqs, hqs;
+	HQueryStats hsg_qs;
 	for(uint32_t i(0), s(state.queue.size()); i < s; ++i) {
 		WorkItem & wi = state.queue[i];
 		
@@ -394,8 +419,27 @@ int main(int argc, char const * argv[]) {
 					hqs.items = hqs.cqr.flaten(state.numThreads);
 					hqs.flatenTime.end();
 				}
-				std::cout << "HtmIndex query: " << state.str << std::endl;
+				std::cout << "Spatial Grid Index query: " << state.str << std::endl;
 				std::cout << hqs << std::endl;
+			}
+				break;
+			case WorkItem::WI_SG_HCQR:
+			{
+				if (cfg.htmFiles.empty()) {
+					std::cerr << "No spatial grid available" << std::endl;
+					return -1;
+				}
+				hsg_qs.cqrTime.begin();
+				hsg_qs.hcqr = completers.hsgcmp->complete(state.str);
+				hsg_qs.cqrTime.end();
+				if (state.numItems) {
+					hsg_qs.flatenTime.begin();
+					hsg_qs.items = hsg_qs.hcqr->items();
+					hsg_qs.flatenTime.end();
+				}
+				std::cout << "Hierarchical Spatial Grid Index query: " << state.str << std::endl;
+				std::cout << hsg_qs << std::endl;
+				
 			}
 				break;
 			case WorkItem::WI_OSCAR_CQR:

@@ -364,6 +364,11 @@ HCQROscarSearchSgCompleter::complete(std::string const & str) {
 	return opTree.calc();
 }
 
+void
+HCQROscarSearchSgCompleter::setCacheSize(uint32_t size) {
+	static_cast<HCQRIndexWithCache&>(*m_d.get()).setCacheSize(size);
+}
+
 //END HCQROscarSearchSgCompleter
 
 }//end namespace hic::Static
