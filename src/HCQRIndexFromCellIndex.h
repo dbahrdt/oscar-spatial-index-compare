@@ -72,11 +72,15 @@ private:
 
 class HCQRIndexFromCellIndex: public interface::HCQRIndex {
 public:
+    using ItemIndexStore = sserialze::Static::ItemIndexStore;
+
     using CellIndex = hic::detail::HCQRIndexFromCellIndex::interface::CellIndex;
     using CellIndexPtr = sserialize::RCPtrWrapper<CellIndex>
 
     using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGridPtr>;
     using SpatialGridInfoPtr = sserialize::RCPtrWrapper<SpatialGridInfo>;
+
+    using MyHCQR = hic::HCQRSpatialGrid;
 
     using PixelId = SpatialGrid::PixelId;
 public:
@@ -87,7 +91,7 @@ public:
     );
     virtual ~HCQRIndexFromCellIndex();
 public:
-    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
+    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const override;
 	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
@@ -96,6 +100,7 @@ public:
 	SpatialGrid const & sg() const override;
 public:
     CellIndex const & ci() const;
+    ItemIndexStore const & idxStore() const;
 private:
     SpatialGridPtr m_sg;
     SpatialGridInfoPtr m_sgi;

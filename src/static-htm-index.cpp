@@ -83,6 +83,44 @@ SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
 	return m_d.trixelId2HtmIndexId().at64(cPixelId);
 }
 
+HCQRCellInfo::HCQRCellInfo(sserialize::Static::ItemIndexStore const & idxStore, std::shared_ptr<SpatialGridInfo> const & sgi) :
+m_idxStore(idxStore),
+m_sgi(sgi)
+{}
+
+HCQRCellInfo::~HCQRCellInfo() {}
+
+HCQRCellInfo::SpatialGrid::Level
+HCQRCellInfo::level() const {
+	return m_sgi->levels();
+}
+
+bool
+HCQRCellInfo::hasPixel(PixelId pid) const {
+	try {
+		auto cpid = m_sgi->cPixelId(pid);
+		return true;
+	}
+	catch (sserialize::OutOfBoundsException const &) {
+		return true;
+	}
+}
+
+HCQRCellInfo::ItemIndex
+HCQRCellInfo::items(PixelId pid) const {
+	SSERIALIZE_CHEAP_ASSERT(hasPixel(pid));
+	try {
+		return m_idxStore.at(
+			m_sgi->itemIndexId(
+				m_sgi->cPixelId(pid)
+			)
+		);
+	}
+	catch (sserialize::OutOfBoundsException const &) {
+		return ItemIndex();
+	}
+}
+
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
 m_sgInfo( d+2 ),
@@ -186,6 +224,37 @@ OscarSearchSgIndex::typeFromCompletion(const std::string& qs, const sserialize::
 	}
 	return t;
 }
+
+//BEGIN HCQROscarCellIndex
+
+
+HCQROscarCellIndex::HCQROscarCellIndex(sserialize::RCPtrWrapper<OscarSearchSgIndex> const & base) :
+m_base(base)
+{}
+
+HCQROscarCellIndex::~HCQROscarCellIndex() {}
+
+sserialize::StringCompleter::SupportedQuerries
+HCQROscarCellIndex::getSupportedQueries() const {
+	return m_base->getSupportedQueries();
+}
+
+HCQROscarCellIndex::CellQueryResult
+HCQROscarCellIndex::complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	return m_base->complete<CellQueryResult>(qstr, qt);
+}
+
+HCQROscarCellIndex::CellQueryResult
+HCQROscarCellIndex::items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	return m_base->items<CellQueryResult>(qstr, qt);
+}
+
+HCQROscarCellIndex::CellQueryResult
+HCQROscarCellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+	return m_base->regions<CellQueryResult>(qstr, qt);
+}
+
+//END
 
 //BEGIN SgOpTree
 

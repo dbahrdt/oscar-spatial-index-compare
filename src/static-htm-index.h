@@ -11,6 +11,8 @@
 
 #include "SpatialGrid.h"
 
+#include "HCQRIndexFromCellIndex.h"
+
 namespace hic {
 	class OscarSearchSgIndex;
 }
@@ -129,6 +131,20 @@ private:
 	ssinfo::SpatialGridInfo::Data m_d;
 };
 
+class HCQRCellInfo: public hic::detail::HCQRIndexFromCellIndex::interface::CellInfo {
+public:
+	HCQRCellInfo(sserialize::Static::ItemIndexStore const & idxStore, std::shared_ptr<SpatialGridInfo> const & sgi);
+	~HCQRCellInfo() override;
+public:
+    SpatialGrid::Level level() const override;
+public:
+    bool hasPixel(PixelId pid) const override;
+    ItemIndex items(PixelId pid) const override;
+private:
+	sserialize::Static::ItemIndexStore m_idxStore;
+	std::shared_ptr<SpatialGridInfo> m_sgi;
+};
+
 class OscarSearchSgIndex: public sserialize::RefCountObject {
 public:
     using Self = OscarSearchSgIndex;
@@ -172,6 +188,19 @@ private:
     sserialize::Static::ItemIndexStore m_idxStore;
 	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
     int m_flags{ sserialize::CellQueryResult::FF_CELL_GLOBAL_ITEM_IDS };
+};
+
+class HCQROscarCellIndex: public hic::detail::HCQRIndexFromCellIndex::interface::CellIndex {
+public:
+	HCQROscarCellIndex(sserialize::RCPtrWrapper<OscarSearchSgIndex> const & base);
+    ~HCQROscarCellIndex() override;
+public:
+    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const override;
+	CellQueryResult complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	CellQueryResult items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	CellQueryResult regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+private:
+	sserialize::RCPtrWrapper<OscarSearchSgIndex> m_base;
 };
 
 namespace detail {

@@ -49,32 +49,54 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
 
 }//end namespace detail::HCQRIndexFromCellIndex
 
+HCQRIndexFromCellIndex::HCQRIndexFromCellIndex(
+    SpatialGridPtr const & sg,
+    SpatialGridInfoPtr const & sgi,
+    CellIndexPtr const & ci
+) :
+m_sg(sg),
+m_sgi(sgi),
+m_ci(ci)
+{}
 
-class HCQRIndexFromCellIndex: public interface::HCQRIndex {
-public:
-    using CellIndex = hic::detail::HCQRIndexFromCellIndex::interface::CellIndex;
-    using CellIndexPtr = sserialize::RCPtrWrapper<CellIndex>
+HCQRIndexFromCellIndex::~HCQRIndexFromCellIndex() {}
 
-    using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGridPtr>;
-    using SpatialGridInfoPtr = sserialize::RCPtrWrapper<SpatialGridInfo>;
+sserialize::StringCompleter::SupportedQuerries
+HCQRIndexFromCellIndex::getSupportedQueries() const {
+    return m_ci->getSupportedQueries();
+}
 
-    using PixelId = SpatialGrid::PixelId;
-public:
-    HCQRIndexFromCellIndex(
-        SpatialGridPtr const & sg,
-        SpatialGridInfoPtr const & sgi,
-        CellIndexPtr const & ci
-    );
-    virtual ~HCQRIndexFromCellIndex();
-public:
-    sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
-	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
-	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
-	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
-public:
-	SpatialGridInfo const & sgi() const override;
-	SpatialGrid const & sg() const override;
-public:
-    CellIndex const & ci() const;
+HCQRIndexFromCellIndex::HCQRPtr
+HCQRIndexFromCellIndex::complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    sserialize::CellQueryResult cqr = ci().complete(qstr, qt);
+    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+}
+
+HCQRIndexFromCellIndex::HCQRPtr
+HCQRIndexFromCellIndex::items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    sserialize::CellQueryResult cqr = ci().items(qstr, qt);
+    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+}
+
+HCQRIndexFromCellIndex::HCQRPtr
+HCQRIndexFromCellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
+    sserialize::CellQueryResult cqr = ci().regions(qstr, qt);
+    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+}
+
+HCQRIndexFromCellIndex::SpatialGridInfo const &
+HCQRIndexFromCellIndex::sgi() const {
+    return *m_sgi;
+}
+
+HCQRIndexFromCellIndex::SpatialGrid const &
+HCQRIndexFromCellIndex::sg() const {
+    return *m_sg;
+}
+
+HCQRIndexFromCellIndex::CellIndex const &
+HCQRIndexFromCellIndex::ci() const {
+    return *m_ci;
+}
 
 }//end namespace
