@@ -80,6 +80,7 @@ HtmSpatialGrid::childrenCount(PixelId pixel) const {
 
 std::unique_ptr<HtmSpatialGrid::TreeNode>
 HtmSpatialGrid::tree(CellIterator begin, CellIterator end) const {
+	throw sserialize::UnimplementedFunctionException("HtmSpatialGrid::tree");
 	return std::unique_ptr<HtmSpatialGrid::TreeNode>();
 }
 
