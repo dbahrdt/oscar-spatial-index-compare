@@ -8,8 +8,8 @@
 namespace hic {
 
 sserialize::RCPtrWrapper<SimpleGridSpatialGrid>
-SimpleGridSpatialGrid::make(uint32_t levels) {
-	return sserialize::RCPtrWrapper<SimpleGridSpatialGrid>(new SimpleGridSpatialGrid(levels));
+SimpleGridSpatialGrid::make(uint32_t maxLevel) {
+	return sserialize::RCPtrWrapper<SimpleGridSpatialGrid>(new SimpleGridSpatialGrid(maxLevel));
 }
 
 std::string
@@ -25,6 +25,11 @@ SimpleGridSpatialGrid::maxLevel() const {
 SimpleGridSpatialGrid::Level
 SimpleGridSpatialGrid::defaultLevel() const {
 	return m_grids.size()-1;
+}
+
+SimpleGridSpatialGrid::PixelId
+SimpleGridSpatialGrid::rootPixelId() const {
+	return 0;
 }
 
 SimpleGridSpatialGrid::Level
@@ -81,10 +86,10 @@ SimpleGridSpatialGrid::bbox(PixelId pixel) const {
 	return grid(level).cellBoundary(grid(level).select(tile));
 }
 
-SimpleGridSpatialGrid::SimpleGridSpatialGrid(uint32_t levels)
+SimpleGridSpatialGrid::SimpleGridSpatialGrid(uint32_t maxLevel)
 {
 	sserialize::spatial::GeoRect rect(-90, 90, -180, 180);
-	for(uint32_t i(0); i <= levels; ++i) {
+	for(uint32_t i(0); i <= maxLevel; ++i) {
 		m_grids.emplace_back(rect, uint32_t(1) << i, uint32_t(1) << i);
 	}
 }

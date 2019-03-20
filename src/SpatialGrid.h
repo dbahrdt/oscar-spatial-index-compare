@@ -15,6 +15,9 @@ public:
 
 namespace hic::interface {
 
+///A hierarchical spatial grid with the following properties:
+///Level 0 contains a single root node
+///Each node is further divisible though the number of splits may differ with each node
 class SpatialGrid: public sserialize::RefCountObject {
 public:
 	class CompressedPixelId {
@@ -40,6 +43,7 @@ public:
 	virtual std::string name() const = 0;
 	virtual Level maxLevel() const = 0;
 	virtual Level defaultLevel() const = 0;
+	virtual PixelId rootPixelId() const = 0;
 	virtual Level level(PixelId pixelId) const = 0;
 	virtual bool isAncestor(PixelId ancestor, PixelId decendant) const = 0;
 public:

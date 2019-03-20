@@ -113,6 +113,11 @@ GeoHierarchySpatialGrid::defaultLevel() const {
 	return 0;
 }
 
+GeoHierarchySpatialGrid::PixelId
+GeoHierarchySpatialGrid::rootPixelId() const {
+	return regionIdToPixelId(m_gh.rootRegion().ghId());
+}
+
 GeoHierarchySpatialGrid::Level
 GeoHierarchySpatialGrid::level(PixelId pixelId) const {
 	if (!m_pid2tn.count(pixelId)) {

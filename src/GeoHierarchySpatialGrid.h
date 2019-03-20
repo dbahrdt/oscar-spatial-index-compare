@@ -76,6 +76,7 @@ public:
 	std::string name() const override;
 	Level maxLevel() const override;
 	Level defaultLevel() const override;
+	PixelId rootPixelId() const override;
 	Level level(PixelId pixelId) const override;
 	bool isAncestor(PixelId ancestor, PixelId decendant) const override;
 public:

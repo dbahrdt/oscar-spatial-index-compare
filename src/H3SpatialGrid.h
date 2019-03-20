@@ -2,14 +2,18 @@
 #include "SpatialGrid.h"
 
 namespace hic {
-	
+
+///Note that h3-index levels are off by one
 class H3SpatialGrid final: public interface::SpatialGrid {
+public:
+	static constexpr PixelId RootPixelId = std::numeric_limits<PixelId>::max();
 public:
 	static sserialize::RCPtrWrapper<H3SpatialGrid> make(uint32_t defaultLevel);
 public:
 	std::string name() const override;
 	Level maxLevel() const override;
 	Level defaultLevel() const override;
+	PixelId rootPixelId() const override;
 	Level level(PixelId pixelId) const override;
 	bool isAncestor(PixelId ancestor, PixelId decendant) const override;
 public:

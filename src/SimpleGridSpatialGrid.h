@@ -18,11 +18,12 @@ namespace hic {
 	
 class SimpleGridSpatialGrid final: public interface::SpatialGrid {
 public:
-	static sserialize::RCPtrWrapper<SimpleGridSpatialGrid> make(uint32_t levels);
+	static sserialize::RCPtrWrapper<SimpleGridSpatialGrid> make(uint32_t maxLevel);
 public:
 	std::string name() const override;
 	Level maxLevel() const override;
 	Level defaultLevel() const override;
+	PixelId rootPixelId() const override;
 	Level level(PixelId pixelId) const override;
 	bool isAncestor(PixelId ancestor, PixelId decendant) const override;
 public:
@@ -37,7 +38,7 @@ public:
 	double area(PixelId pixel) const override;
 	sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
 protected:
-	SimpleGridSpatialGrid(uint32_t levels);
+	SimpleGridSpatialGrid(uint32_t maxLevel);
 	~SimpleGridSpatialGrid() override;
 private:
 	using TileId = uint32_t;

@@ -9,11 +9,14 @@ class HtmSpatialGrid final: public interface::SpatialGrid {
 public:
 	using HtmPixelization = lsst::sphgeom::HtmPixelization;
 public:
-	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t levels);
+	static constexpr PixelId RootPixelId = 0;
+public:
+	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t maxLevel);
 public:
 	std::string name() const override;
 	Level maxLevel() const override;
 	Level defaultLevel() const override;
+	PixelId rootPixelId() const override;
 	Level level(PixelId pixelId) const override;
 	bool isAncestor(PixelId ancestor, PixelId decendant) const override;
 public:
@@ -28,9 +31,10 @@ public:
 	double area(PixelId pixel) const override;
 	sserialize::spatial::GeoRect bbox(PixelId pixel) const override;
 protected:
-	HtmSpatialGrid(uint32_t levels);
+	HtmSpatialGrid(uint32_t maxLevel);
 	~HtmSpatialGrid() override;
 private:
+	///not thant HtmPixelization levels are off by one: level 0 contains 8 nodes, not a single one
 	std::vector<lsst::sphgeom::HtmPixelization> m_hps;
 };
 
