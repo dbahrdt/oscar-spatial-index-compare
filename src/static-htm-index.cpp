@@ -10,6 +10,7 @@
 #include "HcqrOpTree.h"
 #include "HCQRIndexWithCache.h"
 #include "HCQRIndexFromCellIndex.h"
+#include "HCQRIndexCompactifying.h"
 
 namespace hic::Static {
 	
@@ -106,7 +107,7 @@ HCQRCellInfo::hasPixel(PixelId pid) const {
 		return true;
 	}
 	catch (sserialize::OutOfBoundsException const &) {
-		return true;
+		return false;
 	}
 }
 
@@ -354,7 +355,8 @@ HCQROscarSearchSgCompleter::HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<
 			ci
 		)
 	);
-	m_d.reset( new HCQRIndexWithCache(uncachedIndex) );
+	sserialize::RCPtrWrapper<HCQRIndexCompactifying> compactifyingIndex( new HCQRIndexCompactifying(uncachedIndex) );
+	m_d.reset( new HCQRIndexWithCache(compactifyingIndex) );
 }
 
 HCQROscarSearchSgCompleter::~HCQROscarSearchSgCompleter() {}

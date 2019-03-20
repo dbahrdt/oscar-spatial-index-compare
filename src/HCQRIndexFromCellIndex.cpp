@@ -1,5 +1,7 @@
 #include "HCQRIndexFromCellIndex.h"
 
+#include <sserialize/utility/debuggerfunctions.h>
+
 namespace hic {
 namespace detail::HCQRIndexFromCellIndex {
 namespace impl {
@@ -16,6 +18,7 @@ SpatialGridInfoFromCellIndex::itemCount(PixelId pid) const {
 
 SpatialGridInfoFromCellIndex::ItemIndex
 SpatialGridInfoFromCellIndex::items(PixelId pid) const {
+	sserialize::breakHereIf(pid == 64229376);
 	std::unique_lock<std::mutex> cacheLck(m_cacheLock);
     if (m_cache.count(pid)) {
         return m_cache.find(pid);
@@ -28,7 +31,7 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
             if (that.m_ci->hasPixel(pid)) {
                 return that.m_ci->items(pid);
             }
-            else if (that.m_sg->level(pid) < that.m_ci->level()) {
+            else if (that.m_sg->level(pid) <= that.m_ci->level()) {
                 std::vector<ItemIndex> tmp;
                 auto numChildren = that.m_sg->childrenCount(pid);
                 for(decltype(numChildren) i(0); i < numChildren; ++i) {
@@ -78,19 +81,25 @@ HCQRIndexFromCellIndex::getSupportedQueries() const {
 HCQRIndexFromCellIndex::HCQRPtr
 HCQRIndexFromCellIndex::complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
     sserialize::CellQueryResult cqr = ci().complete(qstr, qt);
-    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+    HCQRPtr result( new MyHCQR(cqr, cqr.idxStore(), m_sg, m_sgi) );
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(cqr.flaten(), result->items());
+	return result;
 }
 
 HCQRIndexFromCellIndex::HCQRPtr
 HCQRIndexFromCellIndex::items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
     sserialize::CellQueryResult cqr = ci().items(qstr, qt);
-    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+    HCQRPtr result( new MyHCQR(cqr, cqr.idxStore(), m_sg, m_sgi) );
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(cqr.flaten(), result->items());
+	return result;
 }
 
 HCQRIndexFromCellIndex::HCQRPtr
 HCQRIndexFromCellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
     sserialize::CellQueryResult cqr = ci().regions(qstr, qt);
-    return HCQRPtr( new MyHCQR(cqr.idxStore(), m_sg, m_sgi) );
+    HCQRPtr result( new MyHCQR(cqr, cqr.idxStore(), m_sg, m_sgi) );
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(cqr.flaten(), result->items());
+	return result;
 }
 
 HCQRIndexFromCellIndex::SpatialGridInfo const &

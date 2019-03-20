@@ -2,6 +2,7 @@
 #include <sserialize/utility/refcounting.h>
 #include <sserialize/containers/ItemIndex.h>
 #include <sserialize/Static/ItemIndexStore.h>
+#include <sserialize/spatial/CellQueryResult.h>
 #include "SpatialGrid.h"
 
 namespace hic::interface {
@@ -61,7 +62,8 @@ class TreeNode final {
 public:
 	using Children = std::vector<std::unique_ptr<TreeNode>>;
 	using PixelId = hic::interface::SpatialGrid::PixelId;
-	enum : int {IS_INTERNAL=0x0, IS_PARTIAL_MATCH=0x1, IS_FULL_MATCH=0x2, IS_FETCHED=0x4} Flags;
+	enum : int {NONE=0x0, IS_INTERNAL=0x1, IS_PARTIAL_MATCH=0x2, IS_FULL_MATCH=0x4, IS_FETCHED=0x8} Flags;
+	static constexpr uint32_t npos = std::numeric_limits<uint32_t>::max();
 public:
 	TreeNode();
 	TreeNode(TreeNode const &) = delete;
@@ -73,7 +75,7 @@ public:
 	//copies flags, pixelId if isInternal() is true
 	std::unique_ptr<TreeNode> shallowCopy(Children && newChildren) const; 
 public:
-	static std::unique_ptr<TreeNode> make_unique(PixelId pixelId, int flags = 0, uint32_t itemIndexId = 0);
+	static std::unique_ptr<TreeNode> make_unique(PixelId pixelId, int flags, uint32_t itemIndexId = npos);
 public:
 	inline PixelId pixelId() const { return m_pid; }
 	inline bool isInternal() const { return children().size(); }
@@ -89,6 +91,8 @@ public:
 	inline void setItemIndexId(uint32_t id) { m_itemIndexId = id; }
 	inline void setFlags(int f) { m_f = f; }
 	inline Children & children() { return m_children; }
+public:
+	bool valid() const;
 private:
 	TreeNode(PixelId pixelId, int flags, uint32_t itemIndexId);
 private:
@@ -116,11 +120,8 @@ public:
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
     );
-    template<typename T_PM_ITEM_INDEX_ID_ITERATOR>
     HCQRSpatialGrid(
-        sserialize::ItemIndex const & fmCells,
-        sserialize::ItemIndex const & pmCells,
-        T_PM_ITEM_INDEX_ID_ITERATOR pmIndexIt,
+		sserialize::CellQueryResult const & cqr,
         sserialize::Static::ItemIndexStore idxStore,
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
@@ -156,58 +157,5 @@ private:
     sserialize::RCPtrWrapper<hic::interface::SpatialGrid> m_sg;
     sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> m_sgi;
 };
-
-} //end namespace hic::impl
-
-//Implementation of template functions
-namespace hic::impl {
-
-
-template<typename T_PM_ITEM_INDEX_ID_ITERATOR>
-HCQRSpatialGrid::HCQRSpatialGrid(
-    sserialize::ItemIndex const & fmCells,
-    sserialize::ItemIndex const & pmCells,
-    T_PM_ITEM_INDEX_ID_ITERATOR pmIndexIt,
-    sserialize::Static::ItemIndexStore idxStore,
-    sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
-    sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
-) :
-HCQRSpatialGrid(idxStore, sg, sgi)
-{
-
-    std::unordered_map<PixelId, std::unique_ptr<TreeNode>> clevel;
-    clevel.reserve(fmCells.size()+pmCells.size());
-    for(uint32_t x : fmCells) {
-        PixelId pId = this->sgi().pixelId( CompressedPixelId(x) );
-        clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_FULL_MATCH);
-    }
-    for(auto it(pmCells.begin()), end(pmCells.end()); it != end; ++it, ++pmIndexIt) {
-        PixelId pId = this->sgi().pixelId( CompressedPixelId(*it) );
-        clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_PARTIAL_MATCH,*pmIndexIt);
-    }
-    while (clevel.size() > 1) {
-        std::unordered_map<PixelId, std::unique_ptr<TreeNode>> plevel;
-        for(auto & x : clevel) {
-            PixelId pPId = this->sg().parent( x.second->pixelId() );
-            auto & parent = plevel[pPId];
-            if (!parent) {
-                parent = TreeNode::make_unique(pPId);
-            }
-            parent->children().emplace_back( std::move(x.second) );
-        }
-        clevel = std::move(plevel);
-        ///children have to be sorted according to their PixelId
-        for(auto & x : clevel) {
-            using std::sort;
-            sort(x.second->children().begin(), x.second->children().end(),
-                [](std::unique_ptr<TreeNode> const & a, std::unique_ptr<TreeNode> const & b) -> bool {
-                    return a->pixelId() < b->pixelId();
-                }
-            );
-        }
-    }
-    m_root = std::move(clevel.begin()->second);
-}
-
 
 } //end namespace hic::impl
