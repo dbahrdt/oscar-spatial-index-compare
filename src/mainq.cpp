@@ -123,18 +123,22 @@ void readCompletionStringsFromFile(const std::string & fileName, T_OUTPUT_ITERAT
 
 std::ostream & operator<<(std::ostream & out, QueryStats const & ts) {
 	out << "# cells: " << ts.cqr.cellCount() << '\n';
-	out << "# items: " << ts.items.size() << '\n';
 	out << "Set op time: " << ts.cqrTime << '\n';
-	out << "Flaten time: " << ts.flatenTime << '\n';
+	if (ts.flatenTime.elapsedUseconds()) {
+		out << "# items: " << ts.items.size() << '\n';
+		out << "Flaten time: " << ts.flatenTime << '\n';
+	}
 	return out;
 }
 
 std::ostream & operator<<(std::ostream & out, HQueryStats const & qs) {
 	out << "depth: " << qs.hcqr->depth() << '\n';
 	out << "# nodes: " << qs.hcqr->numberOfNodes() << '\n';
-	out << "# items: " << qs.items.size() << '\n';
 	out << "Set op time: " << qs.cqrTime << '\n';
-	out << "Flaten time: " << qs.flatenTime << '\n';
+	if (qs.flatenTime.elapsedUseconds()) {
+		out << "Flaten time: " << qs.flatenTime << '\n';
+		out << "# items: " << qs.items.size() << '\n';
+	}
 	return out;
 }
 

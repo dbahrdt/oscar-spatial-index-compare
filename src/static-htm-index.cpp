@@ -341,9 +341,11 @@ OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr, uint32_
 
 HCQROscarSearchSgCompleter::HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
 	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
+	using SpatialGridInfoImp = hic::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndex;
 
-	HCQRIndexImp::SpatialGridInfoPtr sgi;
-	HCQRIndexImp::CellIndexPtr ci;
+	auto cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(d->idxStore(), d->sgInfoPtr()) );
+	HCQRIndexImp::SpatialGridInfoPtr sgi( new SpatialGridInfoImp(d->sgPtr(), cellInfoPtr) );
+	HCQRIndexImp::CellIndexPtr ci( new hic::Static::HCQROscarCellIndex(d) );
 
 	sserialize::RCPtrWrapper<HCQRIndexImp> uncachedIndex(
 		new HCQRIndexImp(
