@@ -114,6 +114,7 @@ public:
     using ItemIndexId = uint32_t;
     using Parent = interface::HCQR;
     using Self = HCQRSpatialGrid;
+	using PixelLevel = hic::interface::SpatialGrid::Level;
 public:
     HCQRSpatialGrid(
         sserialize::Static::ItemIndexStore idxStore,
@@ -145,6 +146,7 @@ private:
     struct HCQRSpatialGridOpHelper;
 private:
     sserialize::ItemIndex items(TreeNode const & node) const;
+	PixelLevel level(TreeNode const & node) const;
 private:
     sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
     auto const & fetchedItems() const { return m_fetchedItems; }

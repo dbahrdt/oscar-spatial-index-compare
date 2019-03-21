@@ -355,14 +355,206 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::operator+(Parent::Self const & other) const {
-    throw sserialize::UnimplementedFunctionException("HCQRSpatialGrid::operator+");
-    return HCQRPtr();
+    struct Recurser: public HCQRSpatialGridOpHelper {
+        HCQRSpatialGrid const & firstSg;
+        HCQRSpatialGrid const & secondSg;
+        Recurser(HCQRSpatialGrid const & firstSg, HCQRSpatialGrid const & secondSg, HCQRSpatialGrid & dest) :
+        HCQRSpatialGridOpHelper(dest),
+        firstSg(firstSg),
+        secondSg(secondSg)
+        {}
+        std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
+			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
+			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
+			if (firstNode.isFullMatch()) {
+				return TreeNode::make_unique(firstNode.pixelId(), TreeNode::IS_FULL_MATCH);
+			}
+            else if (secondNode.isFullMatch()) {
+				return TreeNode::make_unique(secondNode.pixelId(), TreeNode::IS_FULL_MATCH);
+            }
+            else if (firstNode.isLeaf() && secondNode.isLeaf()) {
+				auto fnLvl = firstSg.level(firstNode);
+				auto snLvl = secondSg.level(secondNode);
+				sserialize::ItemIndex result;
+				if (fnLvl == snLvl) {
+					result = firstSg.items(firstNode) / secondSg.items(secondNode);
+				}
+				else if (fnLvl < snLvl) {
+					result = (firstSg.items(firstNode) / firstSg.sgi().items(firstNode.pixelId())) + secondSg.items(secondNode);
+				}
+				else if (snLvl < fnLvl) {
+					result = firstSg.items(firstNode) + (secondSg.items(secondNode) / secondSg.sgi().items(secondNode.pixelId()));
+				}
+				SSERIALIZE_CHEAP_ASSERT(result.size());
+                dest.m_fetchedItems.emplace_back(result);
+                return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+            }
+            else {
+                std::unique_ptr<TreeNode> resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
+
+                if (firstNode.isInternal() && secondNode.isInternal()) {
+                    auto fIt = firstNode.children().begin();
+                    auto fEnd = firstNode.children().end();
+                    auto sIt = secondNode.children().begin();
+                    auto sEnd = secondNode.children().end();
+                    for(;fIt != fEnd && sIt != sEnd;) {
+                        if ((*fIt)->pixelId() < (*sIt)->pixelId()) {
+                            ++fIt;
+                        }
+                        else if ((*fIt)->pixelId() > (*sIt)->pixelId()) {
+                            ++sIt;
+                        }
+                        else {
+                            auto x = (*this)(**fIt, **sIt);
+                            if (x) {
+                                resNode->children().emplace_back(std::move(x));
+                            }
+                            ++fIt;
+							++sIt;
+                        }
+                    }
+                    for(; fIt != fEnd; ++fIt) {
+						resNode->children().emplace_back( deepCopy(firstSg, **fIt) );
+					}
+					for(; sIt != sEnd; ++sIt) {
+						resNode->children().emplace_back( deepCopy(secondSg, **sIt) );
+					}
+                }
+                else if (firstNode.isInternal()) {
+                    auto fIt = firstNode.children().begin();
+                    auto fEnd = firstNode.children().end();
+                    for( ;fIt != fEnd; ++fIt) {
+                        auto x = (*this)(**fIt, secondNode);
+                        if (x) {
+                            resNode->children().emplace_back(std::move(x));
+                        }
+                    }
+                }
+                else if (secondNode.isInternal()) {
+                    auto sIt = secondNode.children().begin();
+                    auto sEnd = secondNode.children().end();
+                    for( ;sIt != sEnd; ++sIt) {
+                        auto x = (*this)(firstNode, **sIt);
+                        if (x) {
+                            resNode->children().emplace_back(std::move(x));
+                        }
+                    }
+                }
+
+                if (resNode->children().size()) {
+                    return resNode;
+                }
+                else {
+                    return std::unique_ptr<TreeNode>();
+                }
+            }
+        }
+    };
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+	if (m_root && static_cast<Self const &>(other).m_root) {
+		Recurser rec(*this, static_cast<Self const &>(other), *dest);
+		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
+	}
+    return dest;
 }
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::operator-(Parent::Self const & other) const {
-    throw sserialize::UnimplementedFunctionException("HCQRSpatialGrid::operator+");
-    return HCQRPtr();
+    struct Recurser: public HCQRSpatialGridOpHelper {
+        HCQRSpatialGrid const & firstSg;
+        HCQRSpatialGrid const & secondSg;
+        Recurser(HCQRSpatialGrid const & firstSg, HCQRSpatialGrid const & secondSg, HCQRSpatialGrid & dest) :
+        HCQRSpatialGridOpHelper(dest),
+        firstSg(firstSg),
+        secondSg(secondSg)
+        {}
+        std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
+			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
+			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
+			if (firstNode.isFullMatch() && secondNode.isFullMatch()) {
+				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
+				return std::unique_ptr<TreeNode>();
+			}
+            else if (firstNode.isLeaf() && secondNode.isLeaf()) {
+				auto fnLvl = firstSg.level(firstNode);
+				auto snLvl = secondSg.level(secondNode);
+				sserialize::ItemIndex result;
+				if (fnLvl == snLvl) {
+					result = firstSg.items(firstNode) - secondSg.items(secondNode);
+				}
+				else if (fnLvl < snLvl) {
+					result = (firstSg.items(firstNode) / firstSg.sgi().items(firstNode.pixelId())) - secondSg.items(secondNode);
+				}
+				else if (snLvl < fnLvl) {
+					result = firstSg.items(firstNode) - (secondSg.items(secondNode) / secondSg.sgi().items(secondNode.pixelId()));
+				}
+                if (!result.size()) {
+                    return std::unique_ptr<TreeNode>();
+                }
+                dest.m_fetchedItems.emplace_back(result);
+                return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+            }
+            else {
+                std::unique_ptr<TreeNode> resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
+
+                if (firstNode.isInternal() && secondNode.isInternal()) {
+                    auto fIt = firstNode.children().begin();
+                    auto fEnd = firstNode.children().end();
+                    auto sIt = secondNode.children().begin();
+                    auto sEnd = secondNode.children().end();
+                    for(;fIt != fEnd && sIt != sEnd;) {
+                        if ((*fIt)->pixelId() < (*sIt)->pixelId()) {
+                            ++fIt;
+                        }
+                        else if ((*fIt)->pixelId() > (*sIt)->pixelId()) {
+                            ++sIt;
+                        }
+                        else {
+                            auto x = (*this)(**fIt, **sIt);
+                            if (x) {
+                                resNode->children().emplace_back(std::move(x));
+                            }
+                            ++fIt;
+							++sIt;
+                        }
+                    }
+                }
+                else if (firstNode.isInternal()) {
+                    auto fIt = firstNode.children().begin();
+                    auto fEnd = firstNode.children().end();
+                    for( ;fIt != fEnd; ++fIt) {
+                        auto x = (*this)(**fIt, secondNode);
+                        if (x) {
+                            resNode->children().emplace_back(std::move(x));
+                        }
+                    }
+                }
+                else if (secondNode.isInternal()) {
+                    auto sIt = secondNode.children().begin();
+                    auto sEnd = secondNode.children().end();
+                    for( ;sIt != sEnd; ++sIt) {
+                        auto x = (*this)(firstNode, **sIt);
+                        if (x) {
+                            resNode->children().emplace_back(std::move(x));
+                        }
+                    }
+                }
+
+                if (resNode->children().size()) {
+                    return resNode;
+                }
+                else {
+                    return std::unique_ptr<TreeNode>();
+                }
+            }
+        }
+    };
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+	if (m_root && static_cast<Self const &>(other).m_root) {
+		Recurser rec(*this, static_cast<Self const &>(other), *dest);
+		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
+	}
+    return dest;
 }
 
 HCQRSpatialGrid::HCQRPtr
@@ -565,6 +757,11 @@ HCQRSpatialGrid::items(TreeNode const & node) const {
 	else {
 		return idxStore().at(node.itemIndexId());
 	}
+}
+
+HCQRSpatialGrid::PixelLevel
+HCQRSpatialGrid::level(TreeNode const & node) const {
+	return sg().level(node.pixelId());
 }
 
 } //end namespace hic::impl
