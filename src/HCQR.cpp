@@ -270,10 +270,16 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
         std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
 			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
 			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
-            if (firstNode.isFullMatch()) {
-                return deepCopy(secondSg, secondNode);
+			if (firstNode.isFullMatch() && secondNode.isFullMatch()) {
+				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
+				return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FULL_MATCH);
+			}
+            else if (firstNode.isFullMatch() && secondNode.isInternal()) {
+				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
+				return deepCopy(secondSg, secondNode);
             }
-            else if (secondNode.isFullMatch()) {
+            else if (secondNode.isFullMatch() && firstNode.isInternal()) {
+				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
                 return deepCopy(firstSg, firstNode);
             }
             else if (firstNode.isLeaf() && secondNode.isLeaf()) {
