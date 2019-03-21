@@ -1,6 +1,7 @@
 #include "GeoHierarchyHCQRCompleter.h"
 
 #include "HcqrOpTree.h"
+#include "HCQRIndexCompactifying.h"
 
 namespace hic::detail::GeoHierarchyHCQRCompleter {
 
@@ -84,7 +85,9 @@ GeoHierarchyHCQRCompleter::GeoHierarchyHCQRCompleter(liboscar::Static::OsmComple
 	HCQRIndexImp::CellIndexPtr ci( new hic::detail::GeoHierarchyHCQRCompleter::CellIndex(d) );
 
 	sserialize::RCPtrWrapper<HCQRIndexImp> uncachedIndex( new HCQRIndexImp(sg, sgi, ci) );
-	m_d.reset( new HCQRIndexWithCache(uncachedIndex) );
+	
+	sserialize::RCPtrWrapper<HCQRIndexCompactifying> compactifyingIndex( new HCQRIndexCompactifying(uncachedIndex) );
+	m_d.reset( new HCQRIndexWithCache(compactifyingIndex) );
 }
 
 GeoHierarchyHCQRCompleter::~GeoHierarchyHCQRCompleter() {}
