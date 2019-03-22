@@ -350,6 +350,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
 	}
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(items() / other.items(), dest->items());
     return dest;
 }
 
@@ -455,6 +456,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
 	}
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(items() + other.items(), dest->items());
     return dest;
 }
 
@@ -554,6 +556,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
 	}
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(items() - other.items(), dest->items());
     return dest;
 }
 
