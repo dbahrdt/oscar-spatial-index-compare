@@ -39,25 +39,29 @@ public:
 		std::vector< std::unique_ptr<TreeNode> > children; 
 	};
 	using CellIterator = sserialize::AbstractArrayIterator<PixelId>;
-public:
+public: //global stuff
 	virtual std::string name() const = 0;
 	virtual Level maxLevel() const = 0;
 	virtual Level defaultLevel() const = 0;
 	virtual PixelId rootPixelId() const = 0;
+public:
 	virtual Level level(PixelId pixelId) const = 0;
 	virtual bool isAncestor(PixelId ancestor, PixelId decendant) const = 0;
-public:
+public: //look-up
 	virtual PixelId index(double lat, double lon, Level level) const = 0;
 	virtual PixelId index(double lat, double lon) const = 0;
+public: //tree navigation
 	virtual PixelId index(PixelId parent, uint32_t childNumber) const = 0;
 	virtual PixelId parent(PixelId child) const = 0;
-public:
+	virtual uint32_t childPosition(PixelId parent, PixelId child) const;
 	virtual Size childrenCount(PixelId pixel) const = 0;
-	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const = 0;
 public:
+	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const = 0;
+public: //info
 	///in square kilometers
 	virtual double area(PixelId pixel) const = 0;
 	virtual sserialize::spatial::GeoRect bbox(PixelId pixel) const = 0;
+	virtual std::string to_string(PixelId pixel) const;
 protected:
 	SpatialGrid() {}
 	virtual ~SpatialGrid() {}

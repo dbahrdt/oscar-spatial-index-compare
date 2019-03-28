@@ -1,140 +1,413 @@
-#include "HCQR.h"
-#include <sserialize/utility/exceptions.h>
-#include <memory>
+#include "StaticHCQRSpatialGrid.h"
+#include <sserialize/storage/pack_unpack_functions.h>
 
-namespace hic::interface {
+
+namespace hic::Static::detail::HCQRSpatialGrid {
+
+//BEGIN TreeNode
 	
 
-HCQR::HCQR() {}
-HCQR::~HCQR() {}
-	
-}//end namespace hic::interface
-
-namespace hic::impl::detail::HCQRSpatialGrid {
-
-TreeNode::TreeNode(PixelId pixelId, int flags, uint32_t itemIndexId) :
-m_pid(pixelId),
+TreeNode::TreeNode(PixelId pid, int flags, uint32_t itemIndexId, uint32_t nextNodeOffset, uint8_t padding) :
+m_pid(pid),
+m_itemIndexId(itemIndexId),
+m_nextNodeOffset(nextNodeOffset),
 m_f(flags),
-m_itemIndexId(itemIndexId)
+m_padding(padding)
 {}
 
-std::unique_ptr<TreeNode>
-TreeNode::make_unique(PixelId pixelId, int flags, uint32_t itemIndexId) {
-	SSERIALIZE_CHEAP_ASSERT(flags == IS_INTERNAL || itemIndexId != std::numeric_limits<uint32_t>::max() || flags == IS_FULL_MATCH);
-	return std::unique_ptr<TreeNode>( new TreeNode(pixelId, flags, itemIndexId) );
+TreeNode::TreeNode(sserialize::UByteArrayAdapter const & data, PixelId parent, SpatialGrid const & sg) :
+m_pid(std::numeric_limits<PixelId>::max()),
+m_itemIndexId(std::numeric_limits<uint32_t>::max()),
+m_nextNodeOffset(0),
+m_f(0),
+m_padding(0)
+{
+	sserialize::UByteArrayAdapter::OffsetType p = 0;
+	int len;
+	
+	m_f = data.getUint8(p);
+	p += 1;
+	
+	m_nextNodeOffset = data.getUint32(p);
+	p += sserialize::SerializationInfo<uint32_t>::length;
+	
+	if (m_f & IS_ROOT_NODE) {
+		m_pid = sg.rootPixelId();
+	}
+	else {
+		m_pid = sg.index(parent, data.getVlPackedUint32(0, &len));
+		SSERIALIZE_CHEAP_ASSERT(len > 0);
+		p += len;
+	}
+	
+	if (m_f & (HAS_INDEX)) {
+		m_itemIndexId = data.getVlPackedUint32(p, &len);
+		SSERIALIZE_CHEAP_ASSERT(len > 0);
+		p += len;
+	}
+	
+	if (m_f & HAS_PADDING) {
+		m_padding = data.getUint8(p);
+		p += 1+m_padding;
+	}
 }
 
-std::unique_ptr<TreeNode>
-TreeNode::shallowCopy() const {
-    SSERIALIZE_CHEAP_ASSERT(!isFetched());
-    return TreeNode::make_unique(pixelId(), m_f, m_itemIndexId);
+TreeNode::~TreeNode() {}
+
+sserialize::UByteArrayAdapter::OffsetType
+TreeNode::minSizeInBytes(SpatialGrid const & sg) const {
+	auto parent = sg.parent(m_pid);
+	auto childPos = sg.childPosition(parent, pixelId());
+	sserialize::UByteArrayAdapter::OffsetType ds = 0;
+	ds += sserialize::SerializationInfo<uint8_t>::length;
+	ds += sserialize::SerializationInfo<uint32_t>::length;
+	if (!(flags() & IS_ROOT_NODE)) {
+		ds += sserialize::psize_v<uint32_t>(childPos);
+	}
+	if (flags() & HAS_INDEX) {
+		ds += sserialize::psize_v<uint32_t>(itemIndexId());
+	}
+	//don't include padding
+	return ds;
 }
 
-std::unique_ptr<TreeNode>
-TreeNode::shallowCopy(uint32_t fetchedItemIndexId) const {
-    SSERIALIZE_CHEAP_ASSERT(isFetched());
-    return TreeNode::make_unique(pixelId(), m_f, fetchedItemIndexId);
+sserialize::UByteArrayAdapter::OffsetType
+TreeNode::getSizeInBytes(SpatialGrid const & sg) const {
+	auto ds = minSizeInBytes(sg);
+	if (flags() & HAS_PADDING) {
+		ds += sserialize::SerializationInfo<uint8_t>::length+m_padding;
+	}
+	return ds;
 }
 
-std::unique_ptr<TreeNode>
-TreeNode::shallowCopy(Children && newChildren) const {
-    SSERIALIZE_CHEAP_ASSERT(isInternal())
-    auto result = TreeNode::make_unique(pixelId(), m_f);
-    result->children() = std::move(newChildren);
-    return result;
+TreeNode::PixelId
+TreeNode::pixelId() const {
+	return m_pid;
+}
+
+bool
+TreeNode::isInternal() const {
+	return m_f & IS_INTERNAL;
+}
+
+bool
+TreeNode::isLeaf() const {
+	return m_f & (IS_PARTIAL_MATCH | IS_FULL_MATCH | IS_PARTIAL_MATCH);
+}
+
+bool
+TreeNode::isFullMatch() const {
+	return m_f & IS_FULL_MATCH;
+}
+
+bool
+TreeNode::isFetched() const {
+	return m_f & IS_FETCHED;
 }
 
 
-bool TreeNode::valid() const {
-	return (flags() == IS_INTERNAL && children().size()) || (flags() == IS_FULL_MATCH && itemIndexId() == npos) || (flags() == IS_FETCHED && itemIndexId() != npos) || (flags() == IS_PARTIAL_MATCH && itemIndexId() != npos);
+bool
+TreeNode::hasSibling() const {
+	return !(flags() & NEXT_NODE_IS_PARENT);
 }
 
-}//end namespace hic::impl::detail::HCQRSpatialGrid
+bool
+TreeNode::hasParent() const {
+	return !hasSibling();
+}
 
-namespace hic::impl {
+uint32_t
+TreeNode::itemIndexId() const {
+	return m_itemIndexId;
+}
 
+int
+TreeNode::flags() const{
+	return m_f;
+}
+
+uint32_t
+TreeNode::nextNodeOffset() const {
+	return m_nextNodeOffset;
+}
+
+void
+TreeNode::update(sserialize::UByteArrayAdapter dest, TreeNode const & node, uint32_t targetSize, SpatialGrid const & sg) {
+	auto minDataSize = node.minSizeInBytes(sg);
+	
+	if (minDataSize > targetSize) {
+		throw sserialize::TypeOverflowException("Not enough space");
+	}
+	SSERIALIZE_CHEAP_ASSERT_SMALLER_OR_EQUAL(targetSize, TreeNode::MaximumDataSize);
+	
+	dest.resetPutPtr();
+	
+	int flags = node.flags() & (~HAS_PADDING);
+	
+	if (minDataSize < targetSize) {
+		flags |= HAS_PADDING;
+	}
+	dest.putUint8(flags);
+	dest.putUint32(node.nextNodeOffset());
+	dest.putVlPackedUint32(sg.childPosition(sg.parent(node.pixelId()), node.pixelId()));
+	
+	if (flags & HAS_INDEX) {
+		dest.putVlPackedUint32(node.itemIndexId());
+	}
+
+	if (flags & HAS_PADDING) {
+		dest.putUint8(targetSize - minDataSize - 1);
+	}
+}
+
+void
+TreeNode::setPixelId(PixelId v) {
+	m_pid = v;
+}
+
+void
+TreeNode::setFlags(int v) {
+	m_f = v;
+}
+
+void
+TreeNode::setItemIndexId(uint32_t v) {
+	m_itemIndexId = v;
+}
+
+void
+TreeNode::setNextNodeOffset(uint32_t v) {
+	m_nextNodeOffset = v;
+}
+//END TreeNode
+
+//BEGIN Tree::MetaData
+
+Tree::MetaData::MetaData(sserialize::UByteArrayAdapter const & d) {}
+
+Tree::MetaData::MetaData::~MetaData() {}
+
+sserialize::UByteArrayAdapter::OffsetType
+Tree::MetaData::dataSize() const {
+	return m_d.getUint32( sserialize::UByteArrayAdapter::OffsetType(Positions::DATA_SIZE) );
+}
+
+sserialize::UByteArrayAdapter
+Tree::MetaData::treeData() const {
+	sserialize::UByteArrayAdapter tmp(m_d);
+	tmp.growStorage(dataSize());
+	return tmp;
+}
+
+void
+Tree::MetaData::setDataSize(uint32_t v) {
+	m_d.putUint32(sserialize::UByteArrayAdapter::OffsetType(Positions::DATA_SIZE), v);
+}
+
+//END Tree::MetaData
+
+//BEGIN Tree
+
+
+Tree::Tree(sserialize::UByteArrayAdapter const & data, sserialize::RCPtrWrapper<SpatialGrid> const & sg) :
+m_md(data),
+m_nd(data+ uint32_t(MetaData::StorageSize)),
+m_sg(sg)
+{
+	m_nd.setPutPtr(m_md.dataSize());
+}
+
+Tree::~Tree() {}
+
+Tree
+Tree::create(sserialize::UByteArrayAdapter dest, sserialize::RCPtrWrapper<SpatialGrid> const & sg) {
+	dest.shrinkToPutPtr();
+	dest.putUint32(0);
+	return Tree(dest, sg);
+}
+
+///Create at dest.putPtr()
+Tree
+Tree::create(sserialize::UByteArrayAdapter dest, hic::impl::HCQRSpatialGrid const & src) {
+	Tree tree( create(dest, src.sgPtr()) );
+	
+	struct Recurser {
+		using Source = hic::impl::HCQRSpatialGrid;
+		Source const & src;
+		Tree & tree;
+		
+		Node convert(Source::TreeNode const & node) const {
+			return Node(node.pixelId(), node.flags(), (node.flags() & Node::HAS_INDEX ? node.itemIndexId() : 0));
+		}
+		
+		void updateNextNode(NodePosition const & target, NodePosition const & np) {
+			auto targetNode = tree.get(target);
+			targetNode.setNextNodeOffset(np.dataOffset());
+			tree.update(target, targetNode);
+		}
+		
+		void operator()(Source::TreeNode const & root) {
+			SSERIALIZE_CHEAP_ASSERT_EQUAL(src.sg().rootPixelId(), root.pixelId());
+			Node rootNode(convert(root));
+			rootNode.setFlags(rootNode.flags() | Node::IS_ROOT_NODE);
+			NodePosition np = tree.push(rootNode);
+			
+			if (root.isLeaf()) {
+				return;
+			}
+			NodePosition last = processChildren(root);
+			updateNextNode(last, np);
+		}
+		
+		NodePosition processChildren(Source::TreeNode const & node) {
+			SSERIALIZE_CHEAP_ASSERT(node.isInternal());
+			
+			NodePosition prev = rec(*node.children().at(0));
+			for(uint32_t i(1), s(node.children().size()); i < s; ++i) {
+				NodePosition newPrev = rec(*node.children().at(i));
+				
+				prev = newPrev;
+			}
+			return prev;
+		}
+		
+		NodePosition rec(Source::TreeNode const & node) {
+			NodePosition np = tree.push(convert(node));
+			if (node.isLeaf()) {
+				return np;
+			}
+			NodePosition last = processChildren(node);
+			updateNextNode(last, np);
+			return np;
+		}
+	};
+}
+
+sserialize::UByteArrayAdapter::OffsetType
+Tree::getSizeInBytes() const {
+	return m_md.dataSize()+MetaData::StorageSize;
+}
+
+sserialize::UByteArrayAdapter
+Tree::data() const {
+	return m_md.treeData();
+}
+
+bool
+Tree::hasNodes() const {
+	return m_md.dataSize();
+}
+
+sserialize::UByteArrayAdapter &
+Tree::nodeData() {
+	return m_nd;
+}
+
+sserialize::UByteArrayAdapter const &
+Tree::nodeData() const {
+	return m_nd;
+}
+
+Tree::NodePosition
+Tree::rootNodePosition() const {
+	return NodePosition(0, 0);
+}
+
+Tree::NodePosition
+Tree::parent(Node const & node, NodePosition const & np) const {
+	if (np.isRootNode()) {
+		throw sserialize::OutOfBoundsException("Node does not have a parent");
+	}
+	if (node.hasParent()) {
+		return NodePosition(m_sg->parent(np.parent()), node.nextNodeOffset());
+	}
+	else {
+		NodePosition tnp( np.parent(), node.nextNodeOffset());
+		Node tn = get(tnp);
+		while(!tn.hasParent()) {
+			tnp = NodePosition( tnp.parent(), tn.nextNodeOffset());
+			tn = get(tnp);
+		}
+		SSERIALIZE_CHEAP_ASSERT(tn.hasParent());
+		return NodePosition( m_sg->parent(np.parent()), tn.nextNodeOffset() );
+	}
+}
+
+Tree::ChildrenIterator
+Tree::children(NodePosition const & np) const {
+	return ChildrenIterator(*this, np);
+}
+
+Tree::Node
+Tree::get(NodePosition const & np) const {
+	return Node( sserialize::UByteArrayAdapter(nodeData(), np.dataOffset()), np.parent(), *m_sg);
+}
+
+Tree::NodePosition
+Tree::push(Node const & node) {
+	auto nds = node.minSizeInBytes(*m_sg);
+	auto ndp = nodeData().tellPutPtr();
+	node.update(data().fromPutPtr(), node, nds, *m_sg);
+	data().growStorage(nds);
+	data().incPutPtr(nds);
+	m_md.setDataSize(data().tellPutPtr());
+	return NodePosition(m_sg->parent(node.pixelId()), ndp);
+}
+
+void Tree::pop(NodePosition pos) {
+	data().setPutPtr(pos.dataOffset());
+	m_md.setDataSize(data().tellPutPtr());
+}
+
+void
+Tree::update(NodePosition pos, Node const & node) {
+	auto nd = sserialize::UByteArrayAdapter(data(), pos.dataOffset());
+	TreeNode oldNode(nd, pos.parent(), *m_sg);
+	node.update(nd, node, oldNode.getSizeInBytes(*m_sg), *m_sg);
+}
+
+//END Tree
+
+
+}//end namespace hic::Static::detail::HCQRSpatialGrid
+
+namespace hic::Static::impl {
+	
+	
 HCQRSpatialGrid::HCQRSpatialGrid(
+	sserialize::UByteArrayAdapter const & data,
 	sserialize::Static::ItemIndexStore idxStore,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
+m_tree(data, sg),
 m_items(idxStore),
 m_sg(sg),
 m_sgi(sgi)
 {}
-
-HCQRSpatialGrid::HCQRSpatialGrid(
-	sserialize::CellQueryResult const & cqr,
-    sserialize::Static::ItemIndexStore idxStore,
-    sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
-    sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
-) :
-HCQRSpatialGrid(idxStore, sg, sgi)
-{
-    std::unordered_map<PixelId, std::unique_ptr<TreeNode>> clevel;
-    clevel.reserve(cqr.cellCount());
-    for(auto it(cqr.begin()), end(cqr.end()); it != end; ++it) {
-		if (it.fullMatch()) {
-			PixelId pId = this->sgi().pixelId( CompressedPixelId(it.cellId()) );
-			clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_FULL_MATCH);
-		}
-		else if (it.fetched()) {
-			PixelId pId = this->sgi().pixelId( CompressedPixelId(it.cellId()) );
-			m_fetchedItems.push_back( it.idx() );
-			clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_FETCHED, m_fetchedItems.size());
-		}
-		else {
-			PixelId pId = this->sgi().pixelId( CompressedPixelId(it.cellId()) );
-			clevel[pId] = TreeNode::make_unique(pId, TreeNode::IS_PARTIAL_MATCH, it.idxId());
-		}
-    }
-    while (clevel.size() > 1 || (clevel.size() && this->sg().level( clevel.begin()->second->pixelId() ) > 0)) {
-        std::unordered_map<PixelId, std::unique_ptr<TreeNode>> plevel;
-        for(auto & x : clevel) {
-            PixelId pPId = this->sg().parent( x.second->pixelId() );
-            auto & parent = plevel[pPId];
-            if (!parent) {
-                parent = TreeNode::make_unique(pPId, TreeNode::IS_INTERNAL);
-            }
-            parent->children().emplace_back( std::move(x.second) );
-        }
-        clevel = std::move(plevel);
-        ///children have to be sorted according to their PixelId
-        for(auto & x : clevel) {
-            using std::sort;
-            sort(x.second->children().begin(), x.second->children().end(),
-                [](std::unique_ptr<TreeNode> const & a, std::unique_ptr<TreeNode> const & b) -> bool {
-                    return a->pixelId() < b->pixelId();
-                }
-            );
-        }
-    }
-    if (clevel.size()) {
-		m_root = std::move(clevel.begin()->second);
-	}
-}
 
 HCQRSpatialGrid::~HCQRSpatialGrid() {}
 
 HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::depth() const {
     struct Recurser {
-        SizeType operator()(TreeNode & node) const {
-			SSERIALIZE_NORMAL_ASSERT(node.valid());
-            if (node.children().size()) {
-                SizeType tmp = 0;
-                for(auto const & x : node.children()) {
-                    tmp = std::max(tmp, (*this)(*x));
-                }
-                return tmp+1;
-            }
-            else {
-                return 0;
-            }
+		HCQRSpatialGrid const & that;
+		Tree const & tree;
+		Recurser(HCQRSpatialGrid const & that) : that(that), tree(that.tree()) {}
+        SizeType operator()(TreeNodePosition const & np) const {
+			auto node = tree.get(np);
+			if (node.isLeaf()) {
+				return 0;
+			}
+			SizeType maxDepth = 0;
+			for(Tree::ChildrenIterator cit(that.tree().children(np)); cit.valid(); cit.next()) {
+				maxDepth = std::max(maxDepth, (*this)(cit.position()));
+			}
+			return maxDepth+1;
         }
     };
-	if (m_root) {
-		return Recurser()(*m_root);
+	if (m_tree.hasNodes()) {
+		return Recurser(*this)(rootNodePosition());
 	}
 	else {
 		return 0;
@@ -145,12 +418,13 @@ HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::numberOfItems() const {
     struct Recurser {
         HCQRSpatialGrid const & that;
+		Tree const & tree;
         SizeType numberOfItems{0};
-        void operator()(TreeNode const & node) {
-			SSERIALIZE_NORMAL_ASSERT(node.valid());
+        void operator()(TreeNodePosition const & np) {
+			TreeNode node = tree.get(np);
             if (node.isInternal()) {
-                for(auto const & x : node.children()) {
-                    (*this)(*x);
+                for(auto cit(tree.children(np)); cit.valid(); cit.next()) {
+                    (*this)(cit.position());
                 }
             }
             else if (node.isFullMatch()) {
@@ -163,11 +437,11 @@ HCQRSpatialGrid::numberOfItems() const {
                 numberOfItems += that.idxStore().idxSize(node.itemIndexId());
             }
         }
-        Recurser(HCQRSpatialGrid const & that) : that(that) {}
+        Recurser(HCQRSpatialGrid const & that) : that(that), tree(that.tree()) {}
     };
-	if (m_root) {
+	if (m_tree.hasNodes()) {
 		Recurser r(*this);
-		r(*m_root);
+		r(rootNodePosition());
 		return r.numberOfItems;
 	}
 	else {
@@ -179,21 +453,19 @@ HCQRSpatialGrid::SizeType
 HCQRSpatialGrid::numberOfNodes() const {
     struct Recurser {
         HCQRSpatialGrid const & that;
+		Tree const & tree;
         SizeType numberOfNodes{0};
-        void operator()(TreeNode const & node) {
-			SSERIALIZE_NORMAL_ASSERT(node.valid());
+        void operator()(TreeNodePosition const & np) {
 			numberOfNodes += 1;
-            if (node.isInternal()) {
-                for(auto const & x : node.children()) {
-                    (*this)(*x);
-                }
-            }
+			for(auto cit(tree.children(np)); cit.valid(); cit.next()) {
+				(*this)(cit.position());
+			}
         }
-        Recurser(HCQRSpatialGrid const & that) : that(that) {}
+        Recurser(HCQRSpatialGrid const & that) : that(that), tree(that.tree()) {}
     };
-	if (m_root) {
+	if (tree().hasNodes()) {
 		Recurser r(*this);
-		r(*m_root);
+		r(rootNodePosition());
 		return r.numberOfNodes;
 	}
 	else {
@@ -203,17 +475,17 @@ HCQRSpatialGrid::numberOfNodes() const {
 
 HCQRSpatialGrid::ItemIndex
 HCQRSpatialGrid::items() const {
-	if (m_root) {
-		return items(*m_root);;
+	if (tree().hasNodes()) {
+		return items(rootNodePosition());
 	}
 	else {
 		return ItemIndex();
 	}
 }
 
-struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
+struct HCQRSpatialGrid::OpHelper {
     HCQRSpatialGrid & dest;
-    HCQRSpatialGridOpHelper(HCQRSpatialGrid & dest) : dest(dest) {}
+    OpHelper(HCQRSpatialGrid & dest) : dest(dest) {}
     std::unique_ptr<HCQRSpatialGrid::TreeNode> deepCopy(HCQRSpatialGrid const & src, HCQRSpatialGrid::TreeNode const & node) {
 		SSERIALIZE_NORMAL_ASSERT(node.valid());
 		if (node.isInternal()) {
@@ -741,18 +1013,24 @@ HCQRSpatialGrid::allToFull() const {
     return dest;
 }
 
-std::unique_ptr<HCQRSpatialGrid::TreeNode> const &
+HCQRSpatialGrid::TreeNode
 HCQRSpatialGrid::root() const {
-	return m_root;
+	return tree().get( tree().rootNodePosition() );
+}
+
+HCQRSpatialGrid::TreeNodePosition
+HCQRSpatialGrid::rootNodePosition() const {
+	return tree().rootNodePosition();
 }
 
 sserialize::ItemIndex
-HCQRSpatialGrid::items(TreeNode const & node) const {
+HCQRSpatialGrid::items(TreeNodePosition const & np) const {
 	SSERIALIZE_NORMAL_ASSERT(node.valid());
+	auto node = tree().get(np);
 	if (node.isInternal()) {
 		std::vector<ItemIndex> tmp;
-		for(auto const & x : node.children()) {
-			tmp.emplace_back(items(*x));
+		for(auto cit(tree().children(np); cit.valid(); cit.next()) {
+			tmp.emplace_back(items(cit.position()));
 		}
 		return ItemIndex::unite(tmp);
 	}
@@ -772,4 +1050,4 @@ HCQRSpatialGrid::level(TreeNode const & node) const {
 	return sg().level(node.pixelId());
 }
 
-} //end namespace hic::impl
+}//end namespace hic::Static::impl

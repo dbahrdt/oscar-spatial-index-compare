@@ -115,6 +115,7 @@ public:
     using Parent = interface::HCQR;
     using Self = HCQRSpatialGrid;
 	using PixelLevel = hic::interface::SpatialGrid::Level;
+	using TreeNode = detail::HCQRSpatialGrid::TreeNode;
 public:
     HCQRSpatialGrid(
         sserialize::Static::ItemIndexStore idxStore,
@@ -141,17 +142,20 @@ public:
     HCQRPtr compactified(SizeType maxPMLevel = 0) const override;
     HCQRPtr expanded(SizeType level) const override;
     HCQRPtr allToFull() const override;
-private:
-	using TreeNode = detail::HCQRSpatialGrid::TreeNode;
-    struct HCQRSpatialGridOpHelper;
-private:
+public:
+	std::unique_ptr<TreeNode> const & root() const;
+public:
     sserialize::ItemIndex items(TreeNode const & node) const;
 	PixelLevel level(TreeNode const & node) const;
-private:
+public:
     sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
     auto const & fetchedItems() const { return m_fetchedItems; }
     auto const & sg() const { return *m_sg; }
     auto const & sgi() const { return *m_sgi; } 
+    auto const & sgPtr() const { return m_sg; }
+    auto const & sgiPtr() const { return m_sgi; } 
+private:
+    struct HCQRSpatialGridOpHelper;
 private:
     std::unique_ptr<TreeNode> m_root;
     sserialize::Static::ItemIndexStore m_items;

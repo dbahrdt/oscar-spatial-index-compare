@@ -29,8 +29,10 @@ public:
 public:
 	PixelId index(double lat, double lon, Level level) const override;
 	PixelId index(double lat, double lon) const override;
+public:
 	PixelId index(PixelId parent, uint32_t childNumber) const override;
 	PixelId parent(PixelId child) const override;
+	uint32_t childNumber(PixelId parent, PixelId child) const override;
 public:
 	Size childrenCount(PixelId pixelId) const override;
 	std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const override;
