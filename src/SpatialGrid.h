@@ -53,7 +53,7 @@ public: //look-up
 public: //tree navigation
 	virtual PixelId index(PixelId parent, uint32_t childNumber) const = 0;
 	virtual PixelId parent(PixelId child) const = 0;
-	virtual uint32_t childPosition(PixelId parent, PixelId child) const;
+	virtual Size childPosition(PixelId parent, PixelId child) const;
 	virtual Size childrenCount(PixelId pixel) const = 0;
 public:
 	virtual std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const = 0;

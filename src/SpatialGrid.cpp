@@ -3,7 +3,7 @@
 namespace hic::interface {
 	
 
-uint32_t
+SpatialGrid::Size
 SpatialGrid::childPosition(PixelId parent, PixelId child) const {
 	uint32_t result = std::numeric_limits<uint32_t>::max();
 	for(uint32_t i(0), s(childrenCount(parent)); i < s; ++i) {

@@ -19,7 +19,7 @@ set(LIB_SOURCES_CPP
 	src/OscarSgIndex.cpp
 	src/OscarSearchSgIndex.cpp
 	src/static-htm-index.cpp
-	src/SpatialGrid.h
+	src/SpatialGrid.cpp
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
 	src/SimpleGridSpatialGrid.cpp
@@ -38,6 +38,7 @@ set(LIB_SOURCES_H
 	src/OscarSgIndex.h
 	src/OscarSearchSgIndex.h
 	src/static-htm-index.h
+	src/SpatialGrid.h
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h
 	src/SimpleGridSpatialGrid.h

@@ -32,7 +32,6 @@ public:
 public:
 	PixelId index(PixelId parent, uint32_t childNumber) const override;
 	PixelId parent(PixelId child) const override;
-	uint32_t childNumber(PixelId parent, PixelId child) const override;
 public:
 	Size childrenCount(PixelId pixelId) const override;
 	std::unique_ptr<TreeNode> tree(CellIterator begin, CellIterator end) const override;

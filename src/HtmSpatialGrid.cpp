@@ -104,6 +104,16 @@ HtmSpatialGrid::parent(PixelId child) const {
 }
 
 HtmSpatialGrid::Size
+HtmSpatialGrid::childPosition(PixelId parent, PixelId child) const {
+	if (parent == RootPixelId) {
+		return child & 0x7;
+	}
+	else {
+		return child & 0x3;
+	}
+}
+
+HtmSpatialGrid::Size
 HtmSpatialGrid::childrenCount(PixelId pixel) const {
 	return pixel == RootPixelId ? 8 :  4;
 }
