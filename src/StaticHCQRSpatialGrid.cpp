@@ -630,7 +630,7 @@ HCQRSpatialGrid::depth() const {
 		HCQRSpatialGrid const & that;
 		Tree const & tree;
 		Recurser(HCQRSpatialGrid const & that) : that(that), tree(that.tree()) {}
-        SizeType operator()(NodePosition const & np) const {
+        SizeType operator()(Tree::NodePosition const & np) const {
 			auto node = tree.node(np);
 			if (node.isLeaf()) {
 				return 0;
@@ -656,8 +656,8 @@ HCQRSpatialGrid::numberOfItems() const {
         HCQRSpatialGrid const & that;
 		Tree const & tree;
         SizeType numberOfItems{0};
-        void operator()(NodePosition const & np) {
-			TreeNode node = tree.node(np);
+        void operator()(Tree::NodePosition const & np) {
+			Tree::Node node = tree.node(np);
             if (node.isInternal()) {
                 for(auto cit(tree.children(np)); cit.valid(); cit.next()) {
                     (*this)(cit.position());
@@ -691,7 +691,7 @@ HCQRSpatialGrid::numberOfNodes() const {
         HCQRSpatialGrid const & that;
 		Tree const & tree;
         SizeType numberOfNodes{0};
-        void operator()(NodePosition const & np) {
+        void operator()(Tree::NodePosition const & np) {
 			numberOfNodes += 1;
 			for(auto cit(tree.children(np)); cit.valid(); cit.next()) {
 				(*this)(cit.position());
@@ -723,8 +723,8 @@ struct HCQRSpatialGrid::OpHelper {
     HCQRSpatialGrid & dest;
     OpHelper(HCQRSpatialGrid & dest) : dest(dest) {}
     
-    NodePosition endOfSubTree(HCQRSpatialGrid const & src, NodePosition const & np) {
-		TreeNode node = src.tree().node(np);
+    Tree::NodePosition endOfSubTree(HCQRSpatialGrid const & src, Tree::NodePosition const & np) {
+		Tree::Node node = src.tree().node(np);
 		if (node.hasSibling()) {
 			return src.tree().nextNode(np);
 		}
@@ -757,16 +757,16 @@ struct HCQRSpatialGrid::OpHelper {
       * this would speed-up the try-fail-copy path since we would not need to check anything if the subtree does not cona
       *
       */
-	NodePosition deepCopy(HCQRSpatialGrid const & src, NodePosition const & np) {
-		Node node = src.tree().node(np);
+	Tree::NodePosition deepCopy(HCQRSpatialGrid const & src, Tree::NodePosition const & np) {
+		Tree::Node node = src.tree().node(np);
 		SSERIALIZE_CHEAP_ASSERT(np.valid());
 		if (node.isInternal()) {
-			NodePosition rnp = dest.tree().push(node);
+			Tree::NodePosition rnp = dest.tree().push(node);
 			
 			Tree::ChildrenIterator cit = src.tree().children(np);
-			NodePosition rprev = deepCopy(src, cit.position());
+			Tree::NodePosition rprev = deepCopy(src, cit.position());
 			for(cit.next(); cit.valid(); cit.next()) {
-				NodePosition rnewPrev = deepCopy(src, cit.position());
+				Tree::NodePosition rnewPrev = deepCopy(src, cit.position());
 				dest.tree().updateNextNode(rprev, rnewPrev);
 				rprev = rnewPrev;
 			}
@@ -784,7 +784,7 @@ struct HCQRSpatialGrid::OpHelper {
 		}
 	}
 
-    PixelId resultPixelId(HCQRSpatialGrid::TreeNode const & first, HCQRSpatialGrid::TreeNode const & second) const {
+    PixelId resultPixelId(HCQRSpatialGrid::Tree::Node const & first, HCQRSpatialGrid::Tree::Node const & second) const {
 		SSERIALIZE_NORMAL_ASSERT(first.valid());
 		SSERIALIZE_NORMAL_ASSERT(second.valid());
         if (first.pixelId() == second.pixelId()) {
@@ -816,14 +816,14 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
         firstSg(firstSg),
         secondSg(secondSg)
         {}
-        NodePosition operator()(NodePosition const & fnp, NodePosition const & snp) {
+        Tree::NodePosition operator()(Tree::NodePosition const & fnp, Tree::NodePosition const & snp) {
 			SSERIALIZE_NORMAL_ASSERT(fnp.valid());
 			SSERIALIZE_NORMAL_ASSERT(snp.valid());
-			TreeNode firstNode = firstSg.tree().node(fnp);
-			TreeNode secondNode = secondSg.tree().node(snp);
+			Tree::Node firstNode = firstSg.tree().node(fnp);
+			Tree::Node secondNode = secondSg.tree().node(snp);
 			if (firstNode.isFullMatch() && secondNode.isFullMatch()) {
 				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
-				return dest.tree().push(resultPixelId(firstNode, secondNode), TreeNode::IS_FULL_MATCH);
+				return dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_FULL_MATCH);
 			}
             else if (firstNode.isFullMatch() && secondNode.isInternal()) {
 				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
@@ -836,13 +836,13 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
             else if (firstNode.isLeaf() && secondNode.isLeaf()) {
                 auto result = firstSg.items(fnp) / secondSg.items(snp);
                 if (!result.size()) {
-                    return NodePosition();
+                    return Tree::NodePosition();
                 }
                 dest.m_fetchedItems.emplace_back(result);
-                return dest.tree().push(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+                return dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_FETCHED, dest.m_fetchedItems.size()-1);
             }
             else {
-                NodePosition rnp = dest.tree().push(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
+                Tree::NodePosition rnp = dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_INTERNAL);
 				uint32_t numberOfChildren = 0;
 				
                 if (firstNode.isInternal() && secondNode.isInternal()) {
@@ -856,7 +856,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                             sIt.next();
                         }
                         else {
-                            NodePosition x = (*this)(fIt.position(), sIt.position());
+                            Tree::NodePosition x = (*this)(fIt.position(), sIt.position());
                             if (x.valid()) {
                                 numberOfChildren += 1;
                             }
@@ -868,7 +868,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                 else if (firstNode.isInternal()) {
                     auto fIt = firstSg.tree().children(fnp);
                     for( ;fIt.valid(); fIt.next()) {
-                        NodePosition x = (*this)(fIt.position(), snp);
+                        Tree::NodePosition x = (*this)(fIt.position(), snp);
                         if (x.valid()) {
                             numberOfChildren += 1;
                         }
@@ -889,7 +889,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
                 }
                 else {
 					dest.tree().pop(rnp);
-                    return NodePosition();
+                    return Tree::NodePosition();
                 }
             }
         }
@@ -941,18 +941,18 @@ HCQRSpatialGrid::allToFull() const {
     return HCQRSpatialGrid::HCQRPtr();
 }
 
-HCQRSpatialGrid::TreeNode
+HCQRSpatialGrid::Tree::Node
 HCQRSpatialGrid::root() const {
 	return tree().node( rootNodePosition() );
 }
 
-HCQRSpatialGrid::NodePosition
+HCQRSpatialGrid::Tree::NodePosition
 HCQRSpatialGrid::rootNodePosition() const {
 	return tree().rootNodePosition();
 }
 
 sserialize::ItemIndex
-HCQRSpatialGrid::items(NodePosition const & np) const {
+HCQRSpatialGrid::items(Tree::NodePosition const & np) const {
 	SSERIALIZE_NORMAL_ASSERT(np.valid());
 	auto node = tree().node(np);
 	if (node.isInternal()) {
@@ -974,7 +974,7 @@ HCQRSpatialGrid::items(NodePosition const & np) const {
 }
 
 HCQRSpatialGrid::PixelLevel
-HCQRSpatialGrid::level(TreeNode const & node) const {
+HCQRSpatialGrid::level(Tree::Node const & node) const {
 	return sg().level(node.pixelId());
 }
 

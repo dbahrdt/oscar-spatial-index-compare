@@ -233,13 +233,6 @@ public:
     using Self = HCQRSpatialGrid;
 	using PixelLevel = hic::interface::SpatialGrid::Level;
 	using Tree = hic::Static::detail::HCQRSpatialGrid::Tree;
-	using TreeNode = Tree::Node;
-	using TreeNodePosition = Tree::NodePosition;
-	using TreeNodeInfo = Tree::NodeInfo;
-	
-	using Node = Tree::Node;
-	using NodePosition = Tree::NodePosition;
-	using NodeInfo = Tree::NodeInfo;
 public:
     HCQRSpatialGrid(hic::impl::HCQRSpatialGrid const & other);
     HCQRSpatialGrid(
@@ -276,11 +269,11 @@ public:
     HCQRPtr expanded(SizeType level) const override;
     HCQRPtr allToFull() const override;
 public:
-	TreeNode root() const;
-	TreeNodePosition rootNodePosition() const;
+	Tree::Node root() const;
+	Tree::NodePosition rootNodePosition() const;
 public:
-    sserialize::ItemIndex items(TreeNodePosition const & node) const;
-	PixelLevel level(TreeNode const & node) const;
+    sserialize::ItemIndex items(Tree::NodePosition const & node) const;
+	PixelLevel level(Tree::Node const & node) const;
 public:
     inline sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
     inline auto const & fetchedItems() const { return m_fetchedItems; }
