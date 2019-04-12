@@ -259,6 +259,9 @@ struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::operator/(Parent::Self const & other) const {
+	if (!dynamic_cast<Self const *>(&other)) {
+		throw sserialize::TypeMissMatchException("Incorrect input type");
+	}
     struct Recurser: public HCQRSpatialGridOpHelper {
         HCQRSpatialGrid const & firstSg;
         HCQRSpatialGrid const & secondSg;
@@ -356,6 +359,9 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::operator+(Parent::Self const & other) const {
+	if (!dynamic_cast<Self const *>(&other)) {
+		throw sserialize::TypeMissMatchException("Incorrect input type");
+	}
     struct Recurser: public HCQRSpatialGridOpHelper {
         HCQRSpatialGrid const & firstSg;
         HCQRSpatialGrid const & secondSg;
@@ -462,6 +468,9 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::operator-(Parent::Self const & other) const {
+	if (!dynamic_cast<Self const *>(&other)) {
+		throw sserialize::TypeMissMatchException("Incorrect input type");
+	}
     struct Recurser: public HCQRSpatialGridOpHelper {
         HCQRSpatialGrid const & firstSg;
         HCQRSpatialGrid const & secondSg;
