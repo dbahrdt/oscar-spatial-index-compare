@@ -283,7 +283,7 @@ void printStats(Completers & completers) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <htm files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats" << std::endl;
 }
 
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
@@ -314,6 +314,16 @@ int main(int argc, char const * argv[]) {
             cfg.htmFiles = std::string(argv[i+1]);
             ++i;
         }
+        else if (token == "--hcqr-cache" && i+1 < argc) {
+			cfg.cachedHCQR = std::atoi(argv[i+1]);
+			++i;
+		}
+		else if (token == "--compact-hcqr") {
+			cfg.compactifiedHCQR = true;
+		}
+		else if (token == "--static-hcqr") {
+			cfg.staticHCQR = true;
+		}
 		else if (token == "-m" && i+1 < argc) {
 			state.queue.emplace_back(WorkItem::WI_QUERY_STRING, new WorkDataString(std::string(argv[i+1])));
 			++i;
