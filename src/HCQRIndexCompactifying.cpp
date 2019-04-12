@@ -10,6 +10,11 @@ m_cl(std::numeric_limits<uint32_t>::max())
 
 HCQRIndexCompactifying::~HCQRIndexCompactifying() {}
 
+HCQRIndexCompactifying::HCQRIndexPtr
+HCQRIndexCompactifying::make(HCQRIndexPtr const & base) {
+	return HCQRIndexPtr( new HCQRIndexCompactifying(base) );
+}
+
 void
 HCQRIndexCompactifying::setCompactLevel(uint32_t size) {
 	m_cl = size;

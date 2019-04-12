@@ -7,10 +7,7 @@
 #include "H3SpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
 
-#include "HcqrOpTree.h"
-#include "HCQRIndexWithCache.h"
 #include "HCQRIndexFromCellIndex.h"
-#include "HCQRIndexCompactifying.h"
 
 namespace hic::Static {
 	
@@ -340,7 +337,9 @@ OscarSearchSgCompleter::complete(std::string const & str, bool treedCqr, uint32_
 
 //BEGIN HCQROscarSearchSgCompleter
 
-HCQROscarSearchSgCompleter::HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
+
+sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+makeOscarSearchSgHCQRIndex(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
 	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
 	using SpatialGridInfoImp = hic::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndex;
 
@@ -355,22 +354,7 @@ HCQROscarSearchSgCompleter::HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<
 			ci
 		)
 	);
-	sserialize::RCPtrWrapper<HCQRIndexCompactifying> compactifyingIndex( new HCQRIndexCompactifying(uncachedIndex) );
-	m_d.reset( new HCQRIndexWithCache(compactifyingIndex) );
-}
-
-HCQROscarSearchSgCompleter::~HCQROscarSearchSgCompleter() {}
-
-sserialize::RCPtrWrapper<hic::interface::HCQR>
-HCQROscarSearchSgCompleter::complete(std::string const & str) {
-	hic::HcqrOpTree opTree(m_d);
-	opTree.parse(str);
-	return opTree.calc();
-}
-
-void
-HCQROscarSearchSgCompleter::setCacheSize(uint32_t size) {
-	static_cast<HCQRIndexWithCache&>(*m_d.get()).setCacheSize(size);
+	return uncachedIndex;
 }
 
 //END HCQROscarSearchSgCompleter

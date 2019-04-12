@@ -40,19 +40,8 @@ private:
 
 namespace hic {
 	
-class GeoHierarchyHCQRCompleter {
-public:
-	GeoHierarchyHCQRCompleter(liboscar::Static::OsmCompleter const & d);
-	~GeoHierarchyHCQRCompleter();
-public:
-	sserialize::RCPtrWrapper<hic::interface::HCQR> complete(std::string const & str);
-public:
-	void setCacheSize(uint32_t size);
-private:
-	using HCQRIndex = hic::interface::HCQRIndex;
-	using HCQRIndexPtr = sserialize::RCPtrWrapper<HCQRIndex>;
-private:
-	HCQRIndexPtr m_d;
-};
-	
+
+sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+makeGeoHierarchyHCQRIndex(liboscar::Static::OsmCompleter const & d);
+
 }//end namespace hic

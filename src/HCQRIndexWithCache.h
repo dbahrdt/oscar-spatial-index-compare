@@ -44,8 +44,9 @@ class HCQRIndexWithCache: public hic::interface::HCQRIndex {
 public:
     using HCQRIndexPtr = sserialize::RCPtrWrapper<hic::interface::HCQRIndex>;
 public:
-    HCQRIndexWithCache(HCQRIndexPtr const & base);
+    HCQRIndexWithCache(HCQRIndexPtr const & base, uint32_t cacheSize = 10);
     ~HCQRIndexWithCache() override;
+	static HCQRIndexPtr make(HCQRIndexPtr const & base, uint32_t cacheSize = 10);
 public:
     void setCacheSize(uint32_t size);
 public:

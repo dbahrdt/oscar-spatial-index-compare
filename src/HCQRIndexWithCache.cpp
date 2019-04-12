@@ -2,11 +2,18 @@
 
 namespace hic {
 
-HCQRIndexWithCache::HCQRIndexWithCache(HCQRIndexPtr const & base) :
+HCQRIndexWithCache::HCQRIndexWithCache(HCQRIndexPtr const & base, uint32_t cacheSize) :
 m_base(base)
-{}
+{
+	setCacheSize(cacheSize);
+}
 
 HCQRIndexWithCache::~HCQRIndexWithCache() {}
+
+HCQRIndexWithCache::HCQRIndexPtr
+HCQRIndexWithCache::make(HCQRIndexPtr const & base, uint32_t cacheSize) {
+	return HCQRIndexPtr( new HCQRIndexWithCache(base, cacheSize) );
+}
 
 void
 HCQRIndexWithCache::setCacheSize(uint32_t size) {

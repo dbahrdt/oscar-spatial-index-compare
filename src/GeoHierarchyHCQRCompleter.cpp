@@ -1,8 +1,5 @@
 #include "GeoHierarchyHCQRCompleter.h"
 
-#include "HcqrOpTree.h"
-#include "HCQRIndexCompactifying.h"
-
 namespace hic::detail::GeoHierarchyHCQRCompleter {
 
 SpatialGridInfo::SpatialGridInfo(sserialize::RCPtrWrapper<hic::impl::GeoHierarchySpatialGrid> const & base) :
@@ -73,8 +70,9 @@ CellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::
 } //end namespace hic::detail::GeoHierarchyHCQRCompleter
 
 namespace hic {
-	
-GeoHierarchyHCQRCompleter::GeoHierarchyHCQRCompleter(liboscar::Static::OsmCompleter const & d) {
+
+sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+makeGeoHierarchyHCQRIndex(liboscar::Static::OsmCompleter const & d) {
 	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
 	using MySpatialGrid = hic::impl::GeoHierarchySpatialGrid;
 
@@ -84,24 +82,7 @@ GeoHierarchyHCQRCompleter::GeoHierarchyHCQRCompleter(liboscar::Static::OsmComple
 	HCQRIndexImp::SpatialGridInfoPtr sgi( new hic::detail::GeoHierarchyHCQRCompleter::SpatialGridInfo(sg) );
 	HCQRIndexImp::CellIndexPtr ci( new hic::detail::GeoHierarchyHCQRCompleter::CellIndex(d) );
 
-	sserialize::RCPtrWrapper<HCQRIndexImp> uncachedIndex( new HCQRIndexImp(sg, sgi, ci) );
-	
-	sserialize::RCPtrWrapper<HCQRIndexCompactifying> compactifyingIndex( new HCQRIndexCompactifying(uncachedIndex) );
-	m_d.reset( new HCQRIndexWithCache(compactifyingIndex) );
+	return sserialize::RCPtrWrapper<HCQRIndexImp>( new HCQRIndexImp(sg, sgi, ci) );
 }
 
-GeoHierarchyHCQRCompleter::~GeoHierarchyHCQRCompleter() {}
-
-sserialize::RCPtrWrapper<hic::interface::HCQR>
-GeoHierarchyHCQRCompleter::complete(std::string const & str) {
-	hic::HcqrOpTree opTree(m_d);
-	opTree.parse(str);
-	return opTree.calc();
-}
-
-void
-GeoHierarchyHCQRCompleter::setCacheSize(uint32_t size) {
-	static_cast<HCQRIndexWithCache&>(*m_d.get()).setCacheSize(size);
-}
-	
 }//end namespace hic

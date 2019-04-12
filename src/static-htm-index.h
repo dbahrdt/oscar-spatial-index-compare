@@ -268,20 +268,8 @@ private:
 	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
-class HCQROscarSearchSgCompleter {
-public:
-	HCQROscarSearchSgCompleter(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
-	~HCQROscarSearchSgCompleter();
-public:
-	sserialize::RCPtrWrapper<hic::interface::HCQR> complete(std::string const & str);
-public:
-	void setCacheSize(uint32_t size);
-private:
-	using HCQRIndex = hic::interface::HCQRIndex;
-	using HCQRIndexPtr = sserialize::RCPtrWrapper<HCQRIndex>;
-private:
-	HCQRIndexPtr m_d;
-};
+sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+makeOscarSearchSgHCQRIndex(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
 
 }//end namespace hic::Static
 

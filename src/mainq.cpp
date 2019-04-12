@@ -5,11 +5,14 @@
 #include <sserialize/stats/TimeMeasuerer.h>
 #include <sserialize/stats/statfuncs.h>
 #include "static-htm-index.h"
+#include "HCQRCompleter.h"
 #include "GeoHierarchyHCQRCompleter.h"
 
 struct Config {
     std::string oscarFiles;
     std::string htmFiles;
+	bool compactifiedHCQR{false};
+	uint32_t cachedHCQR{0};
 };
 
 struct WorkData {
@@ -87,8 +90,8 @@ struct HtmState {
 struct Completers {
     std::shared_ptr<liboscar::Static::OsmCompleter> cmp;
 	std::shared_ptr<hic::Static::OscarSearchSgCompleter> sgcmp;
-	std::shared_ptr<hic::Static::HCQROscarSearchSgCompleter> hsgcmp;
-	std::shared_ptr<hic::GeoHierarchyHCQRCompleter> hocmp;
+	std::shared_ptr<hic::HCQRCompleter> hsgcmp;
+	std::shared_ptr<hic::HCQRCompleter> hocmp;
 };
 
 struct QueryStats {
@@ -281,6 +284,15 @@ void help() {
 	std::cerr << "prg -o <oscar files> -f <htm files> -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats" << std::endl;
 }
 
+sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
+	if (cfg.compactifiedHCQR) {
+		index = hic::HCQRIndexWithCache::make(index);
+	}
+	if (cfg.cachedHCQR) {
+		index = hic::HCQRIndexWithCache::make(index, cfg.cachedHCQR);
+	}
+}
+
 int main(int argc, char const * argv[]) {
     Config cfg;
     State state;
@@ -380,7 +392,8 @@ int main(int argc, char const * argv[]) {
 		}
 		if (needsHCQR) {
 			try {
-				completers.hocmp = std::make_shared<hic::GeoHierarchyHCQRCompleter>(*completers.cmp);
+				auto base = hic::makeGeoHierarchyHCQRIndex(*completers.cmp);
+				completers.hocmp = std::make_shared<hic::HCQRCompleter>( applyCfg(base, cfg) );
 			}
 			catch (std::exception const & e) {
 				std::cerr << "Error while computing HCQR Index for OSCAR search files" << std::endl;
@@ -407,7 +420,8 @@ int main(int argc, char const * argv[]) {
 		}
 		if (needsHCQR) {
 			try {
-				completers.hsgcmp = std::make_shared<hic::Static::HCQROscarSearchSgCompleter>(completers.sgcmp->indexPtr());
+				auto base = hic::Static::makeOscarSearchSgHCQRIndex(completers.sgcmp->indexPtr());
+				completers.hsgcmp = std::make_shared<hic::HCQRCompleter>( applyCfg(base, cfg) );
 			}
 			catch (std::exception const & e) {
 				std::cerr << "Failed to initialize hierachical spatial grid completer: " << e.what() << std::endl;

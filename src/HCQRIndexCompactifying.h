@@ -10,6 +10,7 @@ public:
 public:
     HCQRIndexCompactifying(HCQRIndexPtr const & base);
     ~HCQRIndexCompactifying() override;
+	static HCQRIndexPtr make(HCQRIndexPtr const & base);
 public:
     void setCompactLevel(uint32_t size);
 public:
