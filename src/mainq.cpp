@@ -6,11 +6,13 @@
 #include <sserialize/stats/statfuncs.h>
 #include "static-htm-index.h"
 #include "HCQRCompleter.h"
+#include "HCQRIndexMakeStatic.h"
 #include "GeoHierarchyHCQRCompleter.h"
 
 struct Config {
     std::string oscarFiles;
     std::string htmFiles;
+	bool staticHCQR{false};
 	bool compactifiedHCQR{false};
 	uint32_t cachedHCQR{0};
 };
@@ -287,6 +289,9 @@ void help() {
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
 	if (cfg.compactifiedHCQR) {
 		index = hic::HCQRIndexWithCache::make(index);
+	}
+	if (cfg.staticHCQR) {
+		index = hic::HCQRIndexMakeStatic::make(index);
 	}
 	if (cfg.cachedHCQR) {
 		index = hic::HCQRIndexWithCache::make(index, cfg.cachedHCQR);

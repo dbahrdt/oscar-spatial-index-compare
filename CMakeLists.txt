@@ -31,6 +31,7 @@ set(LIB_SOURCES_CPP
 	src/GeoHierarchyHCQRCompleter.cpp
 	src/HCQRIndexCompactifying.cpp
 	src/StaticHCQRSpatialGrid.cpp
+	src/HCQRIndexMakeStatic.cpp
 	src/HCQRCompleter.cpp
 )
 
@@ -51,6 +52,7 @@ set(LIB_SOURCES_H
 	src/GeoHierarchyHCQRCompleter.h
 	src/HCQRIndexCompactifying.h
 	src/StaticHCQRSpatialGrid.h
+	src/HCQRIndexMakeStatic.h
 	src/HCQRCompleter.h
 )
 
