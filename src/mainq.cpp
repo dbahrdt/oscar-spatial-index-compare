@@ -296,6 +296,7 @@ sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWr
 	if (cfg.cachedHCQR) {
 		index = hic::HCQRIndexWithCache::make(index, cfg.cachedHCQR);
 	}
+	return index;
 }
 
 int main(int argc, char const * argv[]) {
