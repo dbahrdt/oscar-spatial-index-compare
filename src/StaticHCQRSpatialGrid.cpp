@@ -583,7 +583,11 @@ m_items(other.idxStore()),
 m_fetchedItems(other.fetchedItems()),
 m_sg(other.sgPtr()),
 m_sgi(other.sgiPtr())
-{}
+{
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(this->depth(), other.depth());
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(this->numberOfNodes(), other.numberOfNodes());
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(this->items(), other.items());
+}
 
 HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::UByteArrayAdapter const & data,
