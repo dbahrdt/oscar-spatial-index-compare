@@ -72,9 +72,12 @@ public:
 	TreeNode(sserialize::UByteArrayAdapter const & data, PixelId parent, SpatialGrid const & sg);
 	TreeNode(TreeNode const & other) = default;
 	~TreeNode();
+	bool valid() const;
 	sserialize::UByteArrayAdapter::OffsetType minSizeInBytes(SpatialGrid const & sg) const;
 	///includes padding
 	sserialize::UByteArrayAdapter::OffsetType getSizeInBytes(SpatialGrid const & sg) const;
+public:
+	bool operator==(TreeNode const & other) const;
 public:
 	PixelId pixelId() const;
 	bool isInternal() const;
@@ -108,6 +111,8 @@ private:
 	uint8_t m_padding{0}; //number of padding Bytes
 };
 
+std::ostream & operator<<(std::ostream & out, TreeNode const & node);
+
 /**
  * struct Tree {
  *   u32 dataSize;
@@ -122,7 +127,7 @@ class Tree {
 public:
 	using SpatialGrid = hic::interface::SpatialGrid;
 	using Node = TreeNode;
-	using NodePosition = NodePosition;
+	using NodePosition = hic::Static::detail::HCQRSpatialGrid::NodePosition;
 	class NodeInfo final {
 	public:
 		NodeInfo();
@@ -186,6 +191,7 @@ public:
 	static Tree create(sserialize::UByteArrayAdapter dest, hic::impl::HCQRSpatialGrid const & src);
 public:
 	sserialize::UByteArrayAdapter::OffsetType getSizeInBytes() const;
+	///data to the whole tree
 	sserialize::UByteArrayAdapter data() const;
 	bool hasNodes() const;
 public:
