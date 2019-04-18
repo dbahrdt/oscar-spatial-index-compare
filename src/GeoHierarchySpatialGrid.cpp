@@ -93,7 +93,8 @@ GeoHierarchySpatialGrid::GeoHierarchySpatialGrid(
 	sserialize::Static::spatial::GeoHierarchy const & gh,
 	sserialize::Static::ItemIndexStore const & idxStore
 ) :
-m_gh(gh)
+m_gh(gh),
+m_idxStore(idxStore)
 {}
 
 GeoHierarchySpatialGrid::~GeoHierarchySpatialGrid() {}
