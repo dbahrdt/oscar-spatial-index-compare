@@ -39,6 +39,7 @@ public:
 		std::vector< std::unique_ptr<TreeNode> > children; 
 	};
 	using CellIterator = sserialize::AbstractArrayIterator<PixelId>;
+	static constexpr PixelId NoPixelId = std::numeric_limits<PixelId>::max();
 public: //global stuff
 	virtual std::string name() const = 0;
 	virtual Level maxLevel() const = 0;
