@@ -60,15 +60,17 @@ public:
 		NEXT_NODE_IS_PARENT=0x20,
 		IS_ROOT_NODE=0x40,
 		HAS_INDEX=IS_PARTIAL_MATCH|IS_FETCHED,
-		IS_LEAF=IS_PARTIAL_MATCH|IS_FULL_MATCH|IS_FETCHED
+		IS_LEAF=IS_PARTIAL_MATCH|IS_FULL_MATCH|IS_FETCHED,
+		__COMPATIBLE_FLAGS=IS_INTERNAL|IS_PARTIAL_MATCH|IS_FULL_MATCH|IS_FETCHED
 	} Flags;
 	
 	static constexpr sserialize::UByteArrayAdapter::SizeType MinimumDataSize = 5;
 	static constexpr sserialize::UByteArrayAdapter::SizeType MaximumDataSize = 16;
 public:
 	TreeNode();
-	///Directly initialize with ABSOLUTE pixelId
-	TreeNode(PixelId pid, int flags, uint32_t itemIndexId = 0, uint32_t nextNodeOffset = 0, uint8_t padding = 0);
+	TreeNode(PixelId pid, int flags);
+	TreeNode(PixelId pid, int flags, uint32_t itemIndexId);
+	TreeNode(PixelId pid, int flags, uint32_t itemIndexId, uint32_t nextNodeOffset, uint8_t padding);
 	TreeNode(sserialize::UByteArrayAdapter const & data, PixelId parent, SpatialGrid const & sg);
 	TreeNode(TreeNode const & other) = default;
 	~TreeNode();
@@ -104,10 +106,10 @@ public:
 private:
 	uint8_t numberOfPaddingBytes() const;
 private:
-	PixelId m_pid{std::numeric_limits<PixelId>::max()};
-	uint32_t m_itemIndexId{0};
-	uint32_t m_nextNodeOffset{0};
-	uint8_t m_f{0};
+	PixelId m_pid{SpatialGrid::NoPixelId};
+	uint32_t m_itemIndexId{sserialize::Static::ItemIndexStore::npos};
+	uint32_t m_nextNodeOffset{std::numeric_limits<uint32_t>::max()};
+	uint8_t m_f{NONE};
 	uint8_t m_padding{0}; //number of padding Bytes
 };
 
