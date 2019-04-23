@@ -52,7 +52,7 @@ public:
 		double penalFactor;
 	};
 	
-	/// 1/log_2(cellsCoveredByRegion.size())
+	///cost = BaseCost/log_2(cellsCoveredByRegion.size()+1)
 	template<typename T_BASE>
 	struct PreferLargeCostFunction: public CostFunction {
 		PreferLargeCostFunction(PreferLargeCostFunction const &) = default;
@@ -69,6 +69,31 @@ public:
 			return baseCost/std::log2(cellsCoveredByRegion.size()+1); //+1 makes sure that result is >= 1
 		}
 		T_BASE m_base;
+	};
+	class CompoundPixel final {
+	public:
+		enum Type : int { REGION=0, CELL=1};
+		enum Flags : int {HAS_TREE_ID=1};
+	public:
+		CompoundPixel();
+		CompoundPixel(Type type, uint32_t ghId);
+		CompoundPixel(Type type, uint32_t ghId, uint32_t treeId);
+		CompoundPixel(CompoundPixel const & other) = default;
+		CompoundPixel(PixelId other);
+		operator PixelId() const;
+		Type type() const;
+		int flags() const;
+		bool hasFlag(int f) const;
+		uint32_t ghId() const;
+		uint32_t treeId() const;
+		bool valid() const;
+	private:
+		struct Data {
+			uint64_t type:1;
+			uint64_t flags:1;
+			uint64_t ghId:30;
+			uint64_t treeId:32;
+		} m_d;
 	};
 public:
 	~GeoHierarchySpatialGrid() override;
@@ -99,6 +124,8 @@ public:
 	sserialize::Static::spatial::GeoHierarchy const & gh() const;
 	sserialize::Static::ItemIndexStore const & idxStore() const;
 public:
+	bool valid(CompoundPixel const & cp) const;
+public:
 	static bool isCell(PixelId pid);
 	static bool isRegion(PixelId pid);
 	static PixelId regionIdToPixelId(uint32_t rid);
@@ -111,9 +138,12 @@ private:
 		using SizeType = uint32_t;
 		static constexpr SizeType npos = std::numeric_limits<SizeType>::max();
 	public:
-		TreeNode(PixelId pid, SizeType parent);
+		TreeNode() = default;
+		TreeNode(TreeNode const &) = default;
+		TreeNode(CompoundPixel const & cp, SizeType parent);
+		TreeNode & operator=(TreeNode const &) = default;
 	public:
-		PixelId pixelId() const;
+		CompoundPixel cp() const;
 		bool isRegion() const;
 		bool isCell() const;
 		SizeType numberOfChildren() const;
@@ -121,22 +151,23 @@ private:
 		SizeType childrenBegin() const;
 		SizeType childrenEnd() const;
 	public:
+		uint32_t regionId() const;
+		uint32_t cellId() const;
+	public:
 		void setChildrenBegin(SizeType v);
 		void setChildrenEnd(SizeType v);
 	private:
-		PixelId m_pid;
-		SizeType m_parentPos;
-		SizeType m_childrenBegin;
-		SizeType m_childrenEnd; //one passed the end
+		CompoundPixel m_cp;
+		SizeType m_parentPos{npos};
+		SizeType m_childrenBegin{npos};
+		SizeType m_childrenEnd{npos}; //one passed the end
 	};
-	enum class PixelType : int { REGION=0x0, CELL=0x1};
 private:
 	GeoHierarchySpatialGrid(sserialize::Static::spatial::GeoHierarchy const & gh, sserialize::Static::ItemIndexStore const & idxStore);
 private:
 	sserialize::Static::spatial::GeoHierarchy m_gh;
 	sserialize::Static::ItemIndexStore m_idxStore;
 	std::vector<TreeNode> m_tree;
-	std::unordered_map<PixelId, std::size_t> m_pid2tn;
 };
 
 	

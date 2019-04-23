@@ -34,29 +34,91 @@ GeoHierarchySpatialGrid::PenalizeDoubleCoverCostFunction::operator()(
 }
 	
 //END GeoHierarchySpatialGrid Cost functions
+
+//BEGIN GeoHierarchySpatialGrid::CompoundPixel
+
+
+GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel() :
+CompoundPixel(REGION, sserialize::Static::spatial::GeoHierarchy::npos)
+{}
+
+GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel(Type type, uint32_t ghId) :
+CompoundPixel(type, ghId, TreeNode::npos)
+{}
+
+GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel(Type type, uint32_t ghId, uint32_t treeId) {
+	m_d.type = type;
+	m_d.ghId = ghId;
+	m_d.treeId = treeId;
+	if (treeId != TreeNode::npos) {
+		m_d.flags = CompoundPixel::HAS_TREE_ID;
+	}
+}
+
+GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel(PixelId other) {
+	static_assert(sizeof(PixelId) == sizeof(Data));
+	::memmove(&m_d, &other, sizeof(PixelId));
+}
+
+GeoHierarchySpatialGrid::CompoundPixel::operator PixelId() const {
+	static_assert(sizeof(PixelId) == sizeof(Data));
+	PixelId pid = 0;
+	::memmove(&pid, &m_d, sizeof(PixelId));
+	return pid;
+}
+
+GeoHierarchySpatialGrid::CompoundPixel::Type
+GeoHierarchySpatialGrid::CompoundPixel::type() const {
+	return Type(m_d.type);
+}
+
+int
+GeoHierarchySpatialGrid::CompoundPixel::flags() const {
+	return m_d.flags;
+}
+
+bool
+GeoHierarchySpatialGrid::CompoundPixel::hasFlag(int f) const {
+	return flags() & f;
+}
+
+uint32_t
+GeoHierarchySpatialGrid::CompoundPixel::ghId() const {
+	return m_d.ghId;
+}
+
+uint32_t
+GeoHierarchySpatialGrid::CompoundPixel::treeId() const {
+	return m_d.treeId;
+}
+
+bool
+GeoHierarchySpatialGrid::CompoundPixel::valid() const {
+	return m_d.ghId != sserialize::Static::spatial::GeoHierarchy::npos;
+}
+
+//END GeoHierarchySpatialGrid::CompoundPixel
 	
 //BEGIN GeoHierarchySpatialGrid::TreeNode
 	
-GeoHierarchySpatialGrid::TreeNode::TreeNode(PixelId pid, SizeType parent) :
-m_pid(pid),
-m_parentPos(parent),
-m_childrenBegin(0),
-m_childrenEnd(0)
+GeoHierarchySpatialGrid::TreeNode::TreeNode(CompoundPixel const & cp, SizeType parent) :
+m_cp(cp),
+m_parentPos(parent)
 {}
 
-GeoHierarchySpatialGrid::PixelId
-GeoHierarchySpatialGrid::TreeNode::pixelId() const {
-	return m_pid;
+GeoHierarchySpatialGrid::CompoundPixel
+GeoHierarchySpatialGrid::TreeNode::cp() const {
+	return m_cp;
 }
 
 bool
 GeoHierarchySpatialGrid::TreeNode::isRegion() const {
-	return GeoHierarchySpatialGrid::isRegion(pixelId());
+	return m_cp.type() == CompoundPixel::REGION;
 }
 
 bool
 GeoHierarchySpatialGrid::TreeNode::isCell() const {
-	return GeoHierarchySpatialGrid::isCell(pixelId());
+	return m_cp.type() == CompoundPixel::CELL;
 }
 
 GeoHierarchySpatialGrid::TreeNode::SizeType
@@ -77,6 +139,16 @@ GeoHierarchySpatialGrid::TreeNode::childrenBegin() const {
 GeoHierarchySpatialGrid::TreeNode::SizeType
 GeoHierarchySpatialGrid::TreeNode::childrenEnd() const {
 	return m_childrenEnd;
+}
+
+uint32_t
+GeoHierarchySpatialGrid::TreeNode::regionId() const {
+	return m_cp.ghId();
+}
+
+uint32_t
+GeoHierarchySpatialGrid::TreeNode::cellId() const {
+	return m_cp.ghId();
 }
 
 void
@@ -121,11 +193,12 @@ GeoHierarchySpatialGrid::rootPixelId() const {
 
 GeoHierarchySpatialGrid::Level
 GeoHierarchySpatialGrid::level(PixelId pixelId) const {
-	if (!m_pid2tn.count(pixelId)) {
+	CompoundPixel cp(pixelId);
+	if (!valid(cp)) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
 	std::size_t myLevel = 0;
-	std::size_t nodePos = m_pid2tn.at(pixelId);
+	std::size_t nodePos = cp.treeId();
 	while (nodePos != 0) {
 		++myLevel;
 		nodePos = m_tree.at(nodePos).parentPos();
@@ -136,11 +209,11 @@ GeoHierarchySpatialGrid::level(PixelId pixelId) const {
 
 bool
 GeoHierarchySpatialGrid::isAncestor(PixelId ancestor, PixelId decendant) const {
-	if (!m_pid2tn.count(ancestor) || !m_pid2tn.count(decendant)) {
+	if (!valid(CompoundPixel(ancestor)) || !valid(CompoundPixel(decendant))) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
-	auto ancestorPos = m_pid2tn.at(ancestor);
-	auto decendantPos = m_pid2tn.at(decendant);
+	auto ancestorPos = CompoundPixel(ancestor).treeId();
+	auto decendantPos = CompoundPixel(decendant).treeId();
 	while (ancestorPos < decendantPos && decendantPos != TreeNode::npos) {
 		if (m_tree.at(decendantPos).parentPos() == ancestorPos) {
 			return true;
@@ -164,34 +237,37 @@ GeoHierarchySpatialGrid::index(double lat, double lon) const {
 
 GeoHierarchySpatialGrid::PixelId
 GeoHierarchySpatialGrid::index(PixelId parent, uint32_t childNumber) const {
-	if (!m_pid2tn.count(parent)) {
+	CompoundPixel cp(parent);
+	if (!valid(cp)) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
-	auto const & parentNode = m_tree.at( m_pid2tn.at(parent) );
+	auto const & parentNode = m_tree.at( cp.treeId() );
 	if (parentNode.numberOfChildren() <= childNumber) {
 		throw sserialize::OutOfBoundsException("Pixel does not have that many children");
 	}
-	return m_tree.at( parentNode.childrenBegin()+childNumber ).pixelId();
+	return m_tree.at( parentNode.childrenBegin()+childNumber ).cp();
 }
 
 GeoHierarchySpatialGrid::PixelId
 GeoHierarchySpatialGrid::parent(PixelId child) const {
-	if (!m_pid2tn.count(child)) {
+	CompoundPixel cp(child);
+	if (!valid(cp)) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
-	auto const & childNode = m_tree.at( m_pid2tn.at(child) );
+	auto const & childNode = m_tree.at( cp.treeId() );
 	if (childNode.parentPos() == TreeNode::npos) {
 		throw sserialize::OutOfBoundsException("Pixel has no parent");
 	}
-	return m_tree.at( childNode.parentPos() ).pixelId();
+	return m_tree.at( childNode.parentPos() ).cp();
 }
 
 GeoHierarchySpatialGrid::Size
 GeoHierarchySpatialGrid::childrenCount(PixelId pixelId) const {
-	if (!m_pid2tn.count(pixelId)) {
+	CompoundPixel cp(pixelId);
+	if (!valid(cp)) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
-	return m_tree.at( m_pid2tn.at(pixelId) ).numberOfChildren();
+	return m_tree.at( cp.treeId() ).numberOfChildren();
 }
 
 std::unique_ptr<hic::interface::SpatialGrid::TreeNode>
@@ -207,10 +283,11 @@ GeoHierarchySpatialGrid::area(PixelId pixel) const {
 
 sserialize::spatial::GeoRect
 GeoHierarchySpatialGrid::bbox(PixelId pixel) const {
-	if (!m_pid2tn.count(pixel)) {
+	CompoundPixel cp(pixel);
+	if (!valid(cp)) {
 		throw sserialize::OutOfBoundsException("Invalid pixel id");
 	}
-	return m_gh.regionBoundary(pixel >> 1);
+	return m_gh.regionBoundary(cp.ghId());
 }
 
 sserialize::RCPtrWrapper<GeoHierarchySpatialGrid>
@@ -235,7 +312,7 @@ GeoHierarchySpatialGrid::make(
 			if (node.isCell()) {
 				return;
 			}
-			Region region = that.m_gh.region( that.regionId(node.pixelId()) );
+			Region region = that.m_gh.region( node.regionId() );
 			sserialize::ItemIndex coveredCells;
 			sserialize::ItemIndex coverableCells;
 			sserialize::ItemIndex uncoverableCells;
@@ -245,8 +322,8 @@ GeoHierarchySpatialGrid::make(
 			uncoverableCells = that.m_idxStore.at( region.exclusiveCellIndexPtr() );
 			coverableCells = that.m_idxStore.at( region.cellIndexPtr() ) - uncoverableCells;
 			
-			for(uint32_t i(region.childrenBegin()), s(region.childrenEnd()); i < s; ++i) {
-				selectableRegions.insert(that.m_gh.region(i).ghId());
+			for(uint32_t i(0), s(region.childrenSize()); i < s; ++i) {
+				selectableRegions.insert(region.child(i));
 			}
 			
 			while (coverableCells.size() && selectableRegions.size()) {
@@ -267,6 +344,9 @@ GeoHierarchySpatialGrid::make(
 						}
 						++it;
 					}
+				}
+				if (bestRegion == std::numeric_limits<uint32_t>::max()) {
+					break;
 				}
 				auto regionCells = that.m_idxStore.at( that.m_gh.regionCellIdxPtr(bestRegion) );
 				coveredCells += regionCells;
@@ -291,13 +371,12 @@ GeoHierarchySpatialGrid::make(
 	};
 	Worker w(*result, costFn);
 	
-	result->m_tree.emplace_back(regionIdToPixelId(gh.rootRegion().ghId()), TreeNode::npos);
+	result->m_tree.emplace_back(CompoundPixel(CompoundPixel::REGION, gh.rootRegion().ghId(), 0), TreeNode::npos);
 	for(std::size_t i(0); i < result->m_tree.size(); ++i) {
 		w(i);
 	}
 	return result;
 }
-
 
 sserialize::Static::spatial::GeoHierarchy const &
 GeoHierarchySpatialGrid::gh() const {
@@ -309,34 +388,40 @@ GeoHierarchySpatialGrid::idxStore() const {
 	return m_idxStore;
 }
 
+bool GeoHierarchySpatialGrid::valid(CompoundPixel const & cp) const {
+	return cp.valid() && cp.hasFlag(CompoundPixel::HAS_TREE_ID);
+}
+
 bool
 GeoHierarchySpatialGrid::isCell(PixelId pid) {
-	return pid & int(PixelType::CELL);
+	return CompoundPixel(pid).type() == CompoundPixel::CELL;
 }
 
 bool
 GeoHierarchySpatialGrid::isRegion(PixelId pid) {
-	return pid & int(PixelType::REGION);
+	return CompoundPixel(pid).type() == CompoundPixel::REGION;
 }
 
 GeoHierarchySpatialGrid::PixelId
 GeoHierarchySpatialGrid::regionIdToPixelId(uint32_t rid) {
-	return (PixelId(rid) << 1) | int(PixelType::REGION);
+	return CompoundPixel(CompoundPixel::REGION, rid);
 }
 
 GeoHierarchySpatialGrid::PixelId
 GeoHierarchySpatialGrid::cellIdToPixelId(uint32_t cid) {
-	return (PixelId(cid) << 1) | int(PixelType::CELL);
+	return CompoundPixel(CompoundPixel::CELL, cid);
 }
 
 uint32_t
 GeoHierarchySpatialGrid::regionId(PixelId pid) {
-	return pid >> 1;
+	SSERIALIZE_CHEAP_ASSERT(isRegion(pid));
+	return CompoundPixel(pid).ghId();
 }
 
 uint32_t
 GeoHierarchySpatialGrid::cellId(PixelId pid) {
-	return pid >> 1;
+	SSERIALIZE_CHEAP_ASSERT(isCell(pid));
+	return CompoundPixel(pid).ghId();
 }
 
 } //end namespace hic::impl
