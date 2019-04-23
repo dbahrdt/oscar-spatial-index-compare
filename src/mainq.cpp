@@ -412,7 +412,7 @@ int main(int argc, char const * argv[]) {
 				completers.hocmp = std::make_shared<hic::HCQRCompleter>( applyCfg(base, cfg) );
 			}
 			catch (std::exception const & e) {
-				std::cerr << "Error while computing HCQR Index for OSCAR search files" << std::endl;
+				std::cerr << "Error while computing HCQR Index for OSCAR search files: " << e.what() << std::endl;
 				return -1;
 			}
 		}
@@ -447,7 +447,7 @@ int main(int argc, char const * argv[]) {
 	}
 
 	QueryStats oqs, hqs;
-	HQueryStats hsg_qs;
+	HQueryStats hsg_qs, ho_qs;
 	for(uint32_t i(0), s(state.queue.size()); i < s; ++i) {
 		WorkItem & wi = state.queue[i];
 		
@@ -516,6 +516,24 @@ int main(int argc, char const * argv[]) {
 				}
 				std::cout << "Oscar query: " << state.str << std::endl;
 				std::cout << oqs << std::endl;
+			}
+				break;
+			case WorkItem::WI_OSCAR_HCQR:
+			{
+				if (cfg.oscarFiles.empty()) {
+					std::cerr << "No spatial grid available" << std::endl;
+					return -1;
+				}
+				ho_qs.cqrTime.begin();
+				ho_qs.hcqr = completers.hocmp->complete(state.str);
+				ho_qs.cqrTime.end();
+				if (state.numItems) {
+					ho_qs.flatenTime.begin();
+					ho_qs.items = ho_qs.hcqr->items();
+					ho_qs.flatenTime.end();
+				}
+				std::cout << "Hierarchical Oscar query: " << state.str << std::endl;
+				std::cout << ho_qs << std::endl;
 			}
 				break;
 			case WorkItem::WI_BENCHMARK:
