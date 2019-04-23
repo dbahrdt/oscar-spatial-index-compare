@@ -70,15 +70,39 @@ CellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::
 } //end namespace hic::detail::GeoHierarchyHCQRCompleter
 
 namespace hic {
+	
+template<typename T_BASE>
+struct PreferAdminLevelCostFunction: public hic::impl::GeoHierarchySpatialGrid::CostFunction {
+	PreferAdminLevelCostFunction(PreferAdminLevelCostFunction const &) = default;
+	PreferAdminLevelCostFunction(T_BASE const & base, liboscar::Static::OsmCompleter const & cmp) : m_base(base), m_cmp(cmp) {}
+	~PreferAdminLevelCostFunction() override {}
+	double operator()(
+		sserialize::Static::spatial::GeoHierarchy::Region const & region,
+		sserialize::ItemIndex const & regionCells,
+		sserialize::ItemIndex const & cellsCoveredByRegion,
+		sserialize::ItemIndex const & coveredCells,
+		sserialize::ItemIndex const & coverableCells
+	) const override {
+		auto baseCost = m_base(region, regionCells, cellsCoveredByRegion, coveredCells, coverableCells);
+		if (m_cmp.store().kvItem(region.storeId()).countKey("admin:level")) {
+			return baseCost;
+		}
+		else {
+			return baseCost*100;
+		}
+	}
+	T_BASE m_base;
+	liboscar::Static::OsmCompleter const & m_cmp;
+};
 
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
 makeGeoHierarchyHCQRIndex(liboscar::Static::OsmCompleter const & d) {
 	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
 	using MySpatialGrid = hic::impl::GeoHierarchySpatialGrid;
-
-	MySpatialGrid::PenalizeDoubleCoverCostFunction baseCostfn(10);
-	MySpatialGrid::PreferLargeCostFunction<decltype(baseCostfn)> costfn(baseCostfn);
-	auto sg = MySpatialGrid::make(d.store().geoHierarchy(), d.indexStore(), costfn);
+	MySpatialGrid::SimpleCostFunction baseCostFn;
+	MySpatialGrid::PreferLargeCostFunction<decltype(baseCostFn)> preferLargeCFn(baseCostFn);
+	PreferAdminLevelCostFunction<decltype(preferLargeCFn)> preferAdminLevleCFn(preferLargeCFn, d);
+	auto sg = MySpatialGrid::make(d.store().geoHierarchy(), d.indexStore(), preferAdminLevleCFn);
 	HCQRIndexImp::SpatialGridInfoPtr sgi( new hic::detail::GeoHierarchyHCQRCompleter::SpatialGridInfo(sg) );
 	HCQRIndexImp::CellIndexPtr ci( new hic::detail::GeoHierarchyHCQRCompleter::CellIndex(d) );
 

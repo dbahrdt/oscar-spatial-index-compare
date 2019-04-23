@@ -26,6 +26,7 @@ public:
 	
 	///cost = regionCells.size() / cellsCoveredByRegion.size()
 	struct SimpleCostFunction: public CostFunction {
+		SimpleCostFunction() {}
 		SimpleCostFunction(SimpleCostFunction const &) = default;
 		~SimpleCostFunction() override {}
 		double operator()(
@@ -50,6 +51,28 @@ public:
 			sserialize::ItemIndex const & coverableCells
 		) const override;
 		double penalFactor;
+	};
+	
+	template<typename T_BASE>
+	struct NoDoubleCoverCostFunction: public CostFunction {
+		NoDoubleCoverCostFunction(T_BASE const & base) : m_base(base) {}
+		NoDoubleCoverCostFunction(NoDoubleCoverCostFunction const &) = default;
+		~NoDoubleCoverCostFunction() override {}
+		double operator()(
+			sserialize::Static::spatial::GeoHierarchy::Region const & region,
+			sserialize::ItemIndex const & regionCells,
+			sserialize::ItemIndex const & cellsCoveredByRegion,
+			sserialize::ItemIndex const & coveredCells,
+			sserialize::ItemIndex const & coverableCells
+		) const override {
+			if (regionCells.size() != cellsCoveredByRegion.size()) {
+				return std::numeric_limits<double>::max();
+			}
+			else {
+				return m_base(region, regionCells, cellsCoveredByRegion, coveredCells, coverableCells);
+			}
+		}
+		T_BASE m_base;
 	};
 	
 	///cost = BaseCost/log_2(cellsCoveredByRegion.size()+1)

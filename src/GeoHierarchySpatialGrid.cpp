@@ -307,12 +307,14 @@ GeoHierarchySpatialGrid::make(
 		that(that),
 		costFn(costFn)
 		{}
-		void operator()(std::size_t nodePos) {
-			TreeNode & node = that.m_tree.at(nodePos);
-			if (node.isCell()) {
+		TreeNode & node(std::size_t nodePos) {
+			return that.m_tree.at(nodePos);
+		}
+		void operator()(std::size_t np) {
+			if (node(np).isCell()) {
 				return;
 			}
-			Region region = that.m_gh.region( node.regionId() );
+			Region region = that.m_gh.region( node(np).regionId() );
 			sserialize::ItemIndex coveredCells;
 			sserialize::ItemIndex coverableCells;
 			sserialize::ItemIndex uncoverableCells;
@@ -333,7 +335,8 @@ GeoHierarchySpatialGrid::make(
 					auto currentRegion = that.m_gh.region(*it);
 					auto regionCells = that.m_idxStore.at( currentRegion.cellIndexPtr() );
 					auto cellsCoveredByRegion = regionCells - coveredCells;
-					if (!cellsCoveredByRegion.size()) {
+					auto doubleCoveredCells = coveredCells / regionCells;
+					if (!cellsCoveredByRegion.size() || doubleCoveredCells.size()) {
 						it = selectableRegions.erase(it);
 					}
 					else {
@@ -359,22 +362,30 @@ GeoHierarchySpatialGrid::make(
 				uncoverableCells += coverableCells;
 			}
 			
-			node.setChildrenBegin(that.m_tree.size());
+			node(np).setChildrenBegin(that.m_tree.size());
 			for(uint32_t rid : selectedRegions) {
-				that.m_tree.emplace_back(that.regionIdToPixelId(rid), nodePos);
+				CompoundPixel cp(CompoundPixel::REGION, rid, that.m_tree.size());
+				that.m_tree.emplace_back(cp, np);
 			}
 			for(uint32_t cid : uncoverableCells) {
-				that.m_tree.emplace_back(that.cellIdToPixelId(cid), nodePos);
+				CompoundPixel cp(CompoundPixel::CELL, cid, that.m_tree.size());
+				that.m_tree.emplace_back(cp, np);
 			}
-			node.setChildrenEnd(that.m_tree.size());
+			node(np).setChildrenEnd(that.m_tree.size());
 		}
 	};
 	Worker w(*result, costFn);
 	
+	std::array<uint32_t, 2> nodeCounts = {0,0};
+	
 	result->m_tree.emplace_back(CompoundPixel(CompoundPixel::REGION, gh.rootRegion().ghId(), 0), TreeNode::npos);
 	for(std::size_t i(0); i < result->m_tree.size(); ++i) {
 		w(i);
+		nodeCounts.at(result->m_tree.at(i).cp().type()) += 1;
 	}
+#ifndef NDEBUG
+	std::cout << "GeoHierarchySpatialGrid: selected " << nodeCounts.at(CompoundPixel::REGION) << " out of " << gh.regionSize() << " regions" << std::endl;
+#endif
 	return result;
 }
 
