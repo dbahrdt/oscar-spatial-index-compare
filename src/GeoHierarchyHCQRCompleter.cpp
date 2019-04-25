@@ -28,7 +28,7 @@ SpatialGridInfo::items(PixelId pid) const {
 			return sserialize::ItemIndex::unite(tmp);
 		}
 	}
-	else {
+	else { //cell or dummy region
 		return m_base->idxStore().at( m_base->gh().cellItemsPtr(m_base->cellId(pid)) );
 	}
 }

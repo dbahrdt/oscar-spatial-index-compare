@@ -93,13 +93,13 @@ public:
 		}
 		T_BASE m_base;
 	};
+	//If type==REGION_DUMMY_FOR_CELL -> ghId = cellId
 	class CompoundPixel final {
 	public:
-		enum Type : int { REGION=0, CELL=1};
+		enum Type : int { REGION=0, CELL=1, REGION_DUMMY_FOR_CELL=2};
 		enum Flags : int {HAS_TREE_ID=1};
 	public:
 		CompoundPixel();
-		CompoundPixel(Type type, uint32_t ghId);
 		CompoundPixel(Type type, uint32_t ghId, uint32_t treeId);
 		CompoundPixel(CompoundPixel const & other) = default;
 		CompoundPixel(PixelId other);
@@ -112,10 +112,10 @@ public:
 		bool valid() const;
 	private:
 		struct Data {
-			uint64_t type:1;
+			uint64_t type:2;
 			uint64_t flags:1;
 			uint64_t ghId:30;
-			uint64_t treeId:32;
+			uint64_t treeId:31;
 		} m_d;
 	};
 public:
@@ -149,12 +149,12 @@ public:
 public:
 	bool valid(CompoundPixel const & cp) const;
 public:
-	static bool isCell(PixelId pid);
-	static bool isRegion(PixelId pid);
-	static PixelId regionIdToPixelId(uint32_t rid);
-	static PixelId cellIdToPixelId(uint32_t cid);
-	static uint32_t regionId(PixelId pid);
-	static uint32_t cellId(PixelId pid);
+	bool isCell(PixelId pid) const;
+	bool isRegionDummy(PixelId pid) const;
+	bool isRegion(PixelId pid) const;
+	PixelId cellIdToPixelId(uint32_t cid) const;
+	uint32_t regionId(PixelId pid) const;
+	uint32_t cellId(PixelId pid) const;
 private:
 	class TreeNode {
 	public:
@@ -166,8 +166,10 @@ private:
 		TreeNode(CompoundPixel const & cp, SizeType parent);
 		TreeNode & operator=(TreeNode const &) = default;
 	public:
-		CompoundPixel cp() const;
+		CompoundPixel const & cp() const;
+		CompoundPixel & cp();
 		bool isRegion() const;
+		bool isRegionDummy() const;
 		bool isCell() const;
 		SizeType numberOfChildren() const;
 		SizeType parentPos() const;
@@ -191,6 +193,7 @@ private:
 	sserialize::Static::spatial::GeoHierarchy m_gh;
 	sserialize::Static::ItemIndexStore m_idxStore;
 	std::vector<TreeNode> m_tree;
+	std::vector<std::size_t> m_cellNodePos;
 };
 
 	

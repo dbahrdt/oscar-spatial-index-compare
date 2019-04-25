@@ -39,11 +39,7 @@ GeoHierarchySpatialGrid::PenalizeDoubleCoverCostFunction::operator()(
 
 
 GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel() :
-CompoundPixel(REGION, sserialize::Static::spatial::GeoHierarchy::npos)
-{}
-
-GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel(Type type, uint32_t ghId) :
-CompoundPixel(type, ghId, TreeNode::npos)
+CompoundPixel(REGION, sserialize::Static::spatial::GeoHierarchy::npos, TreeNode::npos)
 {}
 
 GeoHierarchySpatialGrid::CompoundPixel::CompoundPixel(Type type, uint32_t ghId, uint32_t treeId) {
@@ -106,8 +102,13 @@ m_cp(cp),
 m_parentPos(parent)
 {}
 
-GeoHierarchySpatialGrid::CompoundPixel
+GeoHierarchySpatialGrid::CompoundPixel const &
 GeoHierarchySpatialGrid::TreeNode::cp() const {
+	return m_cp;
+}
+
+GeoHierarchySpatialGrid::CompoundPixel &
+GeoHierarchySpatialGrid::TreeNode::cp() {
 	return m_cp;
 }
 
@@ -166,7 +167,8 @@ GeoHierarchySpatialGrid::GeoHierarchySpatialGrid(
 	sserialize::Static::ItemIndexStore const & idxStore
 ) :
 m_gh(gh),
-m_idxStore(idxStore)
+m_idxStore(idxStore),
+m_cellNodePos(m_gh.cellSize(), TreeNode::npos)
 {}
 
 GeoHierarchySpatialGrid::~GeoHierarchySpatialGrid() {}
@@ -188,7 +190,7 @@ GeoHierarchySpatialGrid::defaultLevel() const {
 
 GeoHierarchySpatialGrid::PixelId
 GeoHierarchySpatialGrid::rootPixelId() const {
-	return regionIdToPixelId(m_gh.rootRegion().ghId());
+	return m_tree.front().cp();
 }
 
 GeoHierarchySpatialGrid::Level
@@ -201,8 +203,10 @@ GeoHierarchySpatialGrid::level(PixelId pixelId) const {
 	std::size_t nodePos = cp.treeId();
 	while (nodePos != 0) {
 		++myLevel;
-		nodePos = m_tree.at(nodePos).parentPos();
-		SSERIALIZE_ASSERT_NOT_EQUAL(nodePos, TreeNode::npos);
+		auto parentNodePos = m_tree.at(nodePos).parentPos();
+		SSERIALIZE_ASSERT_SMALLER(parentNodePos, nodePos);
+		SSERIALIZE_ASSERT_NOT_EQUAL(parentNodePos, TreeNode::npos);
+		nodePos = parentNodePos;
 	}
 	return myLevel;
 }
@@ -285,9 +289,17 @@ sserialize::spatial::GeoRect
 GeoHierarchySpatialGrid::bbox(PixelId pixel) const {
 	CompoundPixel cp(pixel);
 	if (!valid(cp)) {
-		throw sserialize::OutOfBoundsException("Invalid pixel id");
+		throw hic::exceptions::InvalidPixelId("Invalid pixel id");
 	}
-	return m_gh.regionBoundary(cp.ghId());
+	if (cp.type() == CompoundPixel::REGION) {
+		return m_gh.regionBoundary(cp.ghId());
+	}
+	else if (cp.type() == CompoundPixel::CELL || cp.type() == CompoundPixel::REGION_DUMMY_FOR_CELL) {
+		return m_gh.cellBoundary(cp.ghId());
+	}
+	else {
+		throw hic::exceptions::InvalidPixelId("Invalid pixel id");
+	}
 }
 
 sserialize::RCPtrWrapper<GeoHierarchySpatialGrid>
@@ -370,6 +382,7 @@ GeoHierarchySpatialGrid::make(
 			for(uint32_t cid : uncoverableCells) {
 				CompoundPixel cp(CompoundPixel::CELL, cid, that.m_tree.size());
 				that.m_tree.emplace_back(cp, np);
+				that.m_cellNodePos.at(cp.ghId()) = cp.treeId();
 			}
 			node(np).setChildrenEnd(that.m_tree.size());
 		}
@@ -386,6 +399,70 @@ GeoHierarchySpatialGrid::make(
 #ifndef NDEBUG
 	std::cout << "GeoHierarchySpatialGrid: selected " << nodeCounts.at(CompoundPixel::REGION) << " out of " << gh.regionSize() << " regions" << std::endl;
 #endif
+	SSERIALIZE_CHEAP_ASSERT_EQUAL(result->m_cellNodePos.size(), gh.cellSize());
+	{ //Introduce dummy nodes for cells not in the base level
+		struct Depth {
+			GeoHierarchySpatialGrid const & that;
+			Depth(GeoHierarchySpatialGrid const & that) : that(that) {}
+			uint32_t operator()(std::size_t nodePos) const {
+				uint32_t depth = 0;
+				auto const & node = that.m_tree.at(nodePos);
+				for(uint32_t i(node.childrenBegin()), s(node.childrenEnd()); i < s; ++i) {
+					depth = std::max(depth, (*this)(i)+1);
+				}
+				return depth;
+			}
+		};
+		struct AddDummyNodes {
+			GeoHierarchySpatialGrid & that;
+			uint32_t targetDepth;
+			AddDummyNodes(GeoHierarchySpatialGrid & that, uint32_t targetDepth) : that(that), targetDepth(targetDepth) {}
+			auto & node(std::size_t nodePos) const {
+				return that.m_tree.at(nodePos);
+			}
+			void operator()(std::size_t nodePos, uint32_t depth) {
+				if (node(nodePos).cp().type() == CompoundPixel::CELL && depth < targetDepth) {
+					node(nodePos).cp() = CompoundPixel(CompoundPixel::REGION_DUMMY_FOR_CELL, node(nodePos).cp().ghId(), node(nodePos).cp().treeId());
+					node(nodePos).setChildrenBegin(that.m_tree.size());
+					node(nodePos).setChildrenEnd(node(nodePos).childrenBegin()+1);
+					std::size_t prev = nodePos;
+					for(uint32_t i(0), s(targetDepth - depth - 1);  i < s; ++i) {
+						CompoundPixel cp(CompoundPixel::REGION_DUMMY_FOR_CELL, node(nodePos).cp().ghId(), that.m_tree.size());
+						that.m_tree.emplace_back(cp, prev);
+						prev = cp.treeId();
+					}
+					CompoundPixel cp(CompoundPixel::CELL, node(nodePos).cp().ghId(), that.m_tree.size());
+					that.m_cellNodePos.at(node(nodePos).cp().ghId()) = cp.treeId();
+					that.m_tree.emplace_back(cp, prev);
+				}
+				else if (node(nodePos).cp().type() == CompoundPixel::REGION) {
+					for(uint32_t i(node(nodePos).childrenBegin()), s(node(nodePos).childrenEnd()); i < s; ++i) {
+						(*this)(i, depth+1);
+					}
+				}
+			}
+		};
+		uint32_t depth = Depth(*result)(0);
+		AddDummyNodes(*result, depth)(0, 0);
+		struct CheckTargetDepth {
+			GeoHierarchySpatialGrid const & that;
+			uint32_t targetDepth;
+			CheckTargetDepth(GeoHierarchySpatialGrid const & that, uint32_t targetDepth) : that(that), targetDepth(targetDepth) {}
+			void operator()(std::size_t nodePos, uint32_t depth) const {
+				auto & node = that.m_tree.at(nodePos);
+				if (node.cp().type() == CompoundPixel::CELL) {
+					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(depth, targetDepth);
+					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(that.m_cellNodePos.at(node.cp().ghId()), nodePos);
+				}
+				else {
+					for(uint32_t i(node.childrenBegin()), s(node.childrenEnd()); i < s; ++i) {
+						(*this)(i, depth+1);
+					}
+				}
+			}
+		};
+		CheckTargetDepth(*result, depth);
+	}
 	return result;
 }
 
@@ -404,34 +481,58 @@ bool GeoHierarchySpatialGrid::valid(CompoundPixel const & cp) const {
 }
 
 bool
-GeoHierarchySpatialGrid::isCell(PixelId pid) {
+GeoHierarchySpatialGrid::isCell(PixelId pid) const {
+	if (!valid(CompoundPixel(pid))) {
+		throw hic::exceptions::InvalidPixelId("isCell");
+	}
 	return CompoundPixel(pid).type() == CompoundPixel::CELL;
 }
 
 bool
-GeoHierarchySpatialGrid::isRegion(PixelId pid) {
+GeoHierarchySpatialGrid::isRegionDummy(PixelId pid) const {
+	if (!valid(CompoundPixel(pid))) {
+		throw hic::exceptions::InvalidPixelId("isCell");
+	}
+	return CompoundPixel(pid).type() == CompoundPixel::REGION_DUMMY_FOR_CELL;
+}
+
+bool
+GeoHierarchySpatialGrid::isRegion(PixelId pid) const {
+	if (!valid(CompoundPixel(pid))) {
+		throw hic::exceptions::InvalidPixelId("isRegion");
+	}
 	return CompoundPixel(pid).type() == CompoundPixel::REGION;
 }
 
 GeoHierarchySpatialGrid::PixelId
-GeoHierarchySpatialGrid::regionIdToPixelId(uint32_t rid) {
-	return CompoundPixel(CompoundPixel::REGION, rid);
-}
-
-GeoHierarchySpatialGrid::PixelId
-GeoHierarchySpatialGrid::cellIdToPixelId(uint32_t cid) {
-	return CompoundPixel(CompoundPixel::CELL, cid);
+GeoHierarchySpatialGrid::cellIdToPixelId(uint32_t cid) const {
+	auto nodePos = m_cellNodePos.at(cid);
+	auto const & cp = m_tree.at(nodePos).cp();
+	SSERIALIZE_CHEAP_ASSERT_EQUAL(cp.type(), CompoundPixel::CELL);
+	return cp;
 }
 
 uint32_t
-GeoHierarchySpatialGrid::regionId(PixelId pid) {
-	SSERIALIZE_CHEAP_ASSERT(isRegion(pid));
+GeoHierarchySpatialGrid::regionId(PixelId pid) const {
+	CompoundPixel cp(pid);
+	if (!valid(cp)) {
+		throw hic::exceptions::InvalidPixelId("regionId");
+	}
+	if (cp.type() != CompoundPixel::REGION) {
+		throw sserialize::TypeMissMatchException("Pixel is not a region");
+	}
 	return CompoundPixel(pid).ghId();
 }
 
 uint32_t
-GeoHierarchySpatialGrid::cellId(PixelId pid) {
-	SSERIALIZE_CHEAP_ASSERT(isCell(pid));
+GeoHierarchySpatialGrid::cellId(PixelId pid) const {
+	CompoundPixel cp(pid);
+	if (!valid(cp)) {
+		throw hic::exceptions::InvalidPixelId("cellId");
+	}
+	if (cp.type() != CompoundPixel::CELL && cp.type() != CompoundPixel::REGION_DUMMY_FOR_CELL) {
+		throw sserialize::TypeMissMatchException("Pixel is not a cell");
+	}
 	return CompoundPixel(pid).ghId();
 }
 

@@ -89,8 +89,10 @@ HCQRSpatialGrid(idxStore, sg, sgi)
 		}
     }
     while (clevel.size() > 1 || (clevel.size() && this->sg().level( clevel.begin()->second->pixelId() ) > 0)) {
+		SSERIALIZE_EXPENSIVE_ASSERT_EXEC(auto clvl = this->sg().level( clevel.begin()->second->pixelId() ); );
         std::unordered_map<PixelId, std::unique_ptr<TreeNode>> plevel;
         for(auto & x : clevel) {
+			SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(clvl, this->sg().level( x.second->pixelId() ));
             PixelId pPId = this->sg().parent( x.second->pixelId() );
             auto & parent = plevel[pPId];
             if (!parent) {
