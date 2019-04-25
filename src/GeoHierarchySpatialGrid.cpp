@@ -423,17 +423,17 @@ GeoHierarchySpatialGrid::make(
 			void operator()(std::size_t nodePos, uint32_t depth) {
 				if (node(nodePos).cp().type() == CompoundPixel::CELL && depth < targetDepth) {
 					node(nodePos).cp() = CompoundPixel(CompoundPixel::REGION_DUMMY_FOR_CELL, node(nodePos).cp().ghId(), node(nodePos).cp().treeId());
-					node(nodePos).setChildrenBegin(that.m_tree.size());
-					node(nodePos).setChildrenEnd(node(nodePos).childrenBegin()+1);
 					std::size_t prev = nodePos;
-					for(uint32_t i(0), s(targetDepth - depth - 1);  i < s; ++i) {
+					for(uint32_t i(0), s(targetDepth - depth);  i < s; ++i) {
 						CompoundPixel cp(CompoundPixel::REGION_DUMMY_FOR_CELL, node(nodePos).cp().ghId(), that.m_tree.size());
+						node(prev).setChildrenBegin(cp.treeId());
+						node(prev).setChildrenEnd(cp.treeId()+1);
 						that.m_tree.emplace_back(cp, prev);
 						prev = cp.treeId();
 					}
-					CompoundPixel cp(CompoundPixel::CELL, node(nodePos).cp().ghId(), that.m_tree.size());
-					that.m_cellNodePos.at(node(nodePos).cp().ghId()) = cp.treeId();
-					that.m_tree.emplace_back(cp, prev);
+					CompoundPixel cp(CompoundPixel::CELL, node(prev).cp().ghId(), prev);
+					node(prev).cp() = cp;
+					that.m_cellNodePos.at(cp.ghId()) = cp.treeId();
 				}
 				else if (node(nodePos).cp().type() == CompoundPixel::REGION) {
 					for(uint32_t i(node(nodePos).childrenBegin()), s(node(nodePos).childrenEnd()); i < s; ++i) {

@@ -20,7 +20,7 @@ SpatialGridInfo::items(PixelId pid) const {
 			return m_base->idxStore().at( m_base->gh().regionItemsPtr( m_base->regionId(pid) ) );
 		}
 		else {
-			sserialize::ItemIndex regionCells;
+			sserialize::ItemIndex regionCells = m_base->idxStore().at( m_base->gh().regionCellIdxPtr(m_base->regionId(pid)) );
 			std::vector<sserialize::ItemIndex> tmp;
 			for(uint32_t cellId : regionCells) {
 				tmp.emplace_back( m_base->idxStore().at( m_base->gh().cellItemsPtr(cellId) ) );
