@@ -942,7 +942,6 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 			SSERIALIZE_NORMAL_ASSERT(snp.valid());
 			Tree::Node firstNode = firstSg.tree().node(fnp);
 			Tree::Node secondNode = secondSg.tree().node(snp);
-			sserialize::breakHereIf(secondNode.pixelId() == 64229391 && firstNode.pixelId() == 64229391);
 			int rnIsRoot = firstNode.flags() & secondNode.flags() & Tree::Node::IS_ROOT_NODE;
 			Tree::NodePosition rnp;
 			if (firstNode.isFullMatch() && secondNode.isFullMatch()) {
@@ -1046,8 +1045,117 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
-	throw sserialize::UnimplementedFunctionException("Missing function");
-    return HCQRSpatialGrid::HCQRPtr();
+	
+    struct Recurser: public OpHelper {
+        HCQRSpatialGrid const & firstSg;
+        HCQRSpatialGrid const & secondSg;
+        Recurser(HCQRSpatialGrid const & firstSg, HCQRSpatialGrid const & secondSg, HCQRSpatialGrid & dest) :
+        OpHelper(dest),
+        firstSg(firstSg),
+        secondSg(secondSg)
+        {}
+        Tree::NodePosition operator()(Tree::NodePosition const & fnp, Tree::NodePosition const & snp) {
+			SSERIALIZE_NORMAL_ASSERT(fnp.valid());
+			SSERIALIZE_NORMAL_ASSERT(snp.valid());
+			Tree::Node firstNode = firstSg.tree().node(fnp);
+			Tree::Node secondNode = secondSg.tree().node(snp);
+			int rnIsRoot = firstNode.flags() & secondNode.flags() & Tree::Node::IS_ROOT_NODE;
+			Tree::NodePosition rnp;
+			if (firstNode.isFullMatch()) {
+				rnp = dest.tree().push(firstNode.pixelId(), firstNode.flags());
+			}
+            else if (secondNode.isFullMatch()) {
+				rnp = dest.tree().push(secondNode.pixelId(), secondNode.flags());
+            }
+            else if (firstNode.isLeaf() && secondNode.isLeaf()) {
+				auto fnLvl = firstSg.level(firstNode);
+				auto snLvl = secondSg.level(secondNode);
+				sserialize::ItemIndex result;
+				if (fnLvl == snLvl) {
+					result = firstSg.items(fnp) / secondSg.items(snp);
+				}
+				else if (fnLvl < snLvl) {
+					result = (firstSg.items(fnp) / firstSg.sgi().items(firstNode.pixelId())) + secondSg.items(snp);
+				}
+				else if (snLvl < fnLvl) {
+					result = firstSg.items(fnp) + (secondSg.items(snp) / secondSg.sgi().items(secondNode.pixelId()));
+				}
+				SSERIALIZE_CHEAP_ASSERT(result.size());
+                dest.m_fetchedItems.emplace_back(result);
+				rnp = dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_FETCHED | rnIsRoot, dest.m_fetchedItems.size()-1);
+            }
+            else {
+                rnp = dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_INTERNAL | rnIsRoot);
+				Tree::NodePosition lastCNP;
+				
+                if (firstNode.isInternal() && secondNode.isInternal()) {
+                    auto fIt = firstSg.tree().children(fnp);
+                    auto sIt = secondSg.tree().children(snp);
+                    for(;fIt.valid() && sIt.valid();) {
+                        if (fIt.node().pixelId() < sIt.node().pixelId()) {
+                            fIt.next();
+                        }
+                        else if (fIt.node().pixelId() > sIt.node().pixelId()) {
+                            sIt.next();
+                        }
+                        else {
+                            Tree::NodePosition x = (*this)(fIt.position(), sIt.position());
+                            if (x.valid()) {
+								if (lastCNP.valid()) {
+									dest.tree().updateNextNode(lastCNP, x);
+								}
+								lastCNP = x;
+                            }
+                            fIt.next();
+							sIt.next();
+                        }
+                    }
+                }
+                else if (firstNode.isInternal()) {
+                    auto fIt = firstSg.tree().children(fnp);
+                    for( ;fIt.valid(); fIt.next()) {
+                        Tree::NodePosition x = (*this)(fIt.position(), snp);
+						if (x.valid()) {
+							if (lastCNP.valid()) {
+								dest.tree().updateNextNode(lastCNP, x);
+							}
+							lastCNP = x;
+						}
+                    }
+                }
+                else if (secondNode.isInternal()) {
+                    auto sIt = secondSg.tree().children(snp);
+                    for( ;sIt.valid(); sIt.next()) {
+                        auto x = (*this)(snp, sIt.position());
+						if (x.valid()) {
+							if (lastCNP.valid()) {
+								dest.tree().updateNextNode(lastCNP, x);
+							}
+							lastCNP = x;
+						}
+                    }
+                }
+
+                if (lastCNP.valid()) {
+					dest.tree().updateNextNode(lastCNP, rnp);
+				}
+				else {
+					dest.tree().pop(rnp);
+                    rnp = Tree::NodePosition();
+                }
+            }
+            SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(dest.items(rnp), firstSg.items(fnp) / secondSg.items(snp));
+			return rnp;
+        }
+    };
+	
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+	if (tree().hasNodes() && static_cast<Self const &>(other).tree().hasNodes()) {
+		Recurser rec(*this, static_cast<Self const &>(other), *dest);
+		rec(this->rootNodePosition(), static_cast<Self const &>(other).rootNodePosition());
+	}
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(items() / other.items(), dest->items());
+    return dest;
 }
 
 HCQRSpatialGrid::HCQRPtr
@@ -1055,8 +1163,118 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
-	throw sserialize::UnimplementedFunctionException("Missing function");
-    return HCQRSpatialGrid::HCQRPtr();
+	
+    struct Recurser: public OpHelper {
+        HCQRSpatialGrid const & firstSg;
+        HCQRSpatialGrid const & secondSg;
+        Recurser(HCQRSpatialGrid const & firstSg, HCQRSpatialGrid const & secondSg, HCQRSpatialGrid & dest) :
+        OpHelper(dest),
+        firstSg(firstSg),
+        secondSg(secondSg)
+        {}
+        Tree::NodePosition operator()(Tree::NodePosition const & fnp, Tree::NodePosition const & snp) {
+			SSERIALIZE_NORMAL_ASSERT(fnp.valid());
+			SSERIALIZE_NORMAL_ASSERT(snp.valid());
+			Tree::Node firstNode = firstSg.tree().node(fnp);
+			Tree::Node secondNode = secondSg.tree().node(snp);
+			int rnIsRoot = firstNode.flags() & secondNode.flags() & Tree::Node::IS_ROOT_NODE;
+			Tree::NodePosition rnp;
+			if (secondNode.isFullMatch() && firstSg.level(firstNode) >= secondSg.level(secondNode)) {
+				rnp = Tree::NodePosition();
+			}
+            else if (firstNode.isLeaf() && secondNode.isLeaf()) {
+				auto fnLvl = firstSg.level(firstNode);
+				auto snLvl = secondSg.level(secondNode);
+				sserialize::ItemIndex result;
+				if (fnLvl == snLvl) {
+					result = firstSg.items(fnp) - secondSg.items(snp);
+				}
+				else if (fnLvl < snLvl) {
+					result = (firstSg.items(fnp) / firstSg.sgi().items(firstNode.pixelId())) - secondSg.items(snp);
+				}
+				else if (snLvl < fnLvl) {
+					result = firstSg.items(fnp) - (secondSg.items(snp) / secondSg.sgi().items(secondNode.pixelId()));
+				}
+                if (!result.size()) {
+                    rnp = Tree::NodePosition();
+                }
+                else {
+					dest.m_fetchedItems.emplace_back(result);
+					rnp = dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_FETCHED | rnIsRoot, dest.m_fetchedItems.size()-1);
+				}
+            }
+            else {
+                rnp = dest.tree().push(resultPixelId(firstNode, secondNode), Tree::Node::IS_INTERNAL | rnIsRoot);
+				Tree::NodePosition lastCNP;
+				
+                if (firstNode.isInternal() && secondNode.isInternal()) {
+                    auto fIt = firstSg.tree().children(fnp);
+                    auto sIt = secondSg.tree().children(snp);
+                    for(;fIt.valid() && sIt.valid();) {
+                        if (fIt.node().pixelId() < sIt.node().pixelId()) {
+                            fIt.next();
+                        }
+                        else if (fIt.node().pixelId() > sIt.node().pixelId()) {
+                            sIt.next();
+                        }
+                        else {
+                            Tree::NodePosition x = (*this)(fIt.position(), sIt.position());
+                            if (x.valid()) {
+								if (lastCNP.valid()) {
+									dest.tree().updateNextNode(lastCNP, x);
+								}
+								lastCNP = x;
+                            }
+                            fIt.next();
+							sIt.next();
+                        }
+                    }
+                }
+                else if (firstNode.isInternal()) {
+                    auto fIt = firstSg.tree().children(fnp);
+                    for( ;fIt.valid(); fIt.next()) {
+                        Tree::NodePosition x = (*this)(fIt.position(), snp);
+						if (x.valid()) {
+							if (lastCNP.valid()) {
+								dest.tree().updateNextNode(lastCNP, x);
+							}
+							lastCNP = x;
+						}
+                    }
+                }
+                else if (secondNode.isInternal()) {
+                    auto sIt = secondSg.tree().children(snp);
+                    for( ;sIt.valid(); sIt.next()) {
+                        auto x = (*this)(snp, sIt.position());
+						if (x.valid()) {
+							if (lastCNP.valid()) {
+								dest.tree().updateNextNode(lastCNP, x);
+							}
+							lastCNP = x;
+						}
+                    }
+                }
+
+                if (lastCNP.valid()) {
+					dest.tree().updateNextNode(lastCNP, rnp);
+				}
+				else {
+					dest.tree().pop(rnp);
+                    rnp = Tree::NodePosition();
+                }
+            }
+            SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(dest.items(rnp), firstSg.items(fnp) / secondSg.items(snp));
+			return rnp;
+        }
+    };
+	
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+	if (tree().hasNodes() && static_cast<Self const &>(other).tree().hasNodes()) {
+		Recurser rec(*this, static_cast<Self const &>(other), *dest);
+		rec(this->rootNodePosition(), static_cast<Self const &>(other).rootNodePosition());
+	}
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(items() / other.items(), dest->items());
+    return dest;
 }
 
 HCQRSpatialGrid::HCQRPtr
@@ -1074,8 +1292,50 @@ HCQRSpatialGrid::expanded(SizeType level) const {
 
 HCQRSpatialGrid::HCQRPtr
 HCQRSpatialGrid::allToFull() const {
-	throw sserialize::UnimplementedFunctionException("Missing function");
-    return HCQRSpatialGrid::HCQRPtr();
+    struct Recurser: public OpHelper {
+		HCQRSpatialGrid const & sg;
+        Recurser(HCQRSpatialGrid const & sg, HCQRSpatialGrid & dest) :
+        OpHelper(dest),
+        sg(sg)
+        {}
+        Tree::NodePosition operator()(Tree::NodePosition const & np) {
+			auto const & node = sg.tree().node(np);
+			int rnIsRoot = node.flags() & Tree::Node::IS_ROOT_NODE;
+			
+            if (node.isInternal()) {
+				Tree::NodePosition rnp = dest.tree().push(node.pixelId(), Tree::Node::IS_INTERNAL | rnIsRoot);
+				Tree::NodePosition lastCNP;
+				auto cit = sg.tree().children(np);
+				for( ;cit.valid(); cit.next()) {
+					Tree::NodePosition x = (*this)(cit.position());
+					if (x.valid()) {
+						if (lastCNP.valid()) {
+							dest.tree().updateNextNode(lastCNP, x);
+						}
+						lastCNP = x;
+					}
+				}
+				if (lastCNP.valid()) {
+					dest.tree().updateNextNode(lastCNP, rnp);
+				}
+				else {
+					dest.tree().pop(rnp);
+                    rnp = Tree::NodePosition();
+                }
+                return rnp;
+            }
+            else {
+                return dest.tree().push(node.pixelId(), Tree::Node::IS_FULL_MATCH | rnIsRoot);
+            }
+        }
+    };
+	
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+	if (tree().hasNodes()) {
+		Recurser rec(*this, *dest);
+		rec(this->rootNodePosition());
+	}
+    return dest;
 }
 
 HCQRSpatialGrid::Tree::Node
