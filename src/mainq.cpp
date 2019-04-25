@@ -166,8 +166,15 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 	std::cout << "Benchmarking\n";
 	std::cout << "threads: " << cfg.threadCount << '\n';
 	std::cout << "treedCQR: " << (cfg.treedCQR ? "yes" : "no") << std::endl;
+	std::cout << "hcqr: " << (cfg.hcqr ? "yes" : "no") << std::endl;
 	
-	std::string header = "Query id; cqr time [us];flaten time[us];cell count; item count";
+	std::string header;
+	if (cfg.hcqr) {
+		header = "Query id; cqr time [us];flaten time[us];node count; item count";
+	}
+	else {
+		header = "Query id; cqr time [us];flaten time[us];cell count; item count";
+	}
 	
 	sserialize::ProgressInfo pinfo;
 	
@@ -181,21 +188,45 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 		sg_rsf << header << std::endl;
 		sg_stats.reserve(queries.size());
 		
+
 		pinfo.begin(queries.size(), "Computing sg queries");
-		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
-			auto start = std::chrono::high_resolution_clock::now();
-			auto sg_cqr = completers.sgcmp->complete(queries[i], cfg.treedCQR, cfg.threadCount);
-			auto stop = std::chrono::high_resolution_clock::now();
-			sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-			
-			start = std::chrono::high_resolution_clock::now();
-			auto sg_items = sg_cqr.flaten(cfg.threadCount);
-			stop = std::chrono::high_resolution_clock::now();
-			sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-			sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
-			sg_stats.itemCount.emplace_back(sg_items.size());
-			
-			SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+		if (cfg.hcqr) {
+			for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+				{ //no static hcqr support yet. Instead this will use the cached files. 
+					auto dummy = completers.hsgcmp->complete(queries[i]);
+				}
+				
+				auto start = std::chrono::high_resolution_clock::now();
+				auto sg_hcqr = completers.hsgcmp->complete(queries[i]);
+				auto stop = std::chrono::high_resolution_clock::now();
+				sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				
+				start = std::chrono::high_resolution_clock::now();
+				auto sg_items = sg_hcqr->items();
+				stop = std::chrono::high_resolution_clock::now();
+				sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				sg_stats.cellCount.emplace_back(sg_hcqr->numberOfNodes());
+				sg_stats.itemCount.emplace_back(sg_items.size());
+				
+				SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+			}
+		}
+		else {
+			for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+				auto start = std::chrono::high_resolution_clock::now();
+				auto sg_cqr = completers.sgcmp->complete(queries[i], cfg.treedCQR, cfg.threadCount);
+				auto stop = std::chrono::high_resolution_clock::now();
+				sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				
+				start = std::chrono::high_resolution_clock::now();
+				auto sg_items = sg_cqr.flaten(cfg.threadCount);
+				stop = std::chrono::high_resolution_clock::now();
+				sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				sg_stats.cellCount.emplace_back(sg_cqr.cellCount());
+				sg_stats.itemCount.emplace_back(sg_items.size());
+				
+				SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+			}
 		}
 		pinfo.end();
 		
@@ -227,19 +258,38 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 		o_stats.reserve(queries.size());
 
 		pinfo.begin(queries.size(), "Computing oscar queries");
-		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
-			auto start = std::chrono::high_resolution_clock::now();
-			auto o_cqr = completers.cmp->cqrComplete(queries[i], cfg.treedCQR, cfg.threadCount);
-			auto stop = std::chrono::high_resolution_clock::now();
-			o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-			
-			start = std::chrono::high_resolution_clock::now();
-			auto o_items = o_cqr.flaten(cfg.threadCount);
-			stop = std::chrono::high_resolution_clock::now();
-			o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
-			o_stats.cellCount.emplace_back(o_cqr.cellCount());
-			o_stats.itemCount.emplace_back(o_items.size());
-			
+		if (cfg.hcqr) {
+			for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+				{
+					auto dummy = completers.hocmp->complete(queries[i]);
+				}
+				auto start = std::chrono::high_resolution_clock::now();
+				auto o_hcqr = completers.hocmp->complete(queries[i]);
+				auto stop = std::chrono::high_resolution_clock::now();
+				o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				
+				start = std::chrono::high_resolution_clock::now();
+				auto o_items = o_hcqr->items();
+				stop = std::chrono::high_resolution_clock::now();
+				o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				o_stats.cellCount.emplace_back(o_hcqr->numberOfNodes());
+				o_stats.itemCount.emplace_back(o_items.size());
+			}
+		}
+		else {
+			for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+				auto start = std::chrono::high_resolution_clock::now();
+				auto o_cqr = completers.cmp->cqrComplete(queries[i], cfg.treedCQR, cfg.threadCount);
+				auto stop = std::chrono::high_resolution_clock::now();
+				o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				
+				start = std::chrono::high_resolution_clock::now();
+				auto o_items = o_cqr.flaten(cfg.threadCount);
+				stop = std::chrono::high_resolution_clock::now();
+				o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+				o_stats.cellCount.emplace_back(o_cqr.cellCount());
+				o_stats.itemCount.emplace_back(o_items.size());
+			}
 		}
 		pinfo.end();
 	
