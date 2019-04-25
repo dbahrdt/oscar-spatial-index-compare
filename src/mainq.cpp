@@ -8,6 +8,7 @@
 #include "HCQRCompleter.h"
 #include "HCQRIndexMakeStatic.h"
 #include "GeoHierarchyHCQRCompleter.h"
+#include "HCQRIndexCompactifying.h"
 
 struct Config {
     std::string oscarFiles;
@@ -288,7 +289,7 @@ void help() {
 
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
 	if (cfg.compactifiedHCQR) {
-		index = hic::HCQRIndexWithCache::make(index);
+		index = hic::HCQRIndexCompactifying::make(index);
 	}
 	if (cfg.staticHCQR) {
 		index = hic::HCQRIndexMakeStatic::make(index);
