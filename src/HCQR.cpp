@@ -481,11 +481,14 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
         firstSg(firstSg),
         secondSg(secondSg)
         {}
+        auto level(HCQRSpatialGrid const & sg, TreeNode const & node) {
+			return sg.sg().level(node.pixelId());
+		}
         std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
 			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
 			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
-			if (firstNode.isFullMatch() && secondNode.isFullMatch()) {
-				SSERIALIZE_CHEAP_ASSERT_EQUAL(firstSg.sg().level(firstNode.pixelId()), secondSg.sg().level(secondNode.pixelId()));
+			if (secondNode.isFullMatch() && level(firstSg, firstNode) >= level(secondSg, secondNode)) {
+				SSERIALIZE_CHEAP_ASSERT_EQUAL(level(firstSg, firstNode), level(secondSg, secondNode));
 				return std::unique_ptr<TreeNode>();
 			}
             else if (firstNode.isLeaf() && secondNode.isLeaf()) {
