@@ -452,7 +452,7 @@ int main(int argc, char const * argv[]) {
 		}
 		bool needsHCQR = false;
 		for(auto const & x : state.queue) {
-			if (x.type == WorkItem::WI_OSCAR_HCQR) {
+			if ((x.type == WorkItem::WI_OSCAR_HCQR) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
 				needsHCQR = true;
 				break;
 			}
@@ -480,7 +480,7 @@ int main(int argc, char const * argv[]) {
 		}
 		bool needsHCQR = false;
 		for(auto const & x : state.queue) {
-			if (x.type == WorkItem::WI_SG_HCQR) {
+			if ((x.type == WorkItem::WI_SG_HCQR) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
 				needsHCQR = true;
 				break;
 			}
