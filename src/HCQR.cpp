@@ -386,13 +386,15 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 				auto snLvl = secondSg.level(secondNode);
 				sserialize::ItemIndex result;
 				if (fnLvl == snLvl) {
-					result = firstSg.items(firstNode) / secondSg.items(secondNode);
+					result = firstSg.items(firstNode) + secondSg.items(secondNode);
 				}
-				else if (fnLvl < snLvl) {
-					result = (firstSg.items(firstNode) / firstSg.sgi().items(firstNode.pixelId())) + secondSg.items(secondNode);
+				else if (fnLvl < snLvl) { //firstNode is an ancestor of secondNode
+					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(firstNode.pixelId(), secondNode.pixelId()));
+					result = (firstSg.items(firstNode) / firstSg.sgi().items(secondNode.pixelId())) + secondSg.items(secondNode);
 				}
-				else if (snLvl < fnLvl) {
-					result = firstSg.items(firstNode) + (secondSg.items(secondNode) / secondSg.sgi().items(secondNode.pixelId()));
+				else if (snLvl < fnLvl) { //secondNode is an ancestor of firstNode
+					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(secondNode.pixelId(), firstNode.pixelId()));
+					result = firstSg.items(firstNode) + (secondSg.items(secondNode) / secondSg.sgi().items(firstNode.pixelId()));
 				}
 				SSERIALIZE_CHEAP_ASSERT(result.size());
                 dest.m_fetchedItems.emplace_back(result);
@@ -498,11 +500,13 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 				if (fnLvl == snLvl) {
 					result = firstSg.items(firstNode) - secondSg.items(secondNode);
 				}
-				else if (fnLvl < snLvl) {
-					result = (firstSg.items(firstNode) / firstSg.sgi().items(firstNode.pixelId())) - secondSg.items(secondNode);
+				else if (fnLvl < snLvl) { //firstNode is an ancestor of secondNode
+					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(firstNode.pixelId(), secondNode.pixelId()));
+					result = (firstSg.items(firstNode) / firstSg.sgi().items(secondNode.pixelId())) - secondSg.items(secondNode);
 				}
-				else if (snLvl < fnLvl) {
-					result = firstSg.items(firstNode) - (secondSg.items(secondNode) / secondSg.sgi().items(secondNode.pixelId()));
+				else if (snLvl < fnLvl) { //secondNode is an ancestor of firstNode
+					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(secondNode.pixelId(), firstNode.pixelId()));
+					result = firstSg.items(firstNode) - (secondSg.items(secondNode) / secondSg.sgi().items(firstNode.pixelId()));
 				}
                 if (!result.size()) {
                     return std::unique_ptr<TreeNode>();
