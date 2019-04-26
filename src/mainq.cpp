@@ -202,7 +202,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				sg_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 				
 				start = std::chrono::high_resolution_clock::now();
-				auto sg_items = sg_hcqr->items();
+				auto sg_items = (sg_hcqr ? sg_hcqr->items() : sserialize::ItemIndex());
 				stop = std::chrono::high_resolution_clock::now();
 				sg_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 				sg_stats.cellCount.emplace_back(sg_hcqr->numberOfNodes());
@@ -269,11 +269,12 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				o_stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 				
 				start = std::chrono::high_resolution_clock::now();
-				auto o_items = o_hcqr->items();
+				auto o_items = (o_hcqr ? o_hcqr->items() : sserialize::ItemIndex());
 				stop = std::chrono::high_resolution_clock::now();
 				o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 				o_stats.cellCount.emplace_back(o_hcqr->numberOfNodes());
 				o_stats.itemCount.emplace_back(o_items.size());
+				SSERIALIZE_EXPENSIVE_ASSERT(o_items == completers.cmp->cqrComplete(queries[i]).flaten());
 			}
 		}
 		else {
