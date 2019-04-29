@@ -348,6 +348,16 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
             }
 			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
 				if (rptr) {
+					if (firstSg.items(firstNode) / secondSg.items(secondNode) != dest.items(*rptr)) {
+						auto sdiff = (firstSg.items(firstNode) / secondSg.items(secondNode)) ^ dest.items(*rptr);
+						for(auto x : sdiff) {
+							for (auto const & c : rptr->children()) {
+								if (dest.items(*c).count(x)) {
+									std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << std::endl;  
+								}
+							}
+						}
+					}
 					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(firstSg.items(firstNode) / secondSg.items(secondNode), dest.items(*rptr));
 				}
 				else {
