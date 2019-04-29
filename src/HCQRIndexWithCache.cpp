@@ -28,8 +28,8 @@ HCQRIndexWithCache::getSupportedQueries() const {
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
-    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::ITEMS_AND_REGIONS, qt, qstr);
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);
     }
@@ -40,8 +40,8 @@ HCQRIndexWithCache::complete(const std::string & qstr, const sserialize::StringC
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
-    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::ITEMS, qt, qstr);
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);
     }
@@ -52,8 +52,8 @@ HCQRIndexWithCache::items(const std::string & qstr, const sserialize::StringComp
 
 HCQRIndexWithCache::HCQRPtr
 HCQRIndexWithCache::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
-    std::lock_guard<std::mutex> lck(m_cacheLock);
     CacheKey ck(CacheKey::REGIONS, qt, qstr);
+    std::lock_guard<std::mutex> lck(m_cacheLock);
     if (m_cache.count(ck)) {
         return m_cache.find(ck);
     }
