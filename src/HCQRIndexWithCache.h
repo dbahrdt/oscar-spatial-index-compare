@@ -7,7 +7,7 @@
 namespace hic::detail::HCQRIndexWithCache {
 
 struct CacheKey {
-    enum {ITEMS_AND_REGIONS, ITEMS, REGIONS} ItemType;
+    enum {ITEMS_AND_REGIONS, ITEMS, REGIONS, CELL, REGION} ItemType;
     CacheKey(uint8_t itemType, uint8_t qt, std::string const & qstr) :
     itemType(itemType), qt(qt), qstr(qstr)
     {}
@@ -55,6 +55,9 @@ public:
 	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+public:
+	HCQRPtr cell(uint32_t cellId) const override;
+	HCQRPtr region(uint32_t regionId) const override;
 public:
 	SpatialGridInfo const & sgi() const override;
 	SpatialGrid const & sg() const override;

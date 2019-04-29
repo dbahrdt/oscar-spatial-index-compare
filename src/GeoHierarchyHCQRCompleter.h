@@ -32,6 +32,9 @@ public:
 	CellQueryResult complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	CellQueryResult items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	CellQueryResult regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+public:
+	CellQueryResult cell(uint32_t cellId) const override;
+	CellQueryResult region(uint32_t regionId) const override;
 private:
 	sserialize::Static::CellTextCompleter m_ctc;
 };

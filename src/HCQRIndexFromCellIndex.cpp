@@ -102,6 +102,23 @@ HCQRIndexFromCellIndex::regions(const std::string & qstr, const sserialize::Stri
 	return result;
 }
 
+HCQRIndexFromCellIndex::HCQRPtr
+HCQRIndexFromCellIndex::cell(uint32_t cellId) const {
+    sserialize::CellQueryResult cqr = ci().cell(cellId);
+    HCQRPtr result( new MyHCQR(cqr, cqr.idxStore(), m_sg, m_sgi) );
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(cqr.flaten(), result->items());
+	return result;
+	
+}
+
+HCQRIndexFromCellIndex::HCQRPtr
+HCQRIndexFromCellIndex::region(uint32_t regionId) const {
+    sserialize::CellQueryResult cqr = ci().region(regionId);
+    HCQRPtr result( new MyHCQR(cqr, cqr.idxStore(), m_sg, m_sgi) );
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(cqr.flaten(), result->items());
+	return result;
+}
+
 HCQRIndexFromCellIndex::SpatialGridInfo const &
 HCQRIndexFromCellIndex::sgi() const {
     return *m_sgi;

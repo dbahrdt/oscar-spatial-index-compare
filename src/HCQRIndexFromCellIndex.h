@@ -22,6 +22,9 @@ public:
 	virtual CellQueryResult complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;
 	virtual CellQueryResult items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;
 	virtual CellQueryResult regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const = 0;
+public:
+	virtual CellQueryResult cell(uint32_t cellId) const = 0;
+	virtual CellQueryResult region(uint32_t regionId) const = 0;
 };
 
 class CellInfo: public sserialize::RefCountObject {
@@ -96,6 +99,9 @@ public:
 	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+public:
+	HCQRPtr cell(uint32_t cellId) const override;
+	HCQRPtr region(uint32_t regionId) const override;
 public:
 	SpatialGridInfo const & sgi() const override;
 	SpatialGrid const & sg() const override;

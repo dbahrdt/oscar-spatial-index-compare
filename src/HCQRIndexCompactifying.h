@@ -20,6 +20,9 @@ public:
 	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 public:
+	HCQRPtr cell(uint32_t cellId) const override;
+	HCQRPtr region(uint32_t regionId) const override;
+public:
 	SpatialGridInfo const & sgi() const override;
 	SpatialGrid const & sg() const override;
 private:

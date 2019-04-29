@@ -261,6 +261,17 @@ HCQROscarCellIndex::regions(const std::string & qstr, const sserialize::StringCo
 	return m_base->regions<CellQueryResult>(qstr, qt);
 }
 
+HCQROscarCellIndex::CellQueryResult
+HCQROscarCellIndex::cell(uint32_t cellId) const {
+	return m_base->cell<CellQueryResult>(cellId);
+}
+
+HCQROscarCellIndex::CellQueryResult
+HCQROscarCellIndex::region(uint32_t regionId) const {
+	return m_base->region<CellQueryResult>(regionId);
+}
+
+
 //END
 
 //BEGIN SgOpTree

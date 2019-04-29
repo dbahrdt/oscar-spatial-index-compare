@@ -62,6 +62,31 @@ HCQRIndexWithCache::regions(const std::string & qstr, const sserialize::StringCo
     return result;
 }
 
+
+HCQRIndexWithCache::HCQRPtr
+HCQRIndexWithCache::cell(uint32_t cellId) const {
+    CacheKey ck(CacheKey::CELL, 0, std::to_string(cellId));
+    std::lock_guard<std::mutex> lck(m_cacheLock);
+    if (m_cache.count(ck)) {
+        return m_cache.find(ck);
+    }
+    auto result = m_base->cell(cellId);
+    m_cache.insert(ck, result);
+    return result;
+}
+
+HCQRIndexWithCache::HCQRPtr
+HCQRIndexWithCache::region(uint32_t regionId) const {
+    CacheKey ck(CacheKey::REGION, 0, std::to_string(regionId));
+    std::lock_guard<std::mutex> lck(m_cacheLock);
+    if (m_cache.count(ck)) {
+        return m_cache.find(ck);
+    }
+    auto result = m_base->region(regionId);
+    m_cache.insert(ck, result);
+    return result;
+}
+
 HCQRIndexWithCache::SpatialGridInfo const &
 HCQRIndexWithCache::sgi() const {
     return m_base->sgi();

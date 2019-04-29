@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sserialize/utility/exceptions.h>
 #include <sserialize/storage/UByteArrayAdapter.h>
 #include <sserialize/Static/ItemIndexStore.h>
 #include <sserialize/containers/CompactUintArray.h>
@@ -173,6 +174,11 @@ public:
 	template<typename T_CQR_TYPE>
 	T_CQR_TYPE regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
 public:
+	template<typename T_CQR_TYPE>
+	T_CQR_TYPE cell(uint32_t cellId) const;
+	template<typename T_CQR_TYPE>
+	T_CQR_TYPE region(uint32_t regionId) const;
+public:
 	inline SpatialGridInfo const & sgInfo() const { return *m_sgInfo; }
 	inline std::shared_ptr<SpatialGridInfo> const & sgInfoPtr() const { return m_sgInfo; }
 	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
@@ -202,6 +208,9 @@ public:
 	CellQueryResult complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	CellQueryResult items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	CellQueryResult regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+public:
+	CellQueryResult cell(uint32_t cellId) const override;
+	CellQueryResult region(uint32_t regionId) const override;
 private:
 	sserialize::RCPtrWrapper<OscarSearchSgIndex> m_base;
 };
@@ -419,6 +428,20 @@ T_CQR_TYPE OscarSearchSgIndex::items(const std::string& qstr, const sserialize::
 	catch (const sserialize::OutOfBoundsException & e) {
 		return T_CQR_TYPE(ci, idxStore(), flags());
 	}
+}
+
+template<typename T_CQR_TYPE>
+T_CQR_TYPE
+OscarSearchSgIndex::cell(uint32_t cellId) const {
+	throw sserialize::UnimplementedFunctionException("OscarSearchSgIndex::cell");
+	return T_CQR_TYPE();
+}
+
+template<typename T_CQR_TYPE>
+T_CQR_TYPE
+OscarSearchSgIndex::region(uint32_t regionId) const {
+	throw sserialize::UnimplementedFunctionException("OscarSearchSgIndex::region");
+	return T_CQR_TYPE();
 }
 
 }//end namespace hic::Static

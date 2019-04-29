@@ -49,6 +49,23 @@ HCQRIndexCompactifying::regions(const std::string & qstr, const sserialize::Stri
 	return result;
 }
 
+HCQRIndexCompactifying::HCQRPtr
+HCQRIndexCompactifying::cell(uint32_t cellId) const {
+    auto tmp = m_base->cell(cellId);
+	auto result = tmp->compactified(m_cl);
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(tmp->items(), result->items());
+	return result;
+}
+
+HCQRIndexCompactifying::HCQRPtr
+HCQRIndexCompactifying::region(uint32_t regionId) const {
+    auto tmp = m_base->region(regionId);
+	auto result = tmp->compactified(m_cl);
+	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(tmp->items(), result->items());
+	return result;
+	
+}
+
 HCQRIndexCompactifying::SpatialGridInfo const &
 HCQRIndexCompactifying::sgi() const {
     return m_base->sgi();

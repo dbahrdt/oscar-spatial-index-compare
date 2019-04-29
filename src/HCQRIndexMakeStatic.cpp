@@ -53,6 +53,29 @@ HCQRIndexMakeStatic::regions(const std::string & qstr, const sserialize::StringC
 	return HCQRPtr(new hic::Static::impl::HCQRSpatialGrid( static_cast<hic::impl::HCQRSpatialGrid const &>(*tmp) ) );
 }
 
+HCQRIndexMakeStatic::HCQRPtr
+HCQRIndexMakeStatic::cell(uint32_t cellId) const {
+	auto tmp = m_base->cell(cellId);
+
+	if (!dynamic_cast<hic::impl::HCQRSpatialGrid const *>(tmp.get())) {
+		throw sserialize::TypeMissMatchException("HCQRMakeStatic: can only convert from hic::impl::HCQRSpatialGrid to hic::Static::impl::HCQRSpatialGrid");
+	}
+	
+	return HCQRPtr(new hic::Static::impl::HCQRSpatialGrid( static_cast<hic::impl::HCQRSpatialGrid const &>(*tmp) ) );
+}
+
+HCQRIndexMakeStatic::HCQRPtr
+HCQRIndexMakeStatic::region(uint32_t regionId) const {
+	auto tmp = m_base->region(regionId);
+
+	if (!dynamic_cast<hic::impl::HCQRSpatialGrid const *>(tmp.get())) {
+		throw sserialize::TypeMissMatchException("HCQRMakeStatic: can only convert from hic::impl::HCQRSpatialGrid to hic::Static::impl::HCQRSpatialGrid");
+	}
+	
+	return HCQRPtr(new hic::Static::impl::HCQRSpatialGrid( static_cast<hic::impl::HCQRSpatialGrid const &>(*tmp) ) );
+	
+}
+
 HCQRIndexMakeStatic::SpatialGridInfo const &
 HCQRIndexMakeStatic::sgi() const {
     return m_base->sgi();

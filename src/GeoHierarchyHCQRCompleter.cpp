@@ -66,6 +66,16 @@ CellIndex::CellQueryResult
 CellIndex::regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const {
 	return m_ctc.regions(qstr, qt);
 }
+
+CellIndex::CellQueryResult
+CellIndex::cell(uint32_t cellId) const {
+	return m_ctc.cqrFromCellId(cellId);
+}
+
+CellIndex::CellQueryResult
+CellIndex::region(uint32_t regionId) const {
+	return m_ctc.cqrFromRegionStoreId(regionId);
+}
 	
 } //end namespace hic::detail::GeoHierarchyHCQRCompleter
 
