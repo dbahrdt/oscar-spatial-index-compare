@@ -44,11 +44,11 @@ HcqrOpTree::Calc::Calc::calc(const Node * node) {
 			}
 		}
 		case Node::REGION:
-			throw sserialize::UnsupportedFeatureException("HcqrOpTree: region");
+			return m_d->region(std::atoi(node->value.c_str()));
 		case Node::REGION_EXCLUSIVE_CELLS:
 			throw sserialize::UnsupportedFeatureException("HcqrOpTree: region exclusive cells");
 		case Node::CELL:
-			throw sserialize::UnsupportedFeatureException("HcqrOpTree: cell");
+			return m_d->cell(std::atoi(node->value.c_str()));
 		case Node::CELLS:
 			throw sserialize::UnsupportedFeatureException("HcqrOpTree: cells");
 		case Node::RECT:
