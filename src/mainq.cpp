@@ -68,7 +68,8 @@ struct WorkItem {
         WI_OSCAR_TCQR,
 		WI_OSCAR_HCQR,
         WI_PRELOAD,
-		WI_STATS
+		WI_STATS,
+		WI_DEBUG_DIFF
     };
 
     WorkItem(Type t, WorkData * d) : data(d), type(t) {}
@@ -334,8 +335,93 @@ void printStats(Completers & completers) {
 	std::cout << "max area: " << area.max() << std::endl;
 }
 
+void debugDiff(State const & state, Completers & completers) {
+	sserialize::ItemIndex sq, tsq, hsq, oq, toq, hoq, diff, sdiff;
+	if (completers.sgcmp) {
+		sq = completers.sgcmp->complete(state.str, false, state.numThreads).flaten(state.numThreads);
+		tsq = completers.sgcmp->complete(state.str, true, state.numThreads).flaten(state.numThreads);
+	}
+	if (completers.hsgcmp) {
+		hsq = completers.hsgcmp->complete(state.str)->items();
+	}
+	if (completers.cmp) {
+		oq = completers.cmp->cqrComplete(state.str, false, state.numThreads).flaten(state.numThreads);
+		toq = completers.cmp->cqrComplete(state.str, true, state.numThreads).flaten(state.numThreads);
+	}
+	if (completers.hsgcmp) {
+		hoq = completers.hsgcmp->complete(state.str)->items();
+	}
+	
+	sdiff = sq ^ tsq;
+	if (sdiff.size()) {
+		std::cout << "sq^tsq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+	sdiff = sq^hsq;
+	if (sdiff.size()) {
+		std::cout << "sq^hsq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+	sdiff = oq^toq;
+	if (sdiff.size()) {
+		std::cout << "oq^toq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+	sdiff = oq^hoq;
+	if (sdiff.size()) {
+		std::cout << "oq^hoq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+	sdiff = sq^oq;
+	if (sdiff.size()) {
+		std::cout << "sq^oq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+	sdiff = hsq^hoq;
+	if (sdiff.size()) {
+		std::cout << "hsq^hoq: ";
+		if (sdiff.size() < 10) {
+			std::cout << sdiff;
+		}
+		else {
+			std::cout << sdiff.size();
+		}
+		std::cout << std::endl;
+	}
+}
+
 void help() {
-	std::cerr << "prg -o <oscar files> -f <spatial grid files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats" << std::endl;
+	std::cerr << "prg -o <oscar files> -f <spatial grid files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats --debug-diff" << std::endl;
 }
 
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
@@ -432,6 +518,9 @@ int main(int argc, char const * argv[]) {
 		else if (token == "--stats") {
 			state.queue.emplace_back(WorkItem::WI_STATS, std::nullptr_t());
 		}
+		else if (token == "--debug-diff") {
+			state.queue.emplace_back(WorkItem::WI_DEBUG_DIFF, std::nullptr_t());
+		}
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;
 			help();
@@ -453,7 +542,7 @@ int main(int argc, char const * argv[]) {
 		}
 		bool needsHCQR = false;
 		for(auto const & x : state.queue) {
-			if ((x.type == WorkItem::WI_OSCAR_HCQR) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
+			if ((x.type == WorkItem::WI_OSCAR_HCQR) || (x.type == WorkItem::WI_DEBUG_DIFF) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
 				needsHCQR = true;
 				break;
 			}
@@ -481,7 +570,7 @@ int main(int argc, char const * argv[]) {
 		}
 		bool needsHCQR = false;
 		for(auto const & x : state.queue) {
-			if ((x.type == WorkItem::WI_SG_HCQR) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
+			if ((x.type == WorkItem::WI_SG_HCQR) || (x.type == WorkItem::WI_DEBUG_DIFF) || (x.type == WorkItem::WI_BENCHMARK && x.data->as<WorkDataBenchmark>()->hcqr)) {
 				needsHCQR = true;
 				break;
 			}
@@ -610,6 +699,10 @@ int main(int argc, char const * argv[]) {
 			case WorkItem::WI_STATS:
 			{
 				printStats(completers);
+			}
+			case WorkItem::WI_DEBUG_DIFF:
+			{
+				debugDiff(state, completers);
 			}
 				break;
 			default:
