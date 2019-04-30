@@ -210,6 +210,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				sg_stats.itemCount.emplace_back(sg_items.size());
 				
 				SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+				pinfo(i);
 			}
 		}
 		else {
@@ -227,6 +228,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				sg_stats.itemCount.emplace_back(sg_items.size());
 				
 				SSERIALIZE_EXPENSIVE_ASSERT(sg_items == completers.cmp->cqrComplete(queries[i]).flaten());
+				pinfo(i);
 			}
 		}
 		pinfo.end();
@@ -276,6 +278,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				o_stats.cellCount.emplace_back((o_hcqr ? o_hcqr->numberOfNodes() : 0));
 				o_stats.itemCount.emplace_back(o_items.size());
 				SSERIALIZE_EXPENSIVE_ASSERT(o_items == completers.cmp->cqrComplete(queries[i]).flaten());
+				pinfo(i);
 			}
 		}
 		else {
@@ -291,6 +294,7 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 				o_stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
 				o_stats.cellCount.emplace_back(o_cqr.cellCount());
 				o_stats.itemCount.emplace_back(o_items.size());
+				pinfo(i);
 			}
 		}
 		pinfo.end();
