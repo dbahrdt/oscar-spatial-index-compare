@@ -1,5 +1,6 @@
 #include "HCQR.h"
 #include <sserialize/utility/exceptions.h>
+#include <sserialize/utility/debuggerfunctions.h>
 #include <memory>
 
 namespace hic::interface {
@@ -427,16 +428,15 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     auto sEnd = secondNode.children().end();
                     for(;fIt != fEnd && sIt != sEnd;) {
                         if ((*fIt)->pixelId() < (*sIt)->pixelId()) {
+							resNode->children().emplace_back(deepCopy(firstSg, **fIt));
                             ++fIt;
                         }
                         else if ((*fIt)->pixelId() > (*sIt)->pixelId()) {
+							resNode->children().emplace_back( deepCopy(secondSg, **sIt) );
                             ++sIt;
                         }
                         else {
-                            auto x = (*this)(**fIt, **sIt);
-                            if (x) {
-                                resNode->children().emplace_back(std::move(x));
-                            }
+							resNode->children().emplace_back((*this)(**fIt, **sIt));
                             ++fIt;
 							++sIt;
                         }
@@ -469,12 +469,8 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     }
                 }
 
-                if (resNode->children().size()) {
-                    return resNode;
-                }
-                else {
-                    return std::unique_ptr<TreeNode>();
-                }
+                SSERIALIZE_CHEAP_ASSERT(resNode->children().size());
+				return resNode;
             }
         }
     };
@@ -506,9 +502,10 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
         std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
 			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
 			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
+			std::unique_ptr<TreeNode> rptr;
 			if (secondNode.isFullMatch() && level(firstSg, firstNode) >= level(secondSg, secondNode)) {
 				SSERIALIZE_CHEAP_ASSERT_EQUAL(level(firstSg, firstNode), level(secondSg, secondNode));
-				return std::unique_ptr<TreeNode>();
+				rptr = std::unique_ptr<TreeNode>();
 			}
             else if (firstNode.isLeaf() && secondNode.isLeaf()) {
 				auto fnLvl = firstSg.level(firstNode);
@@ -519,20 +516,26 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 				}
 				else if (fnLvl < snLvl) { //firstNode is an ancestor of secondNode
 					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(firstNode.pixelId(), secondNode.pixelId()));
-					result = (firstSg.items(firstNode) / firstSg.sgi().items(secondNode.pixelId())) - secondSg.items(secondNode);
+					if (firstNode.isFullMatch()) {
+						result = firstSg.sgi().items(secondNode.pixelId()) - secondSg.items(secondNode);
+					}
+					else {
+						result = (firstSg.items(firstNode) / firstSg.sgi().items(secondNode.pixelId())) - secondSg.items(secondNode);
+					}
 				}
 				else if (snLvl < fnLvl) { //secondNode is an ancestor of firstNode
 					SSERIALIZE_NORMAL_ASSERT(firstSg.sg().isAncestor(secondNode.pixelId(), firstNode.pixelId()));
+					SSERIALIZE_CHEAP_ASSERT(!secondNode.isFullMatch());
 					result = firstSg.items(firstNode) - (secondSg.items(secondNode) / secondSg.sgi().items(firstNode.pixelId()));
 				}
                 if (!result.size()) {
-                    return std::unique_ptr<TreeNode>();
+                    rptr = std::unique_ptr<TreeNode>();
                 }
                 dest.m_fetchedItems.emplace_back(result);
-                return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+                rptr = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
             }
             else {
-                std::unique_ptr<TreeNode> resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
+                rptr = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
 
                 if (firstNode.isInternal() && secondNode.isInternal()) {
                     auto fIt = firstNode.children().begin();
@@ -541,6 +544,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                     auto sEnd = secondNode.children().end();
                     for(;fIt != fEnd && sIt != sEnd;) {
                         if ((*fIt)->pixelId() < (*sIt)->pixelId()) {
+							rptr->children().emplace_back( deepCopy(firstSg, **fIt) );
                             ++fIt;
                         }
                         else if ((*fIt)->pixelId() > (*sIt)->pixelId()) {
@@ -549,12 +553,15 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                         else {
                             auto x = (*this)(**fIt, **sIt);
                             if (x) {
-                                resNode->children().emplace_back(std::move(x));
+                                rptr->children().emplace_back(std::move(x));
                             }
                             ++fIt;
 							++sIt;
                         }
                     }
+                    for(; fIt != fEnd; ++fIt) {
+						rptr->children().emplace_back( deepCopy(firstSg, **fIt) );
+					}
                 }
                 else if (firstNode.isInternal()) {
                     auto fIt = firstNode.children().begin();
@@ -562,7 +569,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                     for( ;fIt != fEnd; ++fIt) {
                         auto x = (*this)(**fIt, secondNode);
                         if (x) {
-                            resNode->children().emplace_back(std::move(x));
+                            rptr->children().emplace_back(std::move(x));
                         }
                     }
                 }
@@ -572,18 +579,34 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                     for( ;sIt != sEnd; ++sIt) {
                         auto x = (*this)(firstNode, **sIt);
                         if (x) {
-                            resNode->children().emplace_back(std::move(x));
+                            rptr->children().emplace_back(std::move(x));
                         }
                     }
                 }
 
-                if (resNode->children().size()) {
-                    return resNode;
-                }
-                else {
-                    return std::unique_ptr<TreeNode>();
+                if (!rptr->children().size()) {
+                    rptr = std::unique_ptr<TreeNode>();
                 }
             }
+			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
+				if (rptr) {
+					if ((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId())) != dest.items(*rptr)) {
+						auto sdiff = ((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId()))) ^ dest.items(*rptr);
+						for (auto const & c : rptr->children()) {
+							auto b = dest.items(*c) / sdiff;
+							for(auto x : b) {
+								std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << std::endl;
+							}
+						}
+						sserialize::breakHereIf(sdiff.size());
+					}
+					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId())), dest.items(*rptr));
+				}
+				else {
+					SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(0, ((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId()))).size());
+				}
+			#endif
+			return rptr;
         }
     };
     sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );

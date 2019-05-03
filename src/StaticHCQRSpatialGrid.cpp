@@ -1094,24 +1094,42 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     auto fIt = firstSg.tree().children(fnp);
                     auto sIt = secondSg.tree().children(snp);
                     for(;fIt.valid() && sIt.valid();) {
+						Tree::NodePosition x;
                         if (fIt.node().pixelId() < sIt.node().pixelId()) {
+							x = deepCopy(firstSg, fIt.position());
                             fIt.next();
                         }
                         else if (fIt.node().pixelId() > sIt.node().pixelId()) {
+							x = deepCopy(secondSg, sIt.position());
                             sIt.next();
                         }
                         else {
-                            Tree::NodePosition x = (*this)(fIt.position(), sIt.position());
-                            if (x.valid()) {
-								if (lastCNP.valid()) {
-									dest.tree().updateNextNode(lastCNP, x);
-								}
-								lastCNP = x;
-                            }
+                            x = (*this)(fIt.position(), sIt.position());
                             fIt.next();
 							sIt.next();
-                        }
+						}
+						SSERIALIZE_CHEAP_ASSERT(x.valid());
+						if (lastCNP.valid()) {
+							dest.tree().updateNextNode(lastCNP, x);
+						}
+						lastCNP = x;
                     }
+                    for(;fIt.valid();) {
+						Tree::NodePosition x = deepCopy(firstSg, fIt.position());
+						SSERIALIZE_CHEAP_ASSERT(x.valid());
+						if (lastCNP.valid()) {
+							dest.tree().updateNextNode(lastCNP, x);
+						}
+						lastCNP = x;
+					}
+                    for(;sIt.valid();) {
+						Tree::NodePosition x = deepCopy(secondSg, sIt.position());
+						SSERIALIZE_CHEAP_ASSERT(x.valid());
+						if (lastCNP.valid()) {
+							dest.tree().updateNextNode(lastCNP, x);
+						}
+						lastCNP = x;
+					}
                 }
                 else if (firstNode.isInternal()) {
                     auto fIt = firstSg.tree().children(fnp);
@@ -1215,24 +1233,36 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                     auto fIt = firstSg.tree().children(fnp);
                     auto sIt = secondSg.tree().children(snp);
                     for(;fIt.valid() && sIt.valid();) {
+						Tree::NodePosition x;
                         if (fIt.node().pixelId() < sIt.node().pixelId()) {
+							x = deepCopy(firstSg, fIt.position());
                             fIt.next();
                         }
                         else if (fIt.node().pixelId() > sIt.node().pixelId()) {
                             sIt.next();
+							continue; //x is not valid
                         }
                         else {
-                            Tree::NodePosition x = (*this)(fIt.position(), sIt.position());
-                            if (x.valid()) {
-								if (lastCNP.valid()) {
-									dest.tree().updateNextNode(lastCNP, x);
-								}
-								lastCNP = x;
-                            }
+							x = (*this)(fIt.position(), sIt.position());
                             fIt.next();
 							sIt.next();
-                        }
+						}
+						if (x.valid()) {
+							if (lastCNP.valid()) {
+								dest.tree().updateNextNode(lastCNP, x);
+							}
+							lastCNP = x;
+						}
                     }
+                    
+                    for(;fIt.valid();) {
+						Tree::NodePosition x = deepCopy(firstSg, fIt.position());
+						SSERIALIZE_CHEAP_ASSERT(x.valid());
+						if (lastCNP.valid()) {
+							dest.tree().updateNextNode(lastCNP, x);
+						}
+						lastCNP = x;
+					}
                 }
                 else if (firstNode.isInternal()) {
                     auto fIt = firstSg.tree().children(fnp);
