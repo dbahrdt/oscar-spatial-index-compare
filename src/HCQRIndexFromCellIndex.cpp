@@ -18,7 +18,6 @@ SpatialGridInfoFromCellIndex::itemCount(PixelId pid) const {
 
 SpatialGridInfoFromCellIndex::ItemIndex
 SpatialGridInfoFromCellIndex::items(PixelId pid) const {
-	sserialize::breakHereIf(pid == 64229376);
 	std::unique_lock<std::mutex> cacheLck(m_cacheLock);
     if (m_cache.count(pid)) {
         return m_cache.find(pid);
