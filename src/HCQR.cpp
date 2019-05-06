@@ -592,11 +592,43 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 				if (rptr) {
 					if ((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId())) != dest.items(*rptr)) {
 						auto sdiff = ((firstSg.items(firstNode) / firstSg.sgi().items(rptr->pixelId())) - (secondSg.items(secondNode) / secondSg.sgi().items(rptr->pixelId()))) ^ dest.items(*rptr);
+						std::cout << "In result:\n";
 						for (auto const & c : rptr->children()) {
 							auto b = dest.items(*c) / sdiff;
 							for(auto x : b) {
-								std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << std::endl;
+								std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << '\n';
 							}
+						}
+						std::cout << "In left:\n";
+						if (firstNode.isInternal()) {
+							for (auto const & c : firstNode.children()) {
+								auto b = firstSg.items(*c) / sdiff;
+								for(auto x : b) {
+									std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << '\n';
+								}
+							}
+						}
+						else {
+							auto b = firstSg.items(firstNode) / sdiff;
+							for(auto x : b) {
+								std::cout << "item:" << x << " -> " << "pixel:" << firstNode.pixelId() << '\n';
+							}
+						}
+						std::cout << "In right:\n";
+						if (secondNode.isInternal()) {
+							for (auto const & c : secondNode.children()) {
+								auto b = secondSg.items(*c) / sdiff;
+								for(auto x : b) {
+									std::cout << "item:" << x << " -> " << "pixel:" << c->pixelId() << '\n';
+								}
+							}
+						}
+						else {
+							auto b = secondSg.items(secondNode) / sdiff;
+							for(auto x : b) {
+								std::cout << "item:" << x << " -> " << "pixel:" << secondNode.pixelId() << '\n';
+							}
+							
 						}
 						sserialize::breakHereIf(sdiff.size());
 					}
