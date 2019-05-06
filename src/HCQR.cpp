@@ -502,7 +502,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
         std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
 			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
 			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
-			std::unique_ptr<TreeNode> rptr;
+			TreeNodePtr rptr;
 			if (secondNode.isFullMatch() && level(firstSg, firstNode) >= level(secondSg, secondNode)) {
 				SSERIALIZE_CHEAP_ASSERT_EQUAL(level(firstSg, firstNode), level(secondSg, secondNode));
 				rptr = std::unique_ptr<TreeNode>();
@@ -574,18 +574,72 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
                     }
                 }
                 else if (secondNode.isInternal()) {
+					//This is more compicated:
+					//The left side may have child nodes that are NOT part of the second operand
+					//The items of these nodes do not get pruned, we therefore have to create these on-the-fly
+					SSERIALIZE_NORMAL_ASSERT_SMALLER_OR_EQUAL(firstSg.level(firstNode), secondSg.level(secondNode));
+					//pixelIds from sg are not necessarily sorted, we therefore have to sort them before we can use them
+					std::vector<PixelId> virtFirstPids(secondSg.sg().childrenCount(secondNode.pixelId()));
+					for(uint32_t i(0), s(virtFirstPids.size()); i < s; ++i) {
+						virtFirstPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
+					}
+					std::sort(virtFirstPids.begin(), virtFirstPids.end());
+					
                     auto sIt = secondNode.children().begin();
                     auto sEnd = secondNode.children().end();
-                    for( ;sIt != sEnd; ++sIt) {
-                        auto x = (*this)(firstNode, **sIt);
-                        if (x) {
-                            rptr->children().emplace_back(std::move(x));
-                        }
-                    }
+					auto fIt = virtFirstPids.begin();
+					auto fEnd = virtFirstPids.end();
+					if (firstNode.isFullMatch()) {
+						for(;fIt != fEnd && sIt != sEnd;) {
+							TreeNodePtr x;
+							if (*fIt < (*sIt)->pixelId()) {
+								rptr->children().emplace_back(TreeNode::make_unique(*fIt, TreeNode::IS_FULL_MATCH));
+								++fIt;
+							}
+							else {
+								SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
+								auto x = (*this)(firstNode, **sIt);
+								if (x) {
+									rptr->children().emplace_back(std::move(x));
+								}
+							}
+						}
+						for(; fIt != fEnd; ++fIt) {
+							rptr->children().emplace_back(TreeNode::make_unique(*fIt, TreeNode::IS_FULL_MATCH));
+						}
+					}
+					else {
+						sserialize::ItemIndex firstNodeItems = firstSg.items(firstNode);
+						for(;fIt != fEnd && sIt != sEnd;) {
+							TreeNodePtr x;
+							if (*fIt < (*sIt)->pixelId()) {
+								auto result = firstNodeItems / firstSg.sgi().items(*fIt);
+								if (result.size()) {
+									dest.m_fetchedItems.emplace_back(result);
+									x = TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+								}
+								++fIt;
+							}
+							else { //second < first should not happen since virtFirstPids contains ALL children
+								SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
+								x = (*this)(firstNode, **sIt);
+							}
+							if (x) {
+								rptr->children().emplace_back(std::move(x));
+							}
+						}
+						for(; fIt != fEnd; ++fIt) {
+							auto result = firstNodeItems / firstSg.sgi().items(*fIt);
+							if (result.size()) {
+								dest.m_fetchedItems.emplace_back(result);
+								rptr->children().emplace_back( TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1) );
+							}
+						}
+					}
                 }
 
                 if (!rptr->children().size()) {
-                    rptr = std::unique_ptr<TreeNode>();
+                    rptr = TreeNodePtr();
                 }
             }
 			#ifdef SSERIALIZE_EXPENSIVE_ASSERT_ENABLED
