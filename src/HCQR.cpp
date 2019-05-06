@@ -390,14 +390,15 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
         firstSg(firstSg),
         secondSg(secondSg)
         {}
-        std::unique_ptr<TreeNode> operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
+        TreeNodePtr operator()(TreeNode const & firstNode, TreeNode const & secondNode) {
 			SSERIALIZE_NORMAL_ASSERT(firstNode.valid());
 			SSERIALIZE_NORMAL_ASSERT(secondNode.valid());
+			TreeNodePtr rptr;
 			if (firstNode.isFullMatch()) {
-				return TreeNode::make_unique(firstNode.pixelId(), TreeNode::IS_FULL_MATCH);
+				rptr = TreeNode::make_unique(firstNode.pixelId(), TreeNode::IS_FULL_MATCH);
 			}
             else if (secondNode.isFullMatch()) {
-				return TreeNode::make_unique(secondNode.pixelId(), TreeNode::IS_FULL_MATCH);
+				rptr = TreeNode::make_unique(secondNode.pixelId(), TreeNode::IS_FULL_MATCH);
             }
             else if (firstNode.isLeaf() && secondNode.isLeaf()) {
 				auto fnLvl = firstSg.level(firstNode);
@@ -416,10 +417,10 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 				}
 				SSERIALIZE_CHEAP_ASSERT(result.size());
                 dest.m_fetchedItems.emplace_back(result);
-                return TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+                rptr = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
             }
             else {
-                std::unique_ptr<TreeNode> resNode = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
+                rptr = TreeNode::make_unique(resultPixelId(firstNode, secondNode), TreeNode::IS_INTERNAL);
 
                 if (firstNode.isInternal() && secondNode.isInternal()) {
                     auto fIt = firstNode.children().begin();
@@ -428,24 +429,24 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     auto sEnd = secondNode.children().end();
                     for(;fIt != fEnd && sIt != sEnd;) {
                         if ((*fIt)->pixelId() < (*sIt)->pixelId()) {
-							resNode->children().emplace_back(deepCopy(firstSg, **fIt));
+							rptr->children().emplace_back(deepCopy(firstSg, **fIt));
                             ++fIt;
                         }
                         else if ((*fIt)->pixelId() > (*sIt)->pixelId()) {
-							resNode->children().emplace_back( deepCopy(secondSg, **sIt) );
+							rptr->children().emplace_back( deepCopy(secondSg, **sIt) );
                             ++sIt;
                         }
                         else {
-							resNode->children().emplace_back((*this)(**fIt, **sIt));
+							rptr->children().emplace_back((*this)(**fIt, **sIt));
                             ++fIt;
 							++sIt;
                         }
                     }
                     for(; fIt != fEnd; ++fIt) {
-						resNode->children().emplace_back( deepCopy(firstSg, **fIt) );
+						rptr->children().emplace_back( deepCopy(firstSg, **fIt) );
 					}
 					for(; sIt != sEnd; ++sIt) {
-						resNode->children().emplace_back( deepCopy(secondSg, **sIt) );
+						rptr->children().emplace_back( deepCopy(secondSg, **sIt) );
 					}
                 }
                 else if (firstNode.isInternal()) {
@@ -454,7 +455,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     for( ;fIt != fEnd; ++fIt) {
                         auto x = (*this)(**fIt, secondNode);
                         if (x) {
-                            resNode->children().emplace_back(std::move(x));
+                            rptr->children().emplace_back(std::move(x));
                         }
                     }
                 }
@@ -464,14 +465,15 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                     for( ;sIt != sEnd; ++sIt) {
                         auto x = (*this)(firstNode, **sIt);
                         if (x) {
-                            resNode->children().emplace_back(std::move(x));
+                            rptr->children().emplace_back(std::move(x));
                         }
                     }
                 }
 
-                SSERIALIZE_CHEAP_ASSERT(resNode->children().size());
-				return resNode;
+                SSERIALIZE_CHEAP_ASSERT(rptr->children().size());
             }
+            SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(firstSg.items(firstNode) + secondSg.items(secondNode), dest.items(*rptr));
+            return rptr;
         }
     };
     sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
