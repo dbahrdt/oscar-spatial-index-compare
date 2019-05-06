@@ -450,26 +450,83 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 					}
                 }
                 else if (firstNode.isInternal()) {
+					SSERIALIZE_CHEAP_ASSERT(!secondNode.isFullMatch() && secondNode.isLeaf());
+					std::vector<PixelId> virtSecondPids(firstSg.sg().childrenCount(secondNode.pixelId()));
+					for(uint32_t i(0), s(virtSecondPids.size()); i < s; ++i) {
+						virtSecondPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
+					}
+					std::sort(virtSecondPids.begin(), virtSecondPids.end());
+					
                     auto fIt = firstNode.children().begin();
                     auto fEnd = firstNode.children().end();
-                    for( ;fIt != fEnd; ++fIt) {
-                        auto x = (*this)(**fIt, secondNode);
+					auto sIt = virtSecondPids.begin();
+					auto sEnd = virtSecondPids.end();
+					auto secondNodeItems = secondSg.items(secondNode);
+                    for(;fIt != fEnd && sIt != sEnd;) {
+						TreeNodePtr x;
+						if (*sIt < (*fIt)->pixelId()) {
+							auto result = secondNodeItems / secondSg.sgi().items(*sIt);
+							if (result.size()) {
+								dest.m_fetchedItems.emplace_back(result);
+								x = TreeNode::make_unique(*sIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+							}
+							++fIt;
+						}
+						else {
+							SSERIALIZE_ASSERT_EQUAL((*fIt)->pixelId(), *sIt);
+							x = (*this)(**fIt, secondNode);
+						}
                         if (x) {
                             rptr->children().emplace_back(std::move(x));
                         }
                     }
+                    for(; sIt != sEnd; ++sIt) {
+						auto result = secondNodeItems / secondSg.sgi().items(*sIt);
+						if (result.size()) {
+							dest.m_fetchedItems.emplace_back(result);
+							rptr->children().emplace_back( TreeNode::make_unique(*sIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1) );
+						}
+					}
                 }
                 else if (secondNode.isInternal()) {
+					SSERIALIZE_CHEAP_ASSERT(!firstNode.isFullMatch() && firstNode.isLeaf());
+					std::vector<PixelId> virtFirstPids(secondSg.sg().childrenCount(secondNode.pixelId()));
+					for(uint32_t i(0), s(virtFirstPids.size()); i < s; ++i) {
+						virtFirstPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
+					}
+					std::sort(virtFirstPids.begin(), virtFirstPids.end());
+					
                     auto sIt = secondNode.children().begin();
                     auto sEnd = secondNode.children().end();
-                    for( ;sIt != sEnd; ++sIt) {
-                        auto x = (*this)(firstNode, **sIt);
+					auto fIt = virtFirstPids.begin();
+					auto fEnd = virtFirstPids.end();
+					auto firstNodeItems = firstSg.items(firstNode);
+                    for(;fIt != fEnd && sIt != sEnd;) {
+						TreeNodePtr x;
+						if (*fIt < (*sIt)->pixelId()) {
+							auto result = firstNodeItems / firstSg.sgi().items(*fIt);
+							if (result.size()) {
+								dest.m_fetchedItems.emplace_back(result);
+								x = TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
+							}
+							++fIt;
+						}
+						else {
+							SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
+							x = (*this)(firstNode, **sIt);
+						}
                         if (x) {
                             rptr->children().emplace_back(std::move(x));
                         }
                     }
+                    for(; fIt != fEnd; ++fIt) {
+						auto result = firstNodeItems / firstSg.sgi().items(*fIt);
+						if (result.size()) {
+							dest.m_fetchedItems.emplace_back(result);
+							rptr->children().emplace_back( TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1) );
+						}
+					}
                 }
-
                 SSERIALIZE_CHEAP_ASSERT(rptr->children().size());
             }
             SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(firstSg.items(firstNode) + secondSg.items(secondNode), dest.items(*rptr));
