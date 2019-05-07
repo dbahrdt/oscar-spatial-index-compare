@@ -692,11 +692,10 @@ Tree::updateNextNode(NodePosition const & target, NodePosition const & nextNodeP
 namespace hic::Static::impl {
 
 HCQRSpatialGrid::HCQRSpatialGrid(hic::impl::HCQRSpatialGrid const & other) :
+Parent(other),
 m_tree(Tree::create(sserialize::UByteArrayAdapter::createCache(), other)),
 m_items(other.idxStore()),
-m_fetchedItems(other.fetchedItems()),
-m_sg(other.sgPtr()),
-m_sgi(other.sgiPtr())
+m_fetchedItems(other.fetchedItems())
 {
 	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(this->depth(), other.depth());
 	SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(this->numberOfNodes(), other.numberOfNodes());
@@ -710,10 +709,9 @@ HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
+Parent(sg, sgi),
 m_tree(data, sg),
-m_items(idxStore),
-m_sg(sg),
-m_sgi(sgi)
+m_items(idxStore)
 {}
 
 HCQRSpatialGrid::HCQRSpatialGrid(
@@ -723,11 +721,10 @@ HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
+Parent(sg, sgi),
 m_tree(std::move(tree)),
 m_items(idxStore),
-m_fetchedItems(fetchedItems),
-m_sg(sg),
-m_sgi(sgi)
+m_fetchedItems(fetchedItems)
 {}
 
 HCQRSpatialGrid::HCQRSpatialGrid(
@@ -735,10 +732,9 @@ HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
+Parent(sg, sgi),
 m_tree(Tree::create(sserialize::UByteArrayAdapter::createCache(), sg)),
-m_items(idxStore),
-m_sg(sg),
-m_sgi(sgi)
+m_items(idxStore)
 {}
 
 HCQRSpatialGrid::~HCQRSpatialGrid() {}
@@ -924,7 +920,7 @@ struct HCQRSpatialGrid::OpHelper {
 };
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator/(Parent::Self const & other) const {
+HCQRSpatialGrid::operator/(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -1031,7 +1027,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
         }
     };
 	
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (tree().hasNodes() && static_cast<Self const &>(other).tree().hasNodes()) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		rec(this->rootNodePosition(), static_cast<Self const &>(other).rootNodePosition());
@@ -1041,7 +1037,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 }
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator+(Parent::Self const & other) const {
+HCQRSpatialGrid::operator+(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -1169,7 +1165,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
         }
     };
 	
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (tree().hasNodes() && static_cast<Self const &>(other).tree().hasNodes()) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		rec(this->rootNodePosition(), static_cast<Self const &>(other).rootNodePosition());
@@ -1179,7 +1175,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 }
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator-(Parent::Self const & other) const {
+HCQRSpatialGrid::operator-(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -1302,7 +1298,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
         }
     };
 	
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (tree().hasNodes() && static_cast<Self const &>(other).tree().hasNodes()) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		rec(this->rootNodePosition(), static_cast<Self const &>(other).rootNodePosition());
@@ -1364,7 +1360,7 @@ HCQRSpatialGrid::allToFull() const {
         }
     };
 	
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (tree().hasNodes()) {
 		Recurser rec(*this, *dest);
 		rec(this->rootNodePosition());
@@ -1392,8 +1388,8 @@ HCQRSpatialGrid::items(Tree::NodePosition const & np) const {
 		std::vector<ItemIndex> tmp;
 		for(auto cit(tree().children(np)); cit.valid(); cit.next()) {
 			tmp.emplace_back(items(cit.position()));
-			SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(m_sg->parent(tree().node(cit.position()).pixelId()), node.pixelId());
-			SSERIALIZE_EXPENSIVE_ASSERT_LARGER_OR_EQUAL(m_sg->childrenCount(node.pixelId()), tmp.size());
+			SSERIALIZE_EXPENSIVE_ASSERT_EQUAL(sg().parent(tree().node(cit.position()).pixelId()), node.pixelId());
+			SSERIALIZE_EXPENSIVE_ASSERT_LARGER_OR_EQUAL(sg().childrenCount(node.pixelId()), tmp.size());
 		}
 		return ItemIndex::unite(tmp);
 	}

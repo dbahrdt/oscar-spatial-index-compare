@@ -232,14 +232,10 @@ public:
 
 namespace hic::Static::impl {
 
-class HCQRSpatialGrid: public hic::interface::HCQR {
+class HCQRSpatialGrid: public hic::interface::HCQRSpatialGrid {
 public:
-    using PixelId = hic::interface::SpatialGridInfo::PixelId;
-    using CompressedPixelId = hic::interface::SpatialGridInfo::CompressedPixelId;
-    using ItemIndexId = uint32_t;
-    using Parent = interface::HCQR;
-    using Self = HCQRSpatialGrid;
-	using PixelLevel = hic::interface::SpatialGrid::Level;
+    using Parent = hic::interface::HCQRSpatialGrid;
+    using Self = hic::Static::impl::HCQRSpatialGrid;
 	using Tree = hic::Static::detail::HCQRSpatialGrid::Tree;
 public:
     HCQRSpatialGrid(hic::impl::HCQRSpatialGrid const & other);
@@ -269,9 +265,9 @@ public:
 	SizeType numberOfNodes() const override;
     ItemIndex items() const override;
 public:
-    HCQRPtr operator/(Parent::Self const & other) const override;
-    HCQRPtr operator+(Parent::Self const & other) const override;
-    HCQRPtr operator-(Parent::Self const & other) const override;
+    HCQRPtr operator/(HCQR const & other) const override;
+    HCQRPtr operator+(HCQR const & other) const override;
+    HCQRPtr operator-(HCQR const & other) const override;
 public:
     HCQRPtr compactified(SizeType maxPMLevel = 0) const override;
     HCQRPtr expanded(SizeType level) const override;
@@ -280,15 +276,12 @@ public:
 	Tree::Node root() const;
 	Tree::NodePosition rootNodePosition() const;
 public:
+	using Parent::items;
     sserialize::ItemIndex items(Tree::NodePosition const & node) const;
 	PixelLevel level(Tree::Node const & node) const;
 public:
-    inline sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
-    inline auto const & fetchedItems() const { return m_fetchedItems; }
-    inline auto const & sg() const { return *m_sg; }
-    inline auto const & sgi() const { return *m_sgi; } 
-    inline auto const & sgPtr() const { return m_sg; }
-    inline auto const & sgiPtr() const { return m_sgi; } 
+	inline sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
+	inline auto const & fetchedItems() const { return m_fetchedItems; }
 	inline Tree const & tree() const { return m_tree; }
 private:
     struct OpHelper;
@@ -299,8 +292,6 @@ private:
     Tree m_tree;
     sserialize::Static::ItemIndexStore m_items;
     std::vector<sserialize::ItemIndex> m_fetchedItems;
-    sserialize::RCPtrWrapper<hic::interface::SpatialGrid> m_sg;
-    sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> m_sgi;
 };
 
 

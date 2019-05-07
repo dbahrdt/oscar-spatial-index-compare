@@ -22,9 +22,9 @@ public:
     virtual SizeType numberOfItems() const = 0;
     virtual ItemIndex items() const = 0;
 public:
-    virtual HCQRPtr operator/(Self const & other) const = 0;
-    virtual HCQRPtr operator+(Self const & other) const = 0;
-    virtual HCQRPtr operator-(Self const & other) const = 0;
+    virtual HCQRPtr operator/(HCQR const & other) const = 0;
+    virtual HCQRPtr operator+(HCQR const & other) const = 0;
+    virtual HCQRPtr operator-(HCQR const & other) const = 0;
 public:
     ///@param maxPMLevel the highest level up to which merging of partial-match nodes should be considered
     ///note that the level of the root-node is 0.
@@ -46,6 +46,36 @@ public:
     virtual SizeType itemCount(PixelId pid) const = 0;
     virtual ItemIndex items(PixelId pid) const = 0;
 	virtual PixelId pixelId(CompressedPixelId const & cpid) const = 0;
+};
+
+class HCQRSpatialGrid: public HCQR {
+public:
+	using PixelId = hic::interface::SpatialGridInfo::PixelId;
+	using CompressedPixelId = hic::interface::SpatialGridInfo::CompressedPixelId;
+	using ItemIndexId = uint32_t;
+	using Parent = interface::HCQR;
+	using Self = hic::interface::HCQRSpatialGrid;
+	using PixelLevel = hic::interface::SpatialGrid::Level;
+public:
+	HCQRSpatialGrid(
+		sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
+		sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi);
+	HCQRSpatialGrid(HCQRSpatialGrid const & other);
+	HCQRSpatialGrid(HCQRSpatialGrid && other);
+	~HCQRSpatialGrid() override;
+public:
+	auto const & sg() const { return *m_sg; }
+	auto const & sgi() const { return *m_sgi; } 
+	auto const & sgPtr() const { return m_sg; }
+	auto const & sgiPtr() const { return m_sgi; }
+	using Parent::items;
+protected:
+	std::vector<PixelId> pixelChildren(PixelId pid) const;
+    sserialize::ItemIndex items(PixelId pid) const;
+	PixelLevel level(PixelId pid) const;
+private:
+	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> m_sg;
+	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> m_sgi;
 };
 
 }//end namespace hic::interface
@@ -107,14 +137,10 @@ private:
 namespace hic::impl {
 
 ///In memory variant
-class HCQRSpatialGrid: public hic::interface::HCQR {
+class HCQRSpatialGrid: public hic::interface::HCQRSpatialGrid {
 public:
-    using PixelId = hic::interface::SpatialGridInfo::PixelId;
-    using CompressedPixelId = hic::interface::SpatialGridInfo::CompressedPixelId;
-    using ItemIndexId = uint32_t;
-    using Parent = interface::HCQR;
-    using Self = HCQRSpatialGrid;
-	using PixelLevel = hic::interface::SpatialGrid::Level;
+    using Parent = interface::HCQRSpatialGrid;
+    using Self = hic::impl::HCQRSpatialGrid;
 	using TreeNode = detail::HCQRSpatialGrid::TreeNode;
 	using TreeNodePtr = std::unique_ptr<TreeNode>;
 public:
@@ -136,9 +162,9 @@ public:
 	SizeType numberOfNodes() const override;
     ItemIndex items() const override;
 public:
-    HCQRPtr operator/(Parent::Self const & other) const override;
-    HCQRPtr operator+(Parent::Self const & other) const override;
-    HCQRPtr operator-(Parent::Self const & other) const override;
+    HCQRPtr operator/(HCQR const & other) const override;
+    HCQRPtr operator+(HCQR const & other) const override;
+    HCQRPtr operator-(HCQR const & other) const override;
 public:
     HCQRPtr compactified(SizeType maxPMLevel = 0) const override;
     HCQRPtr expanded(SizeType level) const override;
@@ -151,18 +177,12 @@ public:
 public:
     sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
     auto const & fetchedItems() const { return m_fetchedItems; }
-    auto const & sg() const { return *m_sg; }
-    auto const & sgi() const { return *m_sgi; } 
-    auto const & sgPtr() const { return m_sg; }
-    auto const & sgiPtr() const { return m_sgi; } 
 private:
     struct HCQRSpatialGridOpHelper;
 private:
     TreeNodePtr m_root;
     sserialize::Static::ItemIndexStore m_items;
     std::vector<sserialize::ItemIndex> m_fetchedItems;
-    sserialize::RCPtrWrapper<hic::interface::SpatialGrid> m_sg;
-    sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> m_sgi;
 };
 
 } //end namespace hic::impl

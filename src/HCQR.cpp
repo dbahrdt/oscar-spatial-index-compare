@@ -4,11 +4,55 @@
 #include <memory>
 
 namespace hic::interface {
-	
+
+//BEGIN HCQR
 
 HCQR::HCQR() {}
 HCQR::~HCQR() {}
-	
+
+//END HCQR
+
+//BEGIN HCQRBasedOnSpatialGrid
+
+HCQRSpatialGrid::HCQRSpatialGrid(
+	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
+	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi) :
+m_sg(sg),
+m_sgi(sgi)
+{}
+
+HCQRSpatialGrid::HCQRSpatialGrid(HCQRSpatialGrid const & other) :
+m_sg(other.m_sg),
+m_sgi(other.m_sgi)
+{}
+
+HCQRSpatialGrid::HCQRSpatialGrid(HCQRSpatialGrid && other) :
+m_sg(std::move(other.m_sg)),
+m_sgi(std::move(other.m_sgi))
+{}
+
+HCQRSpatialGrid::~HCQRSpatialGrid() {}
+
+std::vector<HCQRSpatialGrid::PixelId>
+HCQRSpatialGrid::pixelChildren(PixelId pid) const {
+	std::vector<PixelId> result(sg().childrenCount(pid));
+	for(uint32_t i(0), s(result.size()); i < s; ++i) {
+		result[i] = sg().index(pid, i);
+	}
+	std::sort(result.begin(), result.end());
+	return result;
+}
+
+sserialize::ItemIndex
+HCQRSpatialGrid::items(PixelId pid) const {
+	return sgi().items(pid);
+}
+
+HCQRSpatialGrid::PixelLevel
+HCQRSpatialGrid::level(PixelId pid) const {
+	return sg().level(pid);
+}
+
 }//end namespace hic::interface
 
 namespace hic::impl::detail::HCQRSpatialGrid {
@@ -59,9 +103,8 @@ HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
-m_items(idxStore),
-m_sg(sg),
-m_sgi(sgi)
+Parent(sg, sgi),
+m_items(idxStore)
 {}
 
 HCQRSpatialGrid::HCQRSpatialGrid(
@@ -261,7 +304,7 @@ struct HCQRSpatialGrid::HCQRSpatialGridOpHelper {
 };
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator/(Parent::Self const & other) const {
+HCQRSpatialGrid::operator/(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -368,7 +411,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 			return rptr;
         }
     };
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root && static_cast<Self const &>(other).m_root) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
@@ -378,7 +421,7 @@ HCQRSpatialGrid::operator/(Parent::Self const & other) const {
 }
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator+(Parent::Self const & other) const {
+HCQRSpatialGrid::operator+(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -451,11 +494,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                 }
                 else if (firstNode.isInternal()) {
 					SSERIALIZE_CHEAP_ASSERT(!secondNode.isFullMatch() && secondNode.isLeaf());
-					std::vector<PixelId> virtSecondPids(firstSg.sg().childrenCount(secondNode.pixelId()));
-					for(uint32_t i(0), s(virtSecondPids.size()); i < s; ++i) {
-						virtSecondPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
-					}
-					std::sort(virtSecondPids.begin(), virtSecondPids.end());
+					std::vector<PixelId> virtSecondPids = secondSg.pixelChildren(firstNode.pixelId());
 					
                     auto fIt = firstNode.children().begin();
                     auto fEnd = firstNode.children().end();
@@ -490,11 +529,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
                 }
                 else if (secondNode.isInternal()) {
 					SSERIALIZE_CHEAP_ASSERT(!firstNode.isFullMatch() && firstNode.isLeaf());
-					std::vector<PixelId> virtFirstPids(secondSg.sg().childrenCount(secondNode.pixelId()));
-					for(uint32_t i(0), s(virtFirstPids.size()); i < s; ++i) {
-						virtFirstPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
-					}
-					std::sort(virtFirstPids.begin(), virtFirstPids.end());
+					std::vector<PixelId> virtFirstPids = firstSg.pixelChildren(secondNode.pixelId());
 					
                     auto sIt = secondNode.children().begin();
                     auto sEnd = secondNode.children().end();
@@ -533,7 +568,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
             return rptr;
         }
     };
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root && static_cast<Self const &>(other).m_root) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
@@ -543,7 +578,7 @@ HCQRSpatialGrid::operator+(Parent::Self const & other) const {
 }
 
 HCQRSpatialGrid::HCQRPtr
-HCQRSpatialGrid::operator-(Parent::Self const & other) const {
+HCQRSpatialGrid::operator-(HCQR const & other) const {
 	if (!dynamic_cast<Self const *>(&other)) {
 		throw sserialize::TypeMissMatchException("Incorrect input type");
 	}
@@ -637,13 +672,8 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 					//The left side may have child nodes that are NOT part of the second operand
 					//The items of these nodes do not get pruned, we therefore have to create these on-the-fly
 					SSERIALIZE_NORMAL_ASSERT_SMALLER_OR_EQUAL(firstSg.level(firstNode), secondSg.level(secondNode));
-					//pixelIds from sg are not necessarily sorted, we therefore have to sort them before we can use them
-					std::vector<PixelId> virtFirstPids(secondSg.sg().childrenCount(secondNode.pixelId()));
-					for(uint32_t i(0), s(virtFirstPids.size()); i < s; ++i) {
-						virtFirstPids[i] = secondSg.sg().index(secondNode.pixelId(), i);
-					}
-					std::sort(virtFirstPids.begin(), virtFirstPids.end());
 					
+					std::vector<PixelId> virtFirstPids = secondSg.pixelChildren(secondNode.pixelId());
                     auto sIt = secondNode.children().begin();
                     auto sEnd = secondNode.children().end();
 					auto fIt = virtFirstPids.begin();
@@ -754,7 +784,7 @@ HCQRSpatialGrid::operator-(Parent::Self const & other) const {
 			return rptr;
         }
     };
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root && static_cast<Self const &>(other).m_root) {
 		Recurser rec(*this, static_cast<Self const &>(other), *dest);
 		dest->m_root = rec(*(this->m_root), *(static_cast<Self const &>(other).m_root));
@@ -832,7 +862,7 @@ HCQRSpatialGrid::compactified(SizeType maxPMLevel) const {
         };
     };
 
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root) {
 		Recurser rec(*this, *dest, maxPMLevel);
 		dest->m_root = rec(*m_root);
@@ -911,7 +941,7 @@ HCQRSpatialGrid::expanded(SizeType level) const {
             }
         }
     };
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root) {
 		Recurser rec(*dest, *this, level);
 		dest->m_root = rec(*m_root);
@@ -936,7 +966,7 @@ HCQRSpatialGrid::allToFull() const {
             }
         }
     };
-    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, m_sg, m_sgi) );
+    sserialize::RCPtrWrapper<Self> dest( new Self(m_items, sgPtr(), sgiPtr()) );
 	if (m_root) {
 		Recurser rec;
 		dest->m_root = rec(*m_root);
@@ -972,7 +1002,7 @@ HCQRSpatialGrid::items(TreeNode const & node) const {
 
 HCQRSpatialGrid::PixelLevel
 HCQRSpatialGrid::level(TreeNode const & node) const {
-	return sg().level(node.pixelId());
+	return Parent::level(node.pixelId());
 }
 
 } //end namespace hic::impl
