@@ -501,7 +501,7 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
 					auto sIt = virtSecondPids.begin();
 					auto sEnd = virtSecondPids.end();
 					auto secondNodeItems = secondSg.items(secondNode);
-                    for(;fIt != fEnd && sIt != sEnd;) {
+                    for(;fIt != fEnd && sIt != sEnd; ++sIt) {
 						TreeNodePtr x;
 						if (*sIt < (*fIt)->pixelId()) {
 							auto result = secondNodeItems / secondSg.sgi().items(*sIt);
@@ -509,11 +509,11 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
 								dest.m_fetchedItems.emplace_back(result);
 								x = TreeNode::make_unique(*sIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
 							}
-							++fIt;
 						}
 						else {
 							SSERIALIZE_ASSERT_EQUAL((*fIt)->pixelId(), *sIt);
 							x = (*this)(**fIt, secondNode);
+							++fIt;
 						}
                         if (x) {
                             rptr->children().emplace_back(std::move(x));
@@ -536,7 +536,7 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
 					auto fIt = virtFirstPids.begin();
 					auto fEnd = virtFirstPids.end();
 					auto firstNodeItems = firstSg.items(firstNode);
-                    for(;fIt != fEnd && sIt != sEnd;) {
+                    for(;fIt != fEnd && sIt != sEnd; ++fIt) {
 						TreeNodePtr x;
 						if (*fIt < (*sIt)->pixelId()) {
 							auto result = firstNodeItems / firstSg.sgi().items(*fIt);
@@ -544,11 +544,11 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
 								dest.m_fetchedItems.emplace_back(result);
 								x = TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
 							}
-							++fIt;
 						}
 						else {
 							SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
 							x = (*this)(firstNode, **sIt);
+							++sIt;
 						}
                         if (x) {
                             rptr->children().emplace_back(std::move(x));
@@ -679,11 +679,10 @@ HCQRSpatialGrid::operator-(HCQR const & other) const {
 					auto fIt = virtFirstPids.begin();
 					auto fEnd = virtFirstPids.end();
 					if (firstNode.isFullMatch()) {
-						for(;fIt != fEnd && sIt != sEnd;) {
+						for(;fIt != fEnd && sIt != sEnd; ++fIt) {
 							TreeNodePtr x;
 							if (*fIt < (*sIt)->pixelId()) {
 								rptr->children().emplace_back(TreeNode::make_unique(*fIt, TreeNode::IS_FULL_MATCH));
-								++fIt;
 							}
 							else {
 								SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
@@ -691,6 +690,7 @@ HCQRSpatialGrid::operator-(HCQR const & other) const {
 								if (x) {
 									rptr->children().emplace_back(std::move(x));
 								}
+								++sIt;
 							}
 						}
 						for(; fIt != fEnd; ++fIt) {
@@ -699,7 +699,7 @@ HCQRSpatialGrid::operator-(HCQR const & other) const {
 					}
 					else {
 						sserialize::ItemIndex firstNodeItems = firstSg.items(firstNode);
-						for(;fIt != fEnd && sIt != sEnd;) {
+						for(;fIt != fEnd && sIt != sEnd; ++fIt) {
 							TreeNodePtr x;
 							if (*fIt < (*sIt)->pixelId()) {
 								auto result = firstNodeItems / firstSg.sgi().items(*fIt);
@@ -707,11 +707,11 @@ HCQRSpatialGrid::operator-(HCQR const & other) const {
 									dest.m_fetchedItems.emplace_back(result);
 									x = TreeNode::make_unique(*fIt, TreeNode::IS_FETCHED, dest.m_fetchedItems.size()-1);
 								}
-								++fIt;
 							}
 							else { //second < first should not happen since virtFirstPids contains ALL children
 								SSERIALIZE_ASSERT_EQUAL(*fIt, (*sIt)->pixelId());
 								x = (*this)(firstNode, **sIt);
+								++sIt;
 							}
 							if (x) {
 								rptr->children().emplace_back(std::move(x));
