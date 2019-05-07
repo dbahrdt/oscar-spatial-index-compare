@@ -1128,9 +1128,26 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
 					}
                 }
                 else if (firstNode.isInternal()) {
+					SSERIALIZE_CHEAP_ASSERT(!secondNode.isFullMatch() && secondNode.isLeaf());
+					std::vector<PixelId> virtSecondPids = secondSg.pixelChildren(firstNode.pixelId());
+					
+					auto secondNodeItems = secondSg.items(snp);
                     auto fIt = firstSg.tree().children(fnp);
-                    for( ;fIt.valid(); fIt.next()) {
-                        Tree::NodePosition x = (*this)(fIt.position(), snp);
+					auto sIt = virtSecondPids.begin();
+					auto sEnd = virtSecondPids.end();
+                    for( ;fIt.valid() && sIt != sEnd; ++sIt) {
+						Tree::NodePosition x;
+						if (*sIt < fIt.node().pixelId()) {
+							auto result = secondNodeItems / secondSg.items(*sIt);
+							if (result.size()) {
+								dest.m_fetchedItems.push_back(result);
+								x = dest.tree().push(*sIt, Tree::Node::IS_FETCHED, dest.m_fetchedItems.size()-1);
+							}
+						}
+						else {
+							x = (*this)(fIt.position(), snp);
+							fIt.next();
+						}
 						if (x.valid()) {
 							if (lastCNP.valid()) {
 								dest.tree().updateNextNode(lastCNP, x);
@@ -1140,9 +1157,27 @@ HCQRSpatialGrid::operator+(HCQR const & other) const {
                     }
                 }
                 else if (secondNode.isInternal()) {
-                    auto sIt = secondSg.tree().children(snp);
-                    for( ;sIt.valid(); sIt.next()) {
-                        auto x = (*this)(snp, sIt.position());
+					SSERIALIZE_CHEAP_ASSERT(!firstNode.isFullMatch() && firstNode.isLeaf());
+					std::vector<PixelId> virtFirstPids = firstSg.pixelChildren(secondNode.pixelId());
+					
+					auto firstNodeItems = firstSg.items(fnp);
+					auto fIt = virtFirstPids.begin();
+					auto fEnd = virtFirstPids.end();
+                    auto sIt = firstSg.tree().children(snp);
+                    for( ;sIt.valid() && fIt != fEnd; ++fIt) {
+						Tree::NodePosition x;
+						if (*fIt < sIt.node().pixelId()) {
+							auto result = firstNodeItems / firstSg.items(*fIt);
+							if (result.size()) {
+								dest.m_fetchedItems.push_back(result);
+								x = dest.tree().push(*fIt, Tree::Node::IS_FETCHED, dest.m_fetchedItems.size()-1);
+							}
+							
+						}
+						else {
+							x = (*this)(fnp, sIt.position());
+							sIt.next();
+						}
 						if (x.valid()) {
 							if (lastCNP.valid()) {
 								dest.tree().updateNextNode(lastCNP, x);
@@ -1273,9 +1308,35 @@ HCQRSpatialGrid::operator-(HCQR const & other) const {
                     }
                 }
                 else if (secondNode.isInternal()) {
-                    auto sIt = secondSg.tree().children(snp);
-                    for( ;sIt.valid(); sIt.next()) {
-                        auto x = (*this)(snp, sIt.position());
+					SSERIALIZE_CHEAP_ASSERT(!firstNode.isFullMatch() && firstNode.isLeaf());
+					std::vector<PixelId> virtFirstPids = firstSg.pixelChildren(secondNode.pixelId());
+					
+					sserialize::ItemIndex firstNodeItems;
+					if (!firstNode.isFullMatch()) {
+						firstNodeItems = firstSg.items(fnp);
+					}
+					
+					auto fIt = virtFirstPids.begin();
+					auto fEnd = virtFirstPids.end();
+                    auto sIt = firstSg.tree().children(snp);
+                    for( ;sIt.valid() && fIt != fEnd; ++fIt) {
+						Tree::NodePosition x;
+						if (*fIt < sIt.node().pixelId()) {
+							if (firstNode.isFullMatch()) {
+								x = dest.tree().push(*fIt, Tree::Node::IS_FULL_MATCH);
+							}
+							else {
+								auto result = firstNodeItems / firstSg.items(*fIt);
+								if (result.size()) {
+									dest.m_fetchedItems.push_back(result);
+									x = dest.tree().push(*fIt, Tree::Node::IS_FETCHED, dest.m_fetchedItems.size()-1);
+								}
+							}
+						}
+						else {
+							x = (*this)(fnp, sIt.position());
+							sIt.next();
+						}
 						if (x.valid()) {
 							if (lastCNP.valid()) {
 								dest.tree().updateNextNode(lastCNP, x);
