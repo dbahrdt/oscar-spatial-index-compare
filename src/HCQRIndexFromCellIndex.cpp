@@ -9,7 +9,44 @@ namespace impl {
 SpatialGridInfoFromCellIndex::SpatialGridInfoFromCellIndex(SpatialGridPtr const & sg, CellInfoPtr const & ci) :
 m_sg(sg),
 m_ci(ci)
-{}
+{
+	m_cache.setSize(1 << 16);
+	std::unordered_map<PixelId, std::vector<PixelId> > parent2Children;
+	{
+		std::vector<PixelId> queue;
+		{
+			std::vector<SpatialGrid::CompressedPixelId> cells = m_ci->cells();
+			queue.reserve(cells.size());
+			for(auto const & c : cells) {
+				queue.push_back(m_ci->pixelId(c));
+			}
+		}
+		
+		auto rootPid = m_sg->rootPixelId();
+		for(; queue.size();) {
+			auto pid = queue.back();
+			queue.pop_back();
+			auto ppid = m_sg->parent(pid);
+			if (ppid != rootPid && !parent2Children.count(ppid)) {
+				queue.push_back(ppid);
+			}
+			parent2Children[ppid].push_back(pid);
+		}
+	}
+	m_t.emplace_back(m_sg->rootPixelId());
+	for(std::size_t i(0); i < m_t.size(); ++i) {
+		if (!parent2Children.count(m_t.at(i).pid)) {
+			SSERIALIZE_NORMAL_ASSERT(m_ci->hasPixel(m_t.at(i).pid));
+			continue;
+		}
+		auto const & c = parent2Children.at(m_t.at(i).pid);
+		m_t.at(i).begin = m_t.size();
+		m_t.at(i).end = m_t.size()+c.size();
+		for(auto x : c) {
+			m_t.emplace_back(x);
+		}
+	}
+}
 
 SpatialGridInfoFromCellIndex::SizeType
 SpatialGridInfoFromCellIndex::itemCount(PixelId pid) const {
@@ -23,32 +60,53 @@ SpatialGridInfoFromCellIndex::items(PixelId pid) const {
         return m_cache.find(pid);
     }
     cacheLck.unlock();
-    struct Recurser {
-        SpatialGridInfoFromCellIndex const & that;
-        Recurser(SpatialGridInfoFromCellIndex const & that) : that(that) {}
-        ItemIndex operator()(PixelId pid) {
-            if (that.m_ci->hasPixel(pid)) {
-                return that.m_ci->items(pid);
-            }
-            else if (that.m_sg->level(pid) <= that.m_ci->level()) {
-                std::vector<ItemIndex> tmp;
-                auto numChildren = that.m_sg->childrenCount(pid);
-                for(decltype(numChildren) i(0); i < numChildren; ++i) {
-                    tmp.emplace_back( (*this)( that.m_sg->index(pid, i) ) );
-                }
-                return ItemIndex::unite(tmp);
-            }
-            else {
-                return ItemIndex();
-            }
-        }
-    };
-    Recurser rec(*this);
-    ItemIndex result = rec(pid);
+	sserialize::ItemIndex result;
+	{
+		std::vector<PixelId> ancestors;
+		ancestors.push_back(pid);
+		while(ancestors.back() != tree().front().pid) {
+			ancestors.push_back(m_sg->parent(ancestors.back()));
+		}
+		Node node = tree().front();
+		for(auto rit(ancestors.rbegin()+1), rend(ancestors.rend()); rit != rend; ++rit) {
+			for(std::size_t i(node.begin); i < node.end; ++i) {
+				if (tree().at(i).pid == *rit) {
+					node = tree().at(i);
+					break;
+				}
+			}
+			if (node.pid != *rit) {
+				break;
+			}
+		}
+		if (node.pid == pid) {
+			result = items(node);
+		}
+	}
 	cacheLck.lock();
     m_cache.insert(pid, result);
 	cacheLck.unlock();
-    return result;
+	return result;
+}
+
+sserialize::ItemIndex
+SpatialGridInfoFromCellIndex::items(Node const & node) const {
+	if (node.size()) {
+		std::vector<sserialize::ItemIndex> tmp;
+		tmp.reserve(node.size());
+		for(auto i(node.begin); i < node.end; ++i) {
+			tmp.push_back(items(tree().at(i)));
+		}
+		return sserialize::ItemIndex::unite(tmp);
+	}
+	else {
+		return m_ci->items(node.pid);
+	}
+}
+
+SpatialGridInfoFromCellIndex::Tree const &
+SpatialGridInfoFromCellIndex::tree() const {
+	return m_t;
 }
 
 SpatialGridInfoFromCellIndex::PixelId

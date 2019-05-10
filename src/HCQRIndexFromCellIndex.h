@@ -67,10 +67,26 @@ public:
     ItemIndex items(PixelId pid) const override;
 	PixelId pixelId(CompressedPixelId const & cpid) const override;
 private:
-    using PixelItemsCache = sserialize::LFUCache<PixelId, sserialize::ItemIndex>;
+    using PixelItemsCache = sserialize::RandomCache<PixelId, sserialize::ItemIndex>;
+	struct Node {
+		using size_type = uint32_t;
+		static constexpr uint32_t npos = std::numeric_limits<size_type>::max();
+		PixelId pid;
+		size_type begin;
+		size_type end;
+		Node(PixelId pid, size_type begin, size_type end) : pid(pid), begin(begin), end(end) {}
+		Node(PixelId pid, size_type begin) : Node(pid, begin, begin) {}
+		Node(PixelId pid) : Node(pid, npos) {}
+		inline size_type size() const { return end-begin; }
+	};
+	using Tree = std::vector<Node>;
+private:
+	sserialize::ItemIndex items(Node const & node) const;
+	Tree const & tree() const;
 private:
     SpatialGridPtr m_sg;
     CellInfoPtr m_ci;
+	Tree m_t;
 	mutable std::mutex m_cacheLock;
     mutable PixelItemsCache m_cache;
 };
