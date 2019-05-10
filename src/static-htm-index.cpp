@@ -2,6 +2,7 @@
 #include <sserialize/strings/unicode_case_functions.h>
 #include <sserialize/Static/Version.h>
 #include <sserialize/spatial/TreedCQR.h>
+#include <sserialize/iterator/RangeGenerator.h>
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
@@ -125,6 +126,13 @@ HCQRCellInfo::items(PixelId pid) const {
 HCQRCellInfo::PixelId
 HCQRCellInfo::pixelId(CompressedPixelId const & cpid) const {
 	return m_sgi->sgIndex(cpid.value());
+}
+
+std::vector<HCQRCellInfo::CompressedPixelId>
+HCQRCellInfo::cells() const
+{
+	sserialize::RangeGenerator<uint32_t> range(0, m_sgi->cPixelCount());
+	return std::vector<CompressedPixelId>(range.begin(), range.end());
 }
 
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :

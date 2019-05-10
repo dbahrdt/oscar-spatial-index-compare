@@ -40,8 +40,11 @@ public:
     virtual SpatialGrid::Level level() const = 0;
 public:
     virtual bool hasPixel(PixelId pid) const = 0;
+	///should throw iff !hasPixel(pid)
     virtual ItemIndex items(PixelId pid) const = 0;
 	virtual PixelId pixelId(CompressedPixelId const & cpid) const = 0;
+public:
+	virtual std::vector<CompressedPixelId> cells() const = 0;
 };
 
 }//end namespace detail::HCQRIndexFromCellIndex::interface
