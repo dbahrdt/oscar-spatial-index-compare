@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sserialize/spatial/CellQueryResult.h>
-#include <sserialize/containers/LFUCache.h>
+#include <sserialize/containers/RandomCache.h>
 
 #include "SpatialGrid.h"
 #include "HCQRIndex.h"
