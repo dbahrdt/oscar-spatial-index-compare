@@ -80,6 +80,11 @@ SpatialGridInfo::cPixelId(SGPixelId htmIndex) const {
 	return m_d.htmIndexId2TrixelId().at(htmIndex);
 }
 
+bool
+SpatialGridInfo::hasSgIndex(SGPixelId htmIndex) const {
+	return m_d.htmIndexId2TrixelId().contains(htmIndex);
+}
+
 SpatialGridInfo::SGPixelId
 SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
 	return m_d.trixelId2HtmIndexId().at64(cPixelId);
@@ -99,13 +104,7 @@ HCQRCellInfo::level() const {
 
 bool
 HCQRCellInfo::hasPixel(PixelId pid) const {
-	try {
-		auto cpid = m_sgi->cPixelId(pid);
-		return true;
-	}
-	catch (sserialize::OutOfBoundsException const &) {
-		return false;
-	}
+	return m_sgi->hasSgIndex(pid);
 }
 
 HCQRCellInfo::ItemIndex

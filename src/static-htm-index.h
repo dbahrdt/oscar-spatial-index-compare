@@ -127,6 +127,7 @@ public:
 	ItemIndexId itemIndexId(CPixelId cPixelId) const;
 public:
 	CPixelId cPixelId(SGPixelId sgIndex) const;
+	bool hasSgIndex(SGPixelId sgIndex) const;
 	SGPixelId sgIndex(CPixelId cPixeld) const;
 private:
 	ssinfo::SpatialGridInfo::Data m_d;
