@@ -2,6 +2,7 @@
 
 #include <sserialize/spatial/CellQueryResult.h>
 #include <sserialize/containers/RandomCache.h>
+#include <sserialize/Static/ItemIndexStore.h>
 
 #include "SpatialGrid.h"
 #include "HCQRIndex.h"
@@ -63,6 +64,7 @@ public:
     using SpatialGridPtr = sserialize::RCPtrWrapper<SpatialGrid>;
 public:
     SpatialGridInfoFromCellIndex(SpatialGridPtr const & sg, CellInfoPtr const & ci);
+	~SpatialGridInfoFromCellIndex() override {}
     SizeType itemCount(PixelId pid) const override;
     ItemIndex items(PixelId pid) const override;
 	PixelId pixelId(CompressedPixelId const & cpid) const override;
@@ -80,15 +82,31 @@ private:
 		inline size_type size() const { return end-begin; }
 	};
 	using Tree = std::vector<Node>;
-private:
+protected:
 	sserialize::ItemIndex items(Node const & node) const;
 	Tree const & tree() const;
+	Tree::const_iterator node(PixelId pid) const;
+	SpatialGridPtr const & sg() const { return m_sg; }
+	CellInfoPtr const & ci() const { return m_ci; }
 private:
     SpatialGridPtr m_sg;
     CellInfoPtr m_ci;
 	Tree m_t;
 	mutable std::mutex m_cacheLock;
     mutable PixelItemsCache m_cache;
+};
+
+class SpatialGridInfoFromCellIndexWithIndex: public SpatialGridInfoFromCellIndex {
+public:
+	SpatialGridInfoFromCellIndexWithIndex(SpatialGridPtr const & sg, CellInfoPtr const & ci);
+	~SpatialGridInfoFromCellIndexWithIndex() override {}
+private:
+	ItemIndex items(PixelId pid) const override;
+private:
+	using TreeItemsPtr = std::vector<sserialize::Static::ItemIndexStore::IdType>;
+private:
+	sserialize::Static::ItemIndexStore m_idxStore;
+	TreeItemsPtr m_ti;
 };
 
 }//end namespace detail::HCQRIndexFromCellIndex::impl
