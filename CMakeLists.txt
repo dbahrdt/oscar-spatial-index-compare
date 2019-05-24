@@ -33,6 +33,7 @@ set(LIB_SOURCES_CPP
 	src/StaticHCQRSpatialGrid.cpp
 	src/HCQRIndexMakeStatic.cpp
 	src/HCQRCompleter.cpp
+	src/StaticHCQRTextIndex.cpp
 )
 
 set(LIB_SOURCES_H
@@ -54,6 +55,7 @@ set(LIB_SOURCES_H
 	src/StaticHCQRSpatialGrid.h
 	src/HCQRIndexMakeStatic.h
 	src/HCQRCompleter.h
+	src/StaticHCQRTextIndex.h
 )
 
 set(SOURCES_CPP
