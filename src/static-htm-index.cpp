@@ -170,7 +170,7 @@ OscarSearchSgIndex::~OscarSearchSgIndex() {}
 
 sserialize::UByteArrayAdapter::SizeType
 OscarSearchSgIndex::getSizeInBytes() const {
-    return 0;
+	return 2+m_sgInfo->getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSizeInBytes()+m_items.getSizeInBytes()+m_regions.getSizeInBytes();
 }
 
 sserialize::Static::ItemIndexStore const &
