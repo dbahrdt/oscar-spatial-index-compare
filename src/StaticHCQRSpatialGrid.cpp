@@ -705,7 +705,7 @@ m_fetchedItems(other.fetchedItems())
 
 HCQRSpatialGrid::HCQRSpatialGrid(
 	sserialize::UByteArrayAdapter const & data,
-	sserialize::Static::ItemIndexStore idxStore,
+	sserialize::Static::ItemIndexStore const & idxStore,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :
@@ -716,7 +716,7 @@ m_items(idxStore)
 
 HCQRSpatialGrid::HCQRSpatialGrid(
 	Tree && tree,
-	sserialize::Static::ItemIndexStore idxStore,
+	sserialize::Static::ItemIndexStore const & idxStore,
 	std::vector<sserialize::ItemIndex> fetchedItems,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
@@ -728,7 +728,7 @@ m_fetchedItems(fetchedItems)
 {}
 
 HCQRSpatialGrid::HCQRSpatialGrid(
-	sserialize::Static::ItemIndexStore idxStore,
+	sserialize::Static::ItemIndexStore const & idxStore,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
 ) :

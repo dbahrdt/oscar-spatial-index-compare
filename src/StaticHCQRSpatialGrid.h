@@ -241,20 +241,20 @@ public:
     HCQRSpatialGrid(hic::impl::HCQRSpatialGrid const & other);
     HCQRSpatialGrid(
 		sserialize::UByteArrayAdapter const & data,
-        sserialize::Static::ItemIndexStore idxStore,
+        sserialize::Static::ItemIndexStore const & idxStore,
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
     );
     HCQRSpatialGrid(
 		Tree && tree,
-        sserialize::Static::ItemIndexStore idxStore,
+        sserialize::Static::ItemIndexStore const & idxStore,
 		std::vector<sserialize::ItemIndex> fetchedItems,
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
     );
 	//empty one
 	HCQRSpatialGrid(
-        sserialize::Static::ItemIndexStore idxStore,
+        sserialize::Static::ItemIndexStore const & idxStore,
         sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg,
         sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi
     );
