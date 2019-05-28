@@ -1,8 +1,12 @@
 #include <liboscar/StaticOsmCompleter.h>
+#include <sserialize/containers/ItemIndexFactory.h>
+
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
+#include "static-htm-index.h"
+#include "StaticHCQRTextIndex.h"
 
 
 enum IndexType {
@@ -11,10 +15,17 @@ enum IndexType {
 	IT_SIMPLEGRID
 };
 
+enum CreationType {
+	CT_SPATIAL_GRID,
+	CT_HCQR
+};
+
 struct Config {
+	CreationType ct;
     int levels{8};
 	uint32_t threadCount{0};
 	uint32_t serializeThreadCount{0};
+	uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
     std::string filename;
     std::string outdir;
 	IndexType it{IT_HTM};
@@ -26,65 +37,27 @@ struct State {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> --index-type (htm|h3|simplegrid) -l <levels>  -o <outdir> --tempdir <dir> -t <threadCount> -st <serialization thread count>" << std::endl;
+	std::cerr <<
+		"prg sg|hcqr\n"
+		"all modes\n"
+		"\t-o <outdir>\n"
+		"\t--tempdir <dir>\n"
+		"\t-t <threadCount>\n"
+		"\t-st <serialization thread count>\n"
+		"sg-mode:\n"
+		"\t-f <oscar files>\n"
+		"\t--index-type (htm|h3|simplegrid)\n"
+		"\t-l <levels>\n"
+		"hcqr-mode:\n"
+		"\t-f <sg files>\n"
+		"\t-o <outdir>\n"
+		"\t--compactify <max level>"
+	<< std::flush;
 }
 
-int main(int argc, char const * argv[] ) {
-    Config cfg;
+int createSpatialGrid(Config & cfg) {
+	
     State state;
-
-    for(int i(1); i < argc; ++i) {
-        std::string token(argv[i]);
-        if (token == "-l" && i+1 < argc ) {
-            cfg.levels = std::atoi(argv[i+1]);
-            ++i;
-        }
-		else if (token == "--index-type" && i+1 < argc) {
-			token = std::string(argv[i+1]);
-			if (token == "htm") {
-				cfg.it = IT_HTM;
-			}
-			else if (token == "h3") {
-				cfg.it = IT_H3;
-			}
-			else if (token == "simplegrid") {
-				cfg.it = IT_SIMPLEGRID;
-			}
-			else {
-				std::cerr << "Invalid index type" << std::endl;
-				return -1;
-			}
-			++i;
-		}
-        else if (token == "-f" && i+1 < argc) {
-            cfg.filename = std::string(argv[i+1]);
-            ++i;
-        }
-		else if (token == "-o" && i+1 < argc) {
-			cfg.outdir = std::string(argv[i+1]);
-			++i;
-		}
-		else if (token == "--tempdir" && i+1 < argc) {
-			token = std::string(argv[i+1]);
-			sserialize::UByteArrayAdapter::setFastTempFilePrefix(token);
-			sserialize::UByteArrayAdapter::setTempFilePrefix(token);
-			++i;
-		}
-        else if (token == "-t" && i+1 < argc ) {
-            cfg.threadCount = std::atoi(argv[i+1]);
-            ++i;
-        }
-        else if (token == "-st" && i+1 < argc ) {
-            cfg.serializeThreadCount = std::atoi(argv[i+1]);
-            ++i;
-        }
-        else {
-            std::cerr << "Unkown parameter: " << token << std::endl;
-			help();
-            return -1;
-        }
-    }
-
     auto cmp = std::make_shared<liboscar::Static::OsmCompleter>();
     cmp->setAllFilesFromPrefix(cfg.filename);
 
@@ -142,6 +115,121 @@ int main(int argc, char const * argv[] ) {
 
     state.indexFile.sync();
     state.searchFile.sync();
+	return 0;
+}
 
-    return 0;
+
+int createHCQR(Config & cfg) {
+	if (cfg.filename.size()) {
+		std::cerr << "No input files given" << std::endl;
+		return -1;
+	}
+	sserialize::MmappedFile::createSymlink(sserialize::MmappedFile::realPath(cfg.filename + "/index"), sserialize::MmappedFile::realPath(cfg.outdir + "/index"));
+	
+	
+
+	
+	hic::Static::HCQRTextIndex::CreationConfig cc;
+	if (cfg.compactLevel != std::numeric_limits<uint32_t>::max()) {
+		cc.compactify = true;
+		cc.compactLevel = cfg.compactLevel;
+	}
+	cc.dest = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/search.hcqr");
+	cc.src = sserialize::UByteArrayAdapter::openRo(cfg.filename + "/search", false);
+	
+	{
+		auto idxStore = sserialize::Static::ItemIndexStore(sserialize::UByteArrayAdapter::openRo(cfg.filename + "/index", false));
+		cc.idxFactory.setIndexFile(sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index"));
+		cc.idxFactory.setType(idxStore.indexTypes());
+		cc.idxFactory.setDeduplication(true);
+		cc.idxFactory.insert(idxStore);
+	}
+	
+	hic::Static::HCQRTextIndex::fromOscarSearchSgIndex(cc);
+	
+	return 0;
+}
+
+int main(int argc, char const * argv[] ) {
+    Config cfg;
+	
+	if (argc < 2) {
+		help();
+		return -1;
+	}
+	
+	if (std::string(argv[1]) == "sg") {
+		cfg.ct = CT_SPATIAL_GRID;
+	}
+	else if (std::string(argv[1]) == "hcqr") {
+		cfg.ct = CT_HCQR;
+	}
+	else {
+		help();
+		std::cerr << "Unkown creation mode " << argv[1] << std::endl;
+		return -1;
+	}
+
+    for(int i(2); i < argc; ++i) {
+        std::string token(argv[i]);
+        if (token == "-l" && i+1 < argc ) {
+            cfg.levels = std::atoi(argv[i+1]);
+            ++i;
+        }
+		else if (token == "--index-type" && i+1 < argc) {
+			token = std::string(argv[i+1]);
+			if (token == "htm") {
+				cfg.it = IT_HTM;
+			}
+			else if (token == "h3") {
+				cfg.it = IT_H3;
+			}
+			else if (token == "simplegrid") {
+				cfg.it = IT_SIMPLEGRID;
+			}
+			else {
+				std::cerr << "Invalid index type" << std::endl;
+				return -1;
+			}
+			++i;
+		}
+        else if (token == "-f" && i+1 < argc) {
+            cfg.filename = std::string(argv[i+1]);
+            ++i;
+        }
+		else if (token == "-o" && i+1 < argc) {
+			cfg.outdir = std::string(argv[i+1]);
+			++i;
+		}
+		else if (token == "--tempdir" && i+1 < argc) {
+			token = std::string(argv[i+1]);
+			sserialize::UByteArrayAdapter::setFastTempFilePrefix(token);
+			sserialize::UByteArrayAdapter::setTempFilePrefix(token);
+			++i;
+		}
+        else if (token == "-t" && i+1 < argc ) {
+            cfg.threadCount = std::atoi(argv[i+1]);
+            ++i;
+        }
+        else if (token == "-st" && i+1 < argc ) {
+            cfg.serializeThreadCount = std::atoi(argv[i+1]);
+            ++i;
+        }
+        else if (token == "--compactify" && i+1 < argc) {
+			cfg.compactLevel = std::atoi(argv[i+1]);
+			++i;
+		}
+        else {
+            std::cerr << "Unkown parameter: " << token << std::endl;
+			help();
+            return -1;
+        }
+    }
+
+	if (cfg.ct == CT_SPATIAL_GRID) {
+		return createSpatialGrid(cfg);
+	}
+	else if (cfg.ct == CT_HCQR) {
+		return createHCQR(cfg);
+	}
 }

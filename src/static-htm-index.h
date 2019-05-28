@@ -19,6 +19,10 @@ namespace hic {
 }
 
 namespace hic::Static {
+	class HCQRTextIndex;
+}
+
+namespace hic::Static {
 
 /**
  *  struct SpatialGridInfo: Version(2) {
@@ -102,7 +106,7 @@ namespace SpatialGridInfo {
 		Types<MetaData::DataMembers::htmIndexId2TrixelId>::type m_htmIndexId2TrixelId;
 		Types<MetaData::DataMembers::trixelItemIndexIds>::type m_trixelItemIndexIds;
 	};
-} //end namespace HtmInfo
+} //end namespace SpatialGridInfo
 }//end namespace ssinfo
 
 class SpatialGridInfo final {
@@ -186,6 +190,9 @@ public:
 	inline std::shared_ptr<SpatialGridInfo> const & sgInfoPtr() const { return m_sgInfo; }
 	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
 	inline sserialize::RCPtrWrapper<interface::SpatialGrid> const & sgPtr() const { return m_sg; }
+	inline Trie const & trie() const { return m_trie; }
+private:
+	friend class HCQRTextIndex;
 private:
     OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:

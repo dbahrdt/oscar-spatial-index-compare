@@ -5,7 +5,7 @@
 #include "HCQR.h"
 
 namespace hic::Static {
-namespace detail::StaticHCQRTextIndex {
+namespace detail::HCQRTextIndex {
 	
 /**
 * struct Payload {
@@ -33,23 +33,23 @@ public:
 	sserialize::UByteArrayAdapter m_d;
 };
 	
-} //end namespace detail::StaticHCQRTextIndex
+} //end namespace detail::HCQRTextIndex
 
 /**
-*  struct StaticHCQRTextIndex: Version(1) {
+*  struct HCQRTextIndex: Version(1) {
 *      uint<8> supportedQueries;
-*      SpatialGridInfo htmInfo;
+*      SpatialGridInfo sgInfo;
 *      sserialize::Static::FlatTrieBase trie;
-*      sserialize::Static::Array<detail::StaticHCQRTextIndex::Payload> mixed;
-*      sserialize::Static::Array<detail::StaticHCQRTextIndex::Payload> regions;
-*      sserialize::Static::Array<detail::StaticHCQRTextIndex::Payload> items;
+*      sserialize::Static::Array<detail::HCQRTextIndex::Payload> mixed;
+*      sserialize::Static::Array<detail::HCQRTextIndex::Payload> regions;
+*      sserialize::Static::Array<detail::HCQRTextIndex::Payload> items;
 *  };
 */
-class StaticHCQRTextIndex: public sserialize::RefCountObject {
+class HCQRTextIndex: public sserialize::RefCountObject {
 public:
-    using Self = StaticHCQRTextIndex;
+    using Self = HCQRTextIndex;
 	using SpatialGridInfo = hic::Static::SpatialGridInfo;
-    using Payload = hic::Static::detail::StaticHCQRTextIndex::Payload;
+    using Payload = hic::Static::detail::HCQRTextIndex::Payload;
 	using Trie = sserialize::Static::UnicodeTrie::FlatTrieBase;
 	using Payloads = sserialize::Static::Array<Payload>;
 	using HCQRPtr = hic::interface::HCQR::HCQRPtr;
@@ -58,8 +58,17 @@ public:
         static constexpr uint8_t version{2};
     };
 public:
+	struct CreationConfig {
+		sserialize::UByteArrayAdapter dest;
+		///needs to contain the index store of the source OscarSearchSgIndex;
+		sserialize::ItemIndexFactory idxFactory;
+		sserialize::UByteArrayAdapter src;
+		bool compactify{false};
+		uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
+	};
+public:
 	static sserialize::RCPtrWrapper<Self> make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
-	~StaticHCQRTextIndex() override;
+	~HCQRTextIndex() override;
 public:
 	sserialize::UByteArrayAdapter::SizeType getSizeInBytes() const;
 	const sserialize::Static::ItemIndexStore & idxStore() const;
@@ -81,8 +90,10 @@ public:
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> const & sgPtr() const;
 	hic::interface::SpatialGridInfo const & sgi() const;
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> const & sgiPtr() const;
+public:
+	static void fromOscarSearchSgIndex(CreationConfig & cfg);
 private:
-	StaticHCQRTextIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
+	HCQRTextIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
 	Payload::Type typeFromCompletion(const std::string& qs, sserialize::StringCompleter::QuerryType qt, Payloads const & pd) const;
 private:
