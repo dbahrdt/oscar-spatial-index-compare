@@ -2,6 +2,7 @@
 #include "StaticHCQRSpatialGrid.h"
 #include <sserialize/strings/unicode_case_functions.h>
 #include <sserialize/Static/Version.h>
+#include <sserialize/mt/ThreadPool.h>
 
 namespace hic::Static {
 namespace detail::HCQRTextIndex {
@@ -196,60 +197,130 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 {
 	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
 	using SpatialGridInfoImp = hic::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
-	std::array<sserialize::StringCompleter::QuerryType, 4> pqt{
-		sserialize::StringCompleter::QT_EXACT,
-		sserialize::StringCompleter::QT_PREFIX,
-		sserialize::StringCompleter::QT_SUFFIX,
-		sserialize::StringCompleter::QT_SUBSTRING
-	};
-	auto idxStore = cfg.idxFactory.asItemIndexStore();
-	auto sgIndex = hic::Static::OscarSearchSgIndex::make(cfg.src, idxStore);
-	auto ci = CellInfo::makeRc(sgIndex);
-	auto cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(idxStore, sgIndex->sgInfoPtr()) );
-	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi( new SpatialGridInfoImp(sgIndex->sgPtr(), cellInfoPtr) );
- 
-	auto sge2shcqr = [&sgIndex, &ci, &sgi, &idxStore, &cfg](hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
-		sserialize::CellQueryResult cqr(
-			idxStore.at( t.fmPtr() ),
-			idxStore.at( t.pPtr() ),
-			t.pItemsPtrBegin(),
-			ci, idxStore,
-			sgIndex->flags()
-		);
-		
-		HCQRPtr hcqr = HCQRPtr(new hic::impl::HCQRSpatialGrid (cqr, cqr.idxStore(), sgIndex->sgPtr(), sgi));
-		if (cfg.compactify) {
-			hcqr = hcqr->compactified(cfg.compactLevel);
-			static_cast<hic::impl::HCQRSpatialGrid*>( hcqr.get() )->flushFetchedItems(cfg.idxFactory);
-		}
-		hic::Static::impl::HCQRSpatialGrid shcqr(static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr));
-		return const_cast<hic::Static::impl::HCQRSpatialGrid const &>(shcqr).tree().data();
+	
+	struct Aux {
+		sserialize::Static::ItemIndexStore idxStore;
+		sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> sgIndex;
+		CellInfo::RCType ci;
+		sserialize::RCPtrWrapper<HCQRCellInfo> cellInfoPtr;
+		sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> sgi;
 	};
 	
-	auto transformPayload = [&sge2shcqr, &pqt,&sgIndex](hic::Static::OscarSearchSgIndex::Payloads const & src, sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> && dest) {
-		for(uint32_t i(0), s(sgIndex->trie().size()); i < s; ++i) {
-			auto t = src.at(i);
-			dest.beginRawPut();
-			dest.rawPut().putUint8(t.types());
-			for(auto qt : pqt) {
-				if (t.types() & qt) {
-					dest.rawPut().put(sge2shcqr(t.type(qt)));
-				}
+	struct State {
+		sserialize::ProgressInfo pinfo;
+		hic::Static::OscarSearchSgIndex::Payloads const & src;
+		std::atomic<std::size_t> i{0};
+		
+		sserialize::Static::ArrayCreator<sserialize::UByteArrayAdapter> ac;
+		std::map<std::size_t, sserialize::UByteArrayAdapter> queue;
+		std::mutex flushLock;
+		void flush(std::size_t i, sserialize::UByteArrayAdapter && d) {
+			std::lock_guard<std::mutex> lck(flushLock);
+			if (ac.size() == i) {
+				ac.beginRawPut();
+				ac.rawPut().put(d);
+				ac.endRawPut();
 			}
-			dest.endRawPut();
+			else {
+				queue[i] = std::move(d);
+			}
+			for(auto it(queue.begin()), end(queue.end()); it != end && it->first == ac.size();) {
+				ac.put(it->second);
+				it = queue.erase(it);
+			}
 		}
-		dest.flush();
+		State(sserialize::UByteArrayAdapter & dest, hic::Static::OscarSearchSgIndex::Payloads const & src) :
+		ac(dest),
+		src(src)
+		{}
 	};
+	
+	struct Worker {
+		std::array<sserialize::StringCompleter::QuerryType, 4> pqt{
+			sserialize::StringCompleter::QT_EXACT,
+			sserialize::StringCompleter::QT_PREFIX,
+			sserialize::StringCompleter::QT_SUFFIX,
+			sserialize::StringCompleter::QT_SUBSTRING
+		};
+	public:
+		sserialize::UByteArrayAdapter sge2shcqr(hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
+			sserialize::CellQueryResult cqr(
+				aux.idxStore.at( t.fmPtr() ),
+				aux.idxStore.at( t.pPtr() ),
+				t.pItemsPtrBegin(),
+				aux.ci, aux.idxStore,
+				aux.sgIndex->flags()
+			);
+			
+			HCQRPtr hcqr = HCQRPtr(new hic::impl::HCQRSpatialGrid (cqr, cqr.idxStore(), aux.sgIndex->sgPtr(), aux.sgi));
+			if (cfg.compactify) {
+				hcqr = hcqr->compactified(cfg.compactLevel);
+				static_cast<hic::impl::HCQRSpatialGrid*>( hcqr.get() )->flushFetchedItems(cfg.idxFactory);
+			}
+			hic::Static::impl::HCQRSpatialGrid shcqr(static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr));
+			return const_cast<hic::Static::impl::HCQRSpatialGrid const &>(shcqr).tree().data();
+		}
+		
+		void operator()() {
+			std::size_t s = aux.sgIndex->trie().size();
+			while(true) {
+				std::size_t i = state.i.fetch_add(1, std::memory_order_relaxed);
+				if (i >= s) {
+					return;
+				}
+				state.pinfo(i);
+				auto t = state.src.at(i);
+				sserialize::UByteArrayAdapter data(0, sserialize::MM_PROGRAM_MEMORY);
+				data.putUint8(t.types());
+				for(auto qt : pqt) {
+					if (t.types() & qt) {
+						data.put(sge2shcqr(t.type(qt)));
+					}
+				}
+				state.flush(i, std::move(data));
+			}
+		}
+		void flush();
+		Worker(CreationConfig & cfg, Aux const & aux, State & state) :
+		cfg(cfg), aux(aux), state(state)
+		{}
+		Worker(Worker const & other) = default;
+	public:
+		CreationConfig & cfg;
+		Aux const & aux;
+		State & state;
+	};
+	
+	Aux aux;
+	aux.idxStore = cfg.idxFactory.asItemIndexStore();
+	aux.sgIndex = hic::Static::OscarSearchSgIndex::make(cfg.src, aux.idxStore);
+	aux.ci = CellInfo::makeRc(aux.sgIndex);
+	aux.cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(aux.idxStore, aux.sgIndex->sgInfoPtr()) );
+	aux.sgi.reset( new SpatialGridInfoImp(aux.sgIndex->sgPtr(), aux.cellInfoPtr) );
+ 
 	
 	cfg.dest.putUint8(1); //version
 	cfg.dest.putUint8(cfg.src.at(1)); //sq
-	cfg.dest.put( sserialize::UByteArrayAdapter(cfg.dest, 2, sgIndex->sgInfo().getSizeInBytes()) ); //sgInfo
-	cfg.dest.put( sgIndex->trie().data() );
+	cfg.dest.put( sserialize::UByteArrayAdapter(cfg.dest, 2, aux.sgIndex->sgInfo().getSizeInBytes()) ); //sgInfo
+	cfg.dest.put( aux.sgIndex->trie().data() );
 	
-	transformPayload(sgIndex->m_mixed, cfg.dest);
-	transformPayload(sgIndex->m_items, cfg.dest);
-	transformPayload(sgIndex->m_regions, cfg.dest);
+	{
+		State state(cfg.dest, aux.sgIndex->m_mixed);
+		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
+		state.ac.flush();
+	}
 	
+	{
+		State state(cfg.dest, aux.sgIndex->m_items);
+		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
+		state.ac.flush();
+	}
+	
+	{
+		State state(cfg.dest, aux.sgIndex->m_regions);
+		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
+		state.ac.flush();
+	}
 }
 
 }//end namespace hic::Static

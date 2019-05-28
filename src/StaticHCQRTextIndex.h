@@ -65,6 +65,7 @@ public:
 		sserialize::UByteArrayAdapter src;
 		bool compactify{false};
 		uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
+		uint32_t threads{0};
 	};
 public:
 	static sserialize::RCPtrWrapper<Self> make(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
