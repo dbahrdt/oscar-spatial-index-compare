@@ -6,6 +6,7 @@
 
 #include "SpatialGrid.h"
 #include "HCQRIndex.h"
+#include "HCQRSpatialGrid.h"
 
 
 namespace hic {

@@ -1,8 +1,11 @@
 #pragma once
 
 #include <sserialize/storage/UByteArrayAdapter.h>
+#include <sserialize/Static/ItemIndexStore.h>
 
 #include "HCQR.h"
+#include "HCQRSpatialGrid.h"
+
 
 namespace hic::Static::detail::HCQRSpatialGrid {
 	
