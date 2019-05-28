@@ -1,6 +1,7 @@
 #include "StaticHCQRSpatialGrid.h"
 #include <sserialize/storage/pack_unpack_functions.h>
 #include <sserialize/utility/debuggerfunctions.h>
+#include <sserialize/containers/ItemIndexFactory.h>
 
 namespace hic::Static::detail::HCQRSpatialGrid {
 
@@ -1468,6 +1469,40 @@ HCQRSpatialGrid::items(Tree::NodePosition const & np) const {
 HCQRSpatialGrid::PixelLevel
 HCQRSpatialGrid::level(Tree::Node const & node) const {
 	return sg().level(node.pixelId());
+}
+
+
+void
+HCQRSpatialGrid::flushFetchedItems(sserialize::ItemIndexFactory & idxFactory) {
+	if (!fetchedItems().size()) {
+		return;
+	}
+    struct Recurser {
+		HCQRSpatialGrid & that;
+		Tree & tree;
+		sserialize::ItemIndexFactory & idxFactory;
+		Recurser(HCQRSpatialGrid & that, sserialize::ItemIndexFactory & idxFactory) :
+		that(that), tree(that.tree()), idxFactory(idxFactory)
+		{}
+        void operator()(Tree::NodePosition const & np) const {
+			auto node = tree.node(np);
+			if (node.isLeaf() && node.isFetched()) {
+				node.setItemIndexId(
+					idxFactory.addIndex(
+						that.fetchedItems().at(
+							node.itemIndexId()
+						)
+					)
+				);
+				tree.update(np, node);
+			}
+			for(Tree::ChildrenIterator cit(that.tree().children(np)); cit.valid(); cit.next()) {
+				(*this)(cit.position());
+			}
+        }
+    };
+	Recurser(*this, idxFactory)(tree().rootNodePosition());
+	m_fetchedItems.clear();
 }
 
 }//end namespace hic::Static::impl

@@ -7,6 +7,10 @@
 #include "HCQRSpatialGrid.h"
 
 
+namespace sserialize {
+	class ItemIndexFactory;
+}
+
 namespace hic::Static::detail::HCQRSpatialGrid {
 	
 ///Improved variant: only store nextNode ptr for small distances
@@ -282,6 +286,9 @@ public:
 	using Parent::items;
     sserialize::ItemIndex items(Tree::NodePosition const & node) const;
 	PixelLevel level(Tree::Node const & node) const;
+public:
+	///converts fetched nodes to partial-match nodes
+	void flushFetchedItems(sserialize::ItemIndexFactory & idxFactory);
 public:
 	inline sserialize::Static::ItemIndexStore const & idxStore() const { return m_items; }
 	inline auto const & fetchedItems() const { return m_fetchedItems; }
