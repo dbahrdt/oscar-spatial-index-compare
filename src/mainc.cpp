@@ -50,7 +50,6 @@ void help() {
 		"\t-l <levels>\n"
 		"hcqr-mode:\n"
 		"\t-f <sg files>\n"
-		"\t-o <outdir>\n"
 		"\t--compactify <max level>"
 	<< std::flush;
 }
@@ -120,14 +119,17 @@ int createSpatialGrid(Config & cfg) {
 
 
 int createHCQR(Config & cfg) {
-	if (cfg.filename.size()) {
-		std::cerr << "No input files given" << std::endl;
+	if (!cfg.filename.size()) {
+		std::cerr << "No input files given: " << cfg.filename << std::endl;
 		return -1;
 	}
-	sserialize::MmappedFile::createSymlink(sserialize::MmappedFile::realPath(cfg.filename + "/index"), sserialize::MmappedFile::realPath(cfg.outdir + "/index"));
-	
-	
-
+	if (!sserialize::MmappedFile::isDirectory(cfg.outdir)) {
+		sserialize::MmappedFile::createDirectory(cfg.outdir);
+	}
+	sserialize::MmappedFile::createSymlink(
+		sserialize::MmappedFile::realPath(cfg.filename) + "/index",
+		sserialize::MmappedFile::realPath(cfg.outdir) + "/index"
+	);
 	
 	hic::Static::HCQRTextIndex::CreationConfig cc;
 	if (cfg.compactLevel != std::numeric_limits<uint32_t>::max()) {
