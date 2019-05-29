@@ -306,20 +306,26 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 	
 	{
 		State state(cfg.dest, aux.sgIndex->m_mixed);
+		state.pinfo.begin(aux.sgIndex->trie().size(), "Processing mixed payload");
 		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
 		state.ac.flush();
+		state.pinfo.end();
 	}
 	
 	{
 		State state(cfg.dest, aux.sgIndex->m_items);
+		state.pinfo.begin(aux.sgIndex->trie().size(), "Processing items payload");
 		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
 		state.ac.flush();
+		state.pinfo.end();
 	}
 	
 	{
 		State state(cfg.dest, aux.sgIndex->m_regions);
+		state.pinfo.begin(aux.sgIndex->trie().size(), "Processing regions payload");
 		sserialize::ThreadPool::execute(Worker(cfg, aux, state), cfg.threads, sserialize::ThreadPool::CopyTaskTag());
 		state.ac.flush();
+		state.pinfo.end();
 	}
 }
 
