@@ -60,8 +60,8 @@ public:
 public:
 	struct CreationConfig {
 		sserialize::UByteArrayAdapter dest;
-		///needs to contain the index store of the source OscarSearchSgIndex;
-		sserialize::ItemIndexFactory idxFactory;
+		sserialize::ItemIndexFactory idxFactory; //empty
+		sserialize::Static::ItemIndexStore idxStore; //idx store of the source
 		sserialize::UByteArrayAdapter src;
 		bool compactify{false};
 		uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};

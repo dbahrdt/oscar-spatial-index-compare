@@ -199,7 +199,6 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 	using SpatialGridInfoImp = hic::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
 	
 	struct Aux {
-		sserialize::Static::ItemIndexStore idxStore;
 		sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> sgIndex;
 		CellInfo::RCType ci;
 		sserialize::RCPtrWrapper<HCQRCellInfo> cellInfoPtr;
@@ -245,10 +244,10 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 	public:
 		sserialize::UByteArrayAdapter sge2shcqr(hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
 			sserialize::CellQueryResult cqr(
-				aux.idxStore.at( t.fmPtr() ),
-				aux.idxStore.at( t.pPtr() ),
+				cfg.idxStore.at( t.fmPtr() ),
+				cfg.idxStore.at( t.pPtr() ),
 				t.pItemsPtrBegin(),
-				aux.ci, aux.idxStore,
+				aux.ci, cfg.idxStore,
 				aux.sgIndex->flags()
 			);
 			
@@ -291,11 +290,15 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 		State & state;
 	};
 	
+	cfg.idxFactory.setDeduplication(false);
+	cfg.idxFactory.insert(cfg.idxStore);
+	cfg.idxFactory.setDeduplication(true);
+
+	
 	Aux aux;
-	aux.idxStore = cfg.idxFactory.asItemIndexStore();
-	aux.sgIndex = hic::Static::OscarSearchSgIndex::make(cfg.src, aux.idxStore);
+	aux.sgIndex = hic::Static::OscarSearchSgIndex::make(cfg.src, cfg.idxStore);
 	aux.ci = CellInfo::makeRc(aux.sgIndex);
-	aux.cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(aux.idxStore, aux.sgIndex->sgInfoPtr()) );
+	aux.cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(cfg.idxStore, aux.sgIndex->sgInfoPtr()) );
 	aux.sgi.reset( new SpatialGridInfoImp(aux.sgIndex->sgPtr(), aux.cellInfoPtr) );
  
 	

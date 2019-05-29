@@ -135,17 +135,10 @@ int createHCQR(Config & cfg) {
 	}
 	cc.dest = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/search.hcqr");
 	cc.src = sserialize::UByteArrayAdapter::openRo(cfg.filename + "/search", false);
-	
-	{
-		auto idxStore = sserialize::Static::ItemIndexStore(sserialize::UByteArrayAdapter::openRo(cfg.filename + "/index", false));
-		cc.idxFactory.setIndexFile(sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index"));
-		cc.idxFactory.setType(idxStore.indexTypes());
-		cc.idxFactory.setDeduplication(false);
-		cc.idxFactory.insert(idxStore);
-		cc.idxFactory.setDeduplication(true);
-		SSERIALIZE_CHEAP_ASSERT_EQUAL(idxStore.size(), cc.idxFactory.size());
-	}
-	
+	cc.idxStore = sserialize::Static::ItemIndexStore(sserialize::UByteArrayAdapter::openRo(cfg.filename + "/index", false));
+	cc.idxFactory.setIndexFile(sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index"));
+	cc.idxFactory.setType(cc.idxStore.indexTypes());
+
 	sserialize::TimeMeasurer tm;
 	std::cout << "Computing hcqr index" << std::endl;
 	tm.begin();
