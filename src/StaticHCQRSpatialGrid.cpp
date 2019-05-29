@@ -508,11 +508,12 @@ Tree::create(sserialize::UByteArrayAdapter dest, hic::impl::HCQRSpatialGrid cons
 	};
 	
 	Tree tree( create(dest, src.sgPtr()) );
-	Recurser r(src, tree);
 	
-	r(*src.root());
-	
-	SSERIALIZE_EXPENSIVE_ASSERT(inlinetests::TreeFromHCQRSpatialGrid(tree).equalTopology(tree.rootNodePosition(), *src.root()));
+	if (src.root()) {
+		Recurser r(src, tree);
+		r(*src.root());
+		SSERIALIZE_EXPENSIVE_ASSERT(inlinetests::TreeFromHCQRSpatialGrid(tree).equalTopology(tree.rootNodePosition(), *src.root()));
+	}
 	
 	return tree;
 }
