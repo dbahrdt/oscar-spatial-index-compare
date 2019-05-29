@@ -126,12 +126,9 @@ int createHCQR(Config & cfg) {
 	if (!sserialize::MmappedFile::isDirectory(cfg.outdir)) {
 		sserialize::MmappedFile::createDirectory(cfg.outdir);
 	}
-	sserialize::MmappedFile::createSymlink(
-		sserialize::MmappedFile::realPath(cfg.filename) + "/index",
-		sserialize::MmappedFile::realPath(cfg.outdir) + "/index"
-	);
 	
 	hic::Static::HCQRTextIndex::CreationConfig cc;
+	cc.threads = cfg.serializeThreadCount;
 	if (cfg.compactLevel != std::numeric_limits<uint32_t>::max()) {
 		cc.compactify = true;
 		cc.compactLevel = cfg.compactLevel;
@@ -143,11 +140,20 @@ int createHCQR(Config & cfg) {
 		auto idxStore = sserialize::Static::ItemIndexStore(sserialize::UByteArrayAdapter::openRo(cfg.filename + "/index", false));
 		cc.idxFactory.setIndexFile(sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index"));
 		cc.idxFactory.setType(idxStore.indexTypes());
-		cc.idxFactory.setDeduplication(true);
+		cc.idxFactory.setDeduplication(false);
 		cc.idxFactory.insert(idxStore);
+		cc.idxFactory.setDeduplication(true);
+		SSERIALIZE_CHEAP_ASSERT_EQUAL(idxStore.size(), cc.idxFactory.size());
 	}
 	
+	sserialize::TimeMeasurer tm;
+	std::cout << "Computing hcqr index" << std::endl;
+	tm.begin();
 	hic::Static::HCQRTextIndex::fromOscarSearchSgIndex(cc);
+	tm.end();
+	std::cout << "Computing hcqr index took " << tm << std::endl;
+	
+	cc.idxFactory.flush();
 	
 	return 0;
 }
