@@ -770,7 +770,7 @@ HCQRSpatialGrid::compactified(SizeType maxPMLevel) const {
                     sserialize::SizeType dataSize = 0;
                     std::vector<sserialize::ItemIndex> indexes;
                     for(auto & x : children) {
-                        indexes.emplace_back( that.items(*x) );
+                        indexes.emplace_back( dest.items(*x) );
                         dataSize += indexes.back().getSizeInBytes();
                     }
                     sserialize::ItemIndex merged = sserialize::ItemIndex::unite(indexes);
