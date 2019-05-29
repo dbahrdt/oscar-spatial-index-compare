@@ -13,6 +13,7 @@
 struct Config {
     std::string oscarFiles;
     std::string htmFiles;
+	std::string shcqrFiles;
 	bool staticHCQR{false};
 	bool compactifiedHCQR{false};
 	uint32_t cachedHCQR{0};
@@ -64,6 +65,7 @@ struct WorkItem {
         WI_SG_CQR,
         WI_SG_TCQR,
 		WI_SG_HCQR,
+		WI_SG_SHCQR,
         WI_OSCAR_CQR,
         WI_OSCAR_TCQR,
 		WI_OSCAR_HCQR,
@@ -91,11 +93,18 @@ struct HtmState {
     sserialize::Static::ItemIndexStore idxStore;
 };
 
+struct SHCQRState {
+    sserialize::UByteArrayAdapter indexData;
+    sserialize::UByteArrayAdapter searchData;
+    sserialize::Static::ItemIndexStore idxStore;
+};
+
 struct Completers {
     std::shared_ptr<liboscar::Static::OsmCompleter> cmp;
 	std::shared_ptr<hic::Static::OscarSearchSgCompleter> sgcmp;
 	std::shared_ptr<hic::HCQRCompleter> hsgcmp;
 	std::shared_ptr<hic::HCQRCompleter> hocmp;
+	std::shared_ptr<hic::HCQRCompleter> shcmp;
 };
 
 struct QueryStats {
@@ -316,6 +325,52 @@ void benchmark(Completers & completers, WorkDataBenchmark const & cfg) {
 		std::cout << "Oscar::cellCount:" << std::endl;
 		StatPrinting::print(std::cout, o_stats.cellCount.begin(), o_stats.cellCount.end());
 	}
+	if (completers.shcmp && cfg.hcqr) {
+		Stats stats;
+		auto rsf = std::ofstream(cfg.rawStatsPrefix + ".shcqr.stats.raw");
+
+		rsf << header << std::endl;
+		stats.reserve(queries.size());
+		
+
+		pinfo.begin(queries.size(), "Computing sg queries");
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			auto start = std::chrono::high_resolution_clock::now();
+			auto hcqr = completers.shcmp->complete(queries[i]);
+			auto stop = std::chrono::high_resolution_clock::now();
+			stats.cqr.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			
+			start = std::chrono::high_resolution_clock::now();
+			auto items = (hcqr ? hcqr->items() : sserialize::ItemIndex());
+			stop = std::chrono::high_resolution_clock::now();
+			stats.flaten.emplace_back(std::chrono::duration_cast<Stats::meas_res>(stop-start).count());
+			stats.cellCount.emplace_back((hcqr ? hcqr->numberOfNodes() : 0));
+			stats.itemCount.emplace_back(items.size());
+			
+			SSERIALIZE_EXPENSIVE_ASSERT(items == completers.cmp->cqrComplete(queries[i]).flaten());
+			pinfo(i);
+		}
+		pinfo.end();
+		
+		for(std::size_t i(0), s(queries.size()); i < s; ++i) {
+			rsf << i << ';'
+					<< stats.cqr[i] << ';'
+					<< stats.flaten[i] << ';'
+					<< stats.cellCount[i] << ';'
+					<< stats.itemCount[i] << '\n';
+		}
+		rsf << std::flush;
+		rsf.close();
+		
+		
+		std::cout << "SpatialIndex::cqr:" << std::endl;
+		StatPrinting::print(std::cout, stats.cqr.begin(), stats.cqr.end());
+		std::cout << "SpatialIndex::flaten:" << std::endl;
+		StatPrinting::print(std::cout, stats.flaten.begin(), stats.flaten.end());
+		std::cout << "SpatialIndex::cellCount:" << std::endl;
+		StatPrinting::print(std::cout, stats.cellCount.begin(), stats.cellCount.end());
+	}
+	
 }
 
 void printStats(Completers & completers) {
@@ -425,7 +480,7 @@ void debugDiff(State const & state, Completers & completers) {
 }
 
 void help() {
-	std::cerr << "prg -o <oscar files> -f <spatial grid files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats --debug-diff" << std::endl;
+	std::cerr << "prg -o <oscar files> -g <spatial grid files> -s <static hcqr files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -shq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats --debug-diff" << std::endl;
 }
 
 sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
@@ -445,6 +500,7 @@ int main(int argc, char const * argv[]) {
     Config cfg;
     State state;
     HtmState htmState;
+	SHCQRState shcqrState;
 	Completers completers;
 
     for(int i(1); i < argc; ++i) {
@@ -453,8 +509,12 @@ int main(int argc, char const * argv[]) {
             cfg.oscarFiles = std::string(argv[i+1]);
             ++i;
         }
-        else if (token == "-f" && i+1 < argc) {
+        else if (token == "-g" && i+1 < argc) {
             cfg.htmFiles = std::string(argv[i+1]);
+            ++i;
+        }
+        else if (token == "-s" && i+1 < argc) {
+            cfg.shcqrFiles = std::string(argv[i+1]);
             ++i;
         }
         else if (token == "--hcqr-cache" && i+1 < argc) {
@@ -487,6 +547,9 @@ int main(int argc, char const * argv[]) {
         }
         else if (token == "-hsq") {
             state.queue.emplace_back(WorkItem::WI_SG_HCQR, std::nullptr_t());
+        }
+        else if (token == "-shq") {
+            state.queue.emplace_back(WorkItem::WI_SG_SHCQR, std::nullptr_t());
         }
         else if (token == "-oq") {
             state.queue.emplace_back(WorkItem::WI_OSCAR_CQR, std::nullptr_t());
@@ -591,8 +654,8 @@ int main(int argc, char const * argv[]) {
 		}
 	}
 
-	QueryStats oqs, hqs;
-	HQueryStats hsg_qs, ho_qs;
+	QueryStats qs;
+	HQueryStats hqs;
 	for(uint32_t i(0), s(state.queue.size()); i < s; ++i) {
 		WorkItem & wi = state.queue[i];
 		
@@ -613,16 +676,16 @@ int main(int argc, char const * argv[]) {
 					std::cerr << "No spatial grid available" << std::endl;
 					return -1;
 				}
-				hqs.cqrTime.begin();
-				hqs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR, state.numThreads);
-				hqs.cqrTime.end();
+				qs.cqrTime.begin();
+				qs.cqr = completers.sgcmp->complete(state.str, wi.type == WorkItem::WI_SG_TCQR, state.numThreads);
+				qs.cqrTime.end();
 				if (state.numItems) {
-					hqs.flatenTime.begin();
-					hqs.items = hqs.cqr.flaten(state.numThreads);
-					hqs.flatenTime.end();
+					qs.flatenTime.begin();
+					qs.items = qs.cqr.flaten(state.numThreads);
+					qs.flatenTime.end();
 				}
 				std::cout << "Spatial Grid Index query: " << state.str << std::endl;
-				std::cout << hqs << std::endl;
+				std::cout << qs << std::endl;
 			}
 				break;
 			case WorkItem::WI_SG_HCQR:
@@ -631,16 +694,35 @@ int main(int argc, char const * argv[]) {
 					std::cerr << "No spatial grid available" << std::endl;
 					return -1;
 				}
-				hsg_qs.cqrTime.begin();
-				hsg_qs.hcqr = completers.hsgcmp->complete(state.str);
-				hsg_qs.cqrTime.end();
+				hqs.cqrTime.begin();
+				hqs.hcqr = completers.hsgcmp->complete(state.str);
+				hqs.cqrTime.end();
 				if (state.numItems) {
-					hsg_qs.flatenTime.begin();
-					hsg_qs.items = hsg_qs.hcqr->items();
-					hsg_qs.flatenTime.end();
+					hqs.flatenTime.begin();
+					hqs.items = hqs.hcqr->items();
+					hqs.flatenTime.end();
 				}
 				std::cout << "Hierarchical Spatial Grid Index query: " << state.str << std::endl;
-				std::cout << hsg_qs << std::endl;
+				std::cout << hqs << std::endl;
+				
+			}
+				break;
+			case WorkItem::WI_SG_SHCQR:
+			{
+				if (cfg.shcqrFiles.empty()) {
+					std::cerr << "No static hcqr available" << std::endl;
+					return -1;
+				}
+				hqs.cqrTime.begin();
+				hqs.hcqr = completers.shcmp->complete(state.str);
+				hqs.cqrTime.end();
+				if (state.numItems) {
+					hqs.flatenTime.begin();
+					hqs.items = hqs.hcqr->items();
+					hqs.flatenTime.end();
+				}
+				std::cout << "Static Hierarchical Spatial Grid Index query: " << state.str << std::endl;
+				std::cout << hqs << std::endl;
 				
 			}
 				break;
@@ -651,16 +733,16 @@ int main(int argc, char const * argv[]) {
 					std::cerr << "No oscar completion available" << std::endl;
 					return -1;
 				}
-				oqs.cqrTime.begin();
-				oqs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR, state.numThreads);
-				oqs.cqrTime.end();
+				qs.cqrTime.begin();
+				qs.cqr = completers.cmp->cqrComplete(state.str, wi.type == WorkItem::WI_OSCAR_TCQR, state.numThreads);
+				qs.cqrTime.end();
 				if (state.numItems) {
-					oqs.flatenTime.begin();
-					oqs.items = oqs.cqr.flaten(state.numThreads);
-					oqs.flatenTime.end();
+					qs.flatenTime.begin();
+					qs.items = qs.cqr.flaten(state.numThreads);
+					qs.flatenTime.end();
 				}
 				std::cout << "Oscar query: " << state.str << std::endl;
-				std::cout << oqs << std::endl;
+				std::cout << qs << std::endl;
 			}
 				break;
 			case WorkItem::WI_OSCAR_HCQR:
@@ -669,16 +751,16 @@ int main(int argc, char const * argv[]) {
 					std::cerr << "No spatial grid available" << std::endl;
 					return -1;
 				}
-				ho_qs.cqrTime.begin();
-				ho_qs.hcqr = completers.hocmp->complete(state.str);
-				ho_qs.cqrTime.end();
+				hqs.cqrTime.begin();
+				hqs.hcqr = completers.hocmp->complete(state.str);
+				hqs.cqrTime.end();
 				if (state.numItems) {
-					ho_qs.flatenTime.begin();
-					ho_qs.items = ho_qs.hcqr->items();
-					ho_qs.flatenTime.end();
+					hqs.flatenTime.begin();
+					hqs.items = hqs.hcqr->items();
+					hqs.flatenTime.end();
 				}
 				std::cout << "Hierarchical Oscar query: " << state.str << std::endl;
-				std::cout << ho_qs << std::endl;
+				std::cout << hqs << std::endl;
 			}
 				break;
 			case WorkItem::WI_BENCHMARK:
@@ -696,6 +778,10 @@ int main(int argc, char const * argv[]) {
 				if (cfg.htmFiles.size()) {
 					htmState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.indexData.size());
 					htmState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, htmState.searchData.size());
+				}
+				if (cfg.shcqrFiles.size()) {
+					shcqrState.indexData.advice(sserialize::UByteArrayAdapter::AT_LOAD, shcqrState.indexData.size());
+					shcqrState.searchData.advice(sserialize::UByteArrayAdapter::AT_LOAD, shcqrState.searchData.size());
 				}
 				std::cout << "done" << std::endl;
 			}

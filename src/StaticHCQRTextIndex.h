@@ -3,7 +3,7 @@
 #include <sserialize/storage/UByteArrayAdapter.h>
 #include <sserialize/iterator/MultiBitBackInserter.h>
 #include "static-htm-index.h"
-#include "HCQR.h"
+#include "HCQRIndex.h"
 #include "HCQRSpatialGrid.h"
 
 namespace hic::Static {
@@ -62,7 +62,7 @@ public:
 *      sserialize::Static::Array<detail::HCQRTextIndex::Payload> items;
 *  };
 */
-class HCQRTextIndex: public sserialize::RefCountObject {
+class HCQRTextIndex: public hic::interface::HCQRIndex {
 public:
     using Self = HCQRTextIndex;
 	using SpatialGridInfo = hic::Static::SpatialGridInfo;
@@ -96,18 +96,18 @@ public:
 public:
 	sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
 
-	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
-	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
-	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const;
+	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
+	HCQRPtr regions(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 public:
-	HCQRPtr cell(uint32_t cellId) const;
-	HCQRPtr region(uint32_t regionId) const;
+	HCQRPtr cell(uint32_t cellId) const override;
+	HCQRPtr region(uint32_t regionId) const override;
 public:
 	SpatialGridInfo const & sgInfo() const;
 	std::shared_ptr<SpatialGridInfo> const & sgInfoPtr() const;
-	hic::interface::SpatialGrid const & sg() const;
+	hic::interface::SpatialGrid const & sg() const override;
 	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> const & sgPtr() const;
-	hic::interface::SpatialGridInfo const & sgi() const;
+	hic::interface::SpatialGridInfo const & sgi() const override;
 	sserialize::RCPtrWrapper<hic::interface::SpatialGridInfo> const & sgiPtr() const;
 public:
 	static void fromOscarSearchSgIndex(CreationConfig & cfg);
