@@ -26,6 +26,7 @@ struct Config {
 	uint32_t threadCount{0};
 	uint32_t serializeThreadCount{0};
 	uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
+	bool onlyLeafs{false};
     std::string filename;
     std::string outdir;
 	IndexType it{IT_HTM};
@@ -51,6 +52,7 @@ void help() {
 		"hcqr-mode:\n"
 		"\t-f <sg files>\n"
 		"\t--compactify <max level>"
+		"\t--only-leafs"
 	<< std::flush;
 }
 
@@ -129,6 +131,7 @@ int createHCQR(Config & cfg) {
 	
 	hic::Static::HCQRTextIndex::CreationConfig cc;
 	cc.threads = cfg.serializeThreadCount;
+	cc.compactTree = cfg.onlyLeafs;
 	if (cfg.compactLevel != std::numeric_limits<uint32_t>::max()) {
 		cc.compactify = true;
 		cc.compactLevel = cfg.compactLevel;
@@ -219,6 +222,9 @@ int main(int argc, char const * argv[] ) {
         else if (token == "--compactify" && i+1 < argc) {
 			cfg.compactLevel = std::atoi(argv[i+1]);
 			++i;
+		}
+		else if (token == "--only-leafs") {
+			cfg.onlyLeafs = true;
 		}
         else {
             std::cerr << "Unkown parameter: " << token << std::endl;

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <sserialize/storage/UByteArrayAdapter.h>
+#include <sserialize/iterator/MultiBitBackInserter.h>
 #include "static-htm-index.h"
 #include "HCQR.h"
+#include "HCQRSpatialGrid.h"
 
 namespace hic::Static {
 namespace detail::HCQRTextIndex {
@@ -32,7 +34,22 @@ public:
 	uint8_t m_types;
 	sserialize::UByteArrayAdapter m_d;
 };
-	
+
+/*
+ *struct CompactNode {
+ *  u1 type = {FULL, PARTIAL};
+ *  u5 numPixelIdBits;
+ *  u<numPixelIdBits> pixelId;
+ *  u5 numItemIndexIdBits;
+ *  u<numItemIndexIdBits> itemIndexId; //present if type==PARTIAL
+ *};
+ *
+ */
+class CompactNode {
+public:
+	static void create(hic::impl::HCQRSpatialGrid::TreeNode const & src, sserialize::MultiBitBackInserter & dest);
+};
+
 } //end namespace detail::HCQRTextIndex
 
 /**
@@ -64,6 +81,7 @@ public:
 		sserialize::Static::ItemIndexStore idxStore; //idx store of the source
 		sserialize::UByteArrayAdapter src;
 		bool compactify{false};
+		bool compactTree{false};
 		uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
 		uint32_t threads{0};
 	};

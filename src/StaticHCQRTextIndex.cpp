@@ -43,6 +43,26 @@ Payload::typeData(QuerryType qt) const {
 	}
 	return d;
 }
+
+
+void
+CompactNode::create(hic::impl::HCQRSpatialGrid::TreeNode const & src, sserialize::MultiBitBackInserter & dest) {
+	if (src.isFullMatch()) {
+		dest.push_back(1, 1);
+	}
+	else {
+		dest.push_back(0, 1);
+	}
+	auto pixelIdBits = sserialize::fastLog2(src.pixelId());
+	dest.push_back(pixelIdBits, 5);
+	dest.push_back(src.pixelId(), pixelIdBits);
+	
+	if (!src.isFullMatch()) {
+		auto idxIdBits = sserialize::fastLog2(src.itemIndexId());
+		dest.push_back(idxIdBits, 5);
+		dest.push_back(src.itemIndexId(), idxIdBits);
+	}
+}
 	
 }//end namespace detail::HCQRTextIndex
 	
@@ -242,7 +262,34 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 			sserialize::StringCompleter::QT_SUBSTRING
 		};
 	public:
-		sserialize::UByteArrayAdapter sge2shcqr(hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
+		
+		sserialize::UByteArrayAdapter sge2shcqr(HCQRPtr const & hcqr) {
+			hic::Static::impl::HCQRSpatialGrid shcqr(static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr));
+			return const_cast<hic::Static::impl::HCQRSpatialGrid const &>(shcqr).tree().data();
+		}
+		
+		sserialize::UByteArrayAdapter sge2cn(HCQRPtr const & hcqr) {
+			auto tmpd = sserialize::UByteArrayAdapter(0, sserialize::MM_PROGRAM_MEMORY);
+			if (static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr).root()) {
+				auto bi = sserialize::MultiBitBackInserter(tmpd);
+				cnrec(bi, *static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr).root());
+				bi.flush();
+			}
+			return tmpd;
+		}
+		
+		void cnrec(sserialize::MultiBitBackInserter & dest, hic::impl::HCQRSpatialGrid::TreeNode const & node) {
+			if (node.children().size()) {
+				for(auto const & x : node.children()) {
+					cnrec(dest, *x);
+				}
+			}
+			else {
+				detail::HCQRTextIndex::CompactNode::create(node, dest);
+			}
+		}
+		
+		sserialize::UByteArrayAdapter sge2payload(hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
 			sserialize::CellQueryResult cqr(
 				cfg.idxStore.at( t.fmPtr() ),
 				cfg.idxStore.at( t.pPtr() ),
@@ -256,8 +303,12 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 				hcqr = hcqr->compactified(cfg.compactLevel);
 				static_cast<hic::impl::HCQRSpatialGrid*>( hcqr.get() )->flushFetchedItems(cfg.idxFactory);
 			}
-			hic::Static::impl::HCQRSpatialGrid shcqr(static_cast<hic::impl::HCQRSpatialGrid const &>(*hcqr));
-			return const_cast<hic::Static::impl::HCQRSpatialGrid const &>(shcqr).tree().data();
+			if (cfg.compactTree) {
+				return sge2cn(hcqr);
+			}
+			else {
+				return sge2shcqr(hcqr);
+			}
 		}
 		
 		void operator()() {
@@ -273,7 +324,7 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 				data.putUint8(t.types());
 				for(auto qt : pqt) {
 					if (t.types() & qt) {
-						data.put(sge2shcqr(t.type(qt)));
+						data.put(sge2payload(t.type(qt)));
 					}
 				}
 				state.flush(i, std::move(data));
