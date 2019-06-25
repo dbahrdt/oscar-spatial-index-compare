@@ -3,6 +3,7 @@ project(osi-compare)
 
 set(CMAKE_MODULE_PATH
 	${CMAKE_SOURCE_DIR}/cmake
+	${CMAKE_SOURCE_DIR}/vendor/s2geometry/third_party/cmake
 )
 
 set(H3_PREFIX "h3_" CACHE STRING "H3 prefix for exported symbols" FORCE)
@@ -13,6 +14,7 @@ include(add_buildtype_sanitize_debug)
 add_subdirectory(vendor/liboscar liboscar)
 add_subdirectory(vendor/lsst/sphgeom sphgeom)
 add_subdirectory(vendor/h3 h3lib)
+add_subdirectory(vendor/s2geometry s2geometry)
 
 set(LIB_SOURCES_CPP
 	src/OscarSearchWithSg.cpp
@@ -22,6 +24,7 @@ set(LIB_SOURCES_CPP
 	src/SpatialGrid.cpp
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
+	src/S2GeomSpatialGrid.cpp
 	src/SimpleGridSpatialGrid.cpp
 	src/HcqrOpTree.cpp
 	src/HCQRIndexFromCellIndex.cpp
@@ -45,6 +48,7 @@ set(LIB_SOURCES_H
 	src/SpatialGrid.h
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h
+	src/S2GeomSpatialGrid.h
 	src/SimpleGridSpatialGrid.h
 	src/HcqrOpTree.h
 	src/HCQRIndexFromCellIndex.h
@@ -72,11 +76,11 @@ set(CREATE_SOURCES_CPP
 	src/mainc.cpp
 )
 
-
 SET(LINK_LIBS
 	liboscar
 	sphgeom
 	h3
+	s2
 )
 
 add_library(lib${PROJECT_NAME} STATIC ${LIB_SOURCES_CPP} ${LIB_SOURCES_H})

@@ -4,6 +4,7 @@
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
+#include "S2GeomSpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
 #include "static-htm-index.h"
 #include "StaticHCQRTextIndex.h"
@@ -12,6 +13,7 @@
 enum IndexType {
 	IT_HTM,
 	IT_H3,
+	IT_S2GEOM,
 	IT_SIMPLEGRID
 };
 
@@ -47,7 +49,7 @@ void help() {
 		"\t-st <serialization thread count>\n"
 		"sg-mode:\n"
 		"\t-f <oscar files>\n"
-		"\t--index-type (htm|h3|simplegrid)\n"
+		"\t--index-type (htm|h3|simplegrid|s2geom)\n"
 		"\t-l <levels>\n"
 		"hcqr-mode:\n"
 		"\t-f <sg files>\n"
@@ -87,6 +89,9 @@ int createSpatialGrid(Config & cfg) {
 			break;
 		case IT_H3:
 			sg = hic::H3SpatialGrid::make(cfg.levels);
+			break;
+		case IT_S2GEOM:
+			sg = hic::S2GeomSpatialGrid::make(cfg.levels);
 			break;
 		case IT_SIMPLEGRID:
 			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
@@ -187,6 +192,9 @@ int main(int argc, char const * argv[] ) {
 			}
 			else if (token == "h3") {
 				cfg.it = IT_H3;
+			}
+			else if (token == "s2geom") {
+				cfg.it = IT_S2GEOM;
 			}
 			else if (token == "simplegrid") {
 				cfg.it = IT_SIMPLEGRID;

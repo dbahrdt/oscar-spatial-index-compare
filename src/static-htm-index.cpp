@@ -6,6 +6,7 @@
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
+#include "S2GeomSpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
 
 #include "HCQRIndexFromCellIndex.h"
@@ -150,6 +151,9 @@ m_idxStore(idxStore)
 			break;
 		case SpatialGridInfo::MetaData::SG_H3:
 			m_sg = hic::H3SpatialGrid::make(sgInfo().levels());
+			break;
+		case SpatialGridInfo::MetaData::SG_S2GEOM:
+			m_sg = hic::S2GeomSpatialGrid::make(sgInfo().levels());
 			break;
 		case SpatialGridInfo::MetaData::SG_SIMPLEGRID:
 			m_sg = hic::SimpleGridSpatialGrid::make(sgInfo().levels());

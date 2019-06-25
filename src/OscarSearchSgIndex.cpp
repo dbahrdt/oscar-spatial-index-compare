@@ -434,6 +434,9 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	else if (m_ohi->sg().name() == "h3") {
 		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
 	}
+	else if (m_ohi->sg().name() == "s2geom") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_S2GEOM);
+	}
 	else if (m_ohi->sg().name() == "simplegrid") {
 		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_SIMPLEGRID);
 	}
@@ -530,6 +533,12 @@ OscarSearchSgIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	}
 	else if (m_ohi->sg().name() == "h3-index") {
 		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
+	}
+	else if (m_ohi->sg().name() == "s2geom") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_S2GEOM);
+	}
+	else if (m_ohi->sg().name() == "simplegrid") {
+		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_SIMPLEGRID);
 	}
 	else {
 		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());

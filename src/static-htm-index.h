@@ -60,7 +60,8 @@ namespace SpatialGridInfo {
 		enum SpatialGridTypes : uint8_t {
 			SG_HTM=0,
 			SG_H3=1,
-			SG_SIMPLEGRID=2
+			SG_SIMPLEGRID=2,
+			SG_S2GEOM=3
 		};
 	public:
 		MetaData(Data const * d) : m_d(d) {}

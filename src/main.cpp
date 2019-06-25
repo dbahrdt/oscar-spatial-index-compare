@@ -3,6 +3,7 @@
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
 #include "SimpleGridSpatialGrid.h"
+#include "S2GeomSpatialGrid.h"
 
 enum SearchType {
 	ST_NONE,
@@ -14,6 +15,7 @@ enum SearchType {
 enum IndexType {
 	IT_HTM,
 	IT_H3,
+	IT_S2GEOM,
 	IT_SIMPLE_GRID
 };
 
@@ -28,7 +30,7 @@ struct Config {
 };
 
 void help() {
-	std::cerr << "prg -f <oscar files> --index-type (htm|h3) -l <htm levels> --search-type (noop|mem|sserialize) -q <query> --tempdir <dir> -t <threadCount> -st <search creation thread count>" << std::endl;
+	std::cerr << "prg -f <oscar files> --index-type (htm|h3|simplegrid|s2geom) -l <htm levels> --search-type (noop|mem|sserialize) -q <query> --tempdir <dir> -t <threadCount> -st <search creation thread count>" << std::endl;
 }
 
 int main(int argc, char const * argv[] ) {
@@ -71,6 +73,9 @@ int main(int argc, char const * argv[] ) {
 			}
 			else if (token == "simplegrid") {
 				cfg.it = IT_SIMPLE_GRID;
+			}
+			else if (token == "s2geom") {
+				cfg.it = IT_S2GEOM;
 			}
 			else {
 				std::cerr << "Invalid index type" << std::endl;
@@ -125,6 +130,9 @@ int main(int argc, char const * argv[] ) {
 			break;
 		case IT_SIMPLE_GRID:
 			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
+			break;
+		case IT_S2GEOM:
+			sg = hic::S2GeomSpatialGrid::make(cfg.levels);
 			break;
 		default:
 			std::cerr << "Invalid spatial index type" << std::endl;

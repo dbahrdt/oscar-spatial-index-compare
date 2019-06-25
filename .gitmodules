@@ -7,3 +7,6 @@
 [submodule "vendor/h3"]
 	path = vendor/h3
 	url = https://github.com/uber/h3.git
+[submodule "vendor/s2geometry"]
+	path = vendor/s2geometry
+	url = https://github.com/google/s2geometry.git
