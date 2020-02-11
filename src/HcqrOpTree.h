@@ -1,14 +1,14 @@
 #pragma once
-#include "HCQR.h"
-#include "HCQRIndex.h"
+#include <sserialize/spatial/dgg/HCQR.h>
+#include <sserialize/spatial/dgg/HCQRIndex.h>
 #include <liboscar/AdvancedOpTree.h>
 
 namespace hic {
 
 class HcqrOpTree: public liboscar::AdvancedOpTree {
 public:
-    using SearchIndex = sserialize::RCPtrWrapper<hic::interface::HCQRIndex>;
-    using HCQRPtr = hic::interface::HCQR::HCQRPtr;
+    using SearchIndex = sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>;
+    using HCQRPtr = sserialize::spatial::dgg::interface::HCQR::HCQRPtr;
 public:
     HcqrOpTree(SearchIndex const & si);
     virtual ~HcqrOpTree();

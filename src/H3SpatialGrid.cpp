@@ -94,7 +94,7 @@ H3SpatialGrid::parent(PixelId child) const {
 		return RootPixelId;
 	}
 	else {
-		throw hic::exceptions::InvalidPixelId("H3SpatialGrid::parent with child=" + std::to_string(child));
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("H3SpatialGrid::parent with child=" + std::to_string(child));
 	}
 }
 
@@ -117,7 +117,7 @@ H3SpatialGrid::tree(CellIterator begin, CellIterator end) const {
 double
 H3SpatialGrid::area(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("H3SpatialGrid: root pixel has no area");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("H3SpatialGrid: root pixel has no area");
 		return 0;
 	}
 	return h3_hexAreaKm2(level(pixel));
@@ -126,7 +126,7 @@ H3SpatialGrid::area(PixelId pixel) const {
 sserialize::spatial::GeoRect
 H3SpatialGrid::bbox(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("H3SpatialGrid: root pixel has no boundary");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("H3SpatialGrid: root pixel has no boundary");
 		return sserialize::spatial::GeoRect();
 	}
 	GeoBoundary gb;

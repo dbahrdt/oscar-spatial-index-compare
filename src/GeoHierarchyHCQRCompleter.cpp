@@ -2,7 +2,7 @@
 
 namespace hic::detail::GeoHierarchyHCQRCompleter {
 
-SpatialGridInfo::SpatialGridInfo(sserialize::RCPtrWrapper<hic::impl::GeoHierarchySpatialGrid> const & base) :
+SpatialGridInfo::SpatialGridInfo(sserialize::RCPtrWrapper<sserialize::spatial::dgg::impl::GeoHierarchySpatialGrid> const & base) :
 m_base(base)
 {}
 
@@ -82,7 +82,7 @@ CellIndex::region(uint32_t regionId) const {
 namespace hic {
 	
 template<typename T_BASE>
-struct PreferAdminLevelCostFunction: public hic::impl::GeoHierarchySpatialGrid::CostFunction {
+struct PreferAdminLevelCostFunction: public sserialize::spatial::dgg::impl::GeoHierarchySpatialGrid::CostFunction {
 	PreferAdminLevelCostFunction(PreferAdminLevelCostFunction const &) = default;
 	PreferAdminLevelCostFunction(T_BASE const & base, liboscar::Static::OsmCompleter const & cmp) : m_base(base), m_cmp(cmp) {}
 	~PreferAdminLevelCostFunction() override {}
@@ -105,10 +105,10 @@ struct PreferAdminLevelCostFunction: public hic::impl::GeoHierarchySpatialGrid::
 	liboscar::Static::OsmCompleter const & m_cmp;
 };
 
-sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>
 makeGeoHierarchyHCQRIndex(liboscar::Static::OsmCompleter const & d) {
-	using HCQRIndexImp = hic::HCQRIndexFromCellIndex;
-	using MySpatialGrid = hic::impl::GeoHierarchySpatialGrid;
+	using HCQRIndexImp = sserialize::spatial::dgg::HCQRIndexFromCellIndex;
+	using MySpatialGrid = sserialize::spatial::dgg::impl::GeoHierarchySpatialGrid;
 	MySpatialGrid::SimpleCostFunction baseCostFn;
 	MySpatialGrid::PreferLargeCostFunction<decltype(baseCostFn)> preferLargeCFn(baseCostFn);
 	PreferAdminLevelCostFunction<decltype(preferLargeCFn)> preferAdminLevleCFn(preferLargeCFn, d);

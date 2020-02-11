@@ -1,11 +1,11 @@
 #pragma once
 
-#include "SpatialGrid.h"
+#include <sserialize/spatial/dgg/SpatialGrid.h>
 #include <lsst/sphgeom/HtmPixelization.h>
 
 namespace hic {
 	
-class HtmSpatialGrid final: public interface::SpatialGrid {
+class HtmSpatialGrid final: public sserialize::spatial::dgg::interface::SpatialGrid {
 public:
 	using HtmPixelization = lsst::sphgeom::HtmPixelization;
 public:

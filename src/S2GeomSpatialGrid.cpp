@@ -88,7 +88,7 @@ S2GeomSpatialGrid::parent(PixelId child) const {
 		return RootPixelId;
 	}
 	else {
-		throw hic::exceptions::InvalidPixelId("S2GeomSpatialGrid::parent with child=" + std::to_string(child));
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("S2GeomSpatialGrid::parent with child=" + std::to_string(child));
 	}
 }
 
@@ -111,7 +111,7 @@ S2GeomSpatialGrid::tree(CellIterator begin, CellIterator end) const {
 double
 S2GeomSpatialGrid::area(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("S2GeomSpatialGrid: root pixel has no area");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("S2GeomSpatialGrid: root pixel has no area");
 		return 0;
 	}
 	return (12700/2)*(12700/2) * S2Cell(S2CellId(pixel)).ApproxArea();
@@ -120,7 +120,7 @@ S2GeomSpatialGrid::area(PixelId pixel) const {
 sserialize::spatial::GeoRect
 S2GeomSpatialGrid::bbox(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("S2GeomSpatialGrid: root pixel has no boundary");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("S2GeomSpatialGrid: root pixel has no boundary");
 		return sserialize::spatial::GeoRect();
 	}
 	S2LatLngRect s2r = S2Cell(S2CellId(pixel)).GetRectBound();

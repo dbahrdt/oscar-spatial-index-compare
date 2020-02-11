@@ -8,18 +8,18 @@
 #include <sserialize/Static/CellTextCompleter.h>
 #include <sserialize/Static/UnicodeTrie/FlatTrie.h>
 #include <sserialize/Static/Map.h>
+#include <sserialize/spatial/dgg/SpatialGrid.h>
+#include <sserialize/spatial/dgg/HCQRIndexFromCellIndex.h>
+
 #include <liboscar/AdvancedOpTree.h>
 
-#include "SpatialGrid.h"
-
-#include "HCQRIndexFromCellIndex.h"
 
 namespace hic {
 	class OscarSearchSgIndex;
 }
 
 namespace hic::Static {
-	class HCQRTextIndex;
+	class OscarSearchHCQRTextIndexCreator;
 }
 
 namespace hic::Static {
@@ -115,7 +115,7 @@ public:
 	using SizeType = uint32_t;
 	using ItemIndexId = uint32_t;
 	using CPixelId = uint32_t; //compressed pixel id
-	using SGPixelId = hic::interface::SpatialGrid::PixelId;
+	using SGPixelId = sserialize::spatial::dgg::interface::SpatialGrid::PixelId;
 public:
 	using MetaData = ssinfo::SpatialGridInfo::MetaData;
 public:
@@ -138,7 +138,9 @@ private:
 	ssinfo::SpatialGridInfo::Data m_d;
 };
 
-class HCQRCellInfo: public hic::detail::HCQRIndexFromCellIndex::interface::CellInfo {
+class HCQRCellInfo: public sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::interface::CellInfo {
+public:
+	using SpatialGrid = sserialize::spatial::dgg::interface::SpatialGrid;
 public:
 	HCQRCellInfo(sserialize::Static::ItemIndexStore const & idxStore, std::shared_ptr<SpatialGridInfo> const & sgi);
 	~HCQRCellInfo() override;
@@ -189,11 +191,11 @@ public:
 public:
 	inline SpatialGridInfo const & sgInfo() const { return *m_sgInfo; }
 	inline std::shared_ptr<SpatialGridInfo> const & sgInfoPtr() const { return m_sgInfo; }
-	inline hic::interface::SpatialGrid const & sg() const { return *m_sg; }
-	inline sserialize::RCPtrWrapper<interface::SpatialGrid> const & sgPtr() const { return m_sg; }
+	inline sserialize::spatial::dgg::interface::SpatialGrid const & sg() const { return *m_sg; }
+	inline sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> const & sgPtr() const { return m_sg; }
 	inline Trie const & trie() const { return m_trie; }
 private:
-	friend class HCQRTextIndex;
+	friend class OscarSearchHCQRTextIndexCreator;
 private:
     OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore);
 private:
@@ -206,11 +208,11 @@ private:
 	Payloads m_regions;
 	Payloads m_items;
     sserialize::Static::ItemIndexStore m_idxStore;
-	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
+	sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> m_sg;
     int m_flags{ sserialize::CellQueryResult::FF_CELL_GLOBAL_ITEM_IDS };
 };
 
-class HCQROscarCellIndex: public hic::detail::HCQRIndexFromCellIndex::interface::CellIndex {
+class HCQROscarCellIndex: public sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::interface::CellIndex {
 public:
 	HCQROscarCellIndex(sserialize::RCPtrWrapper<OscarSearchSgIndex> const & base);
     ~HCQROscarCellIndex() override;
@@ -224,6 +226,20 @@ public:
 	CellQueryResult region(uint32_t regionId) const override;
 private:
 	sserialize::RCPtrWrapper<OscarSearchSgIndex> m_base;
+};
+
+class OscarSearchHCQRTextIndexCreator {
+public:
+	sserialize::UByteArrayAdapter dest;
+	sserialize::ItemIndexFactory idxFactory; //empty
+	sserialize::Static::ItemIndexStore idxStore; //idx store of the source
+	sserialize::UByteArrayAdapter src;
+	bool compactify{false};
+	bool compactTree{false};
+	uint32_t compactLevel{std::numeric_limits<uint32_t>::max()};
+	uint32_t threads{0};
+public:
+	void run();
 };
 
 namespace detail {
@@ -288,7 +304,7 @@ private:
 	sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> m_d;
 };
 
-sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>
 makeOscarSearchSgHCQRIndex(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d);
 
 }//end namespace hic::Static

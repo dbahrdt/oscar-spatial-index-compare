@@ -2,7 +2,7 @@
 
 #include <liboscar/StaticOsmCompleter.h>
 
-#include "SpatialGrid.h"
+#include <sserialize/spatial/dgg/SpatialGrid.h>
 
 namespace hic {
 	
@@ -17,7 +17,7 @@ public:
 	using CellTrixelMap = std::vector<std::set<TrixelId>>;
 	using TrixelData = std::unordered_map<TrixelId, TrixelCellItemMap>;
 public:
-	OscarSgIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<interface::SpatialGrid> const & sg);
+	OscarSgIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> const & sg);
 	virtual ~OscarSgIndex();
 public:
 	void create(uint32_t threadCount);
@@ -30,11 +30,11 @@ public:
 	///CellId->TrixelId
 	///Maps cells to trixels intersecting the cell
 	inline CellTrixelMap const & cellTrixelMap() const { return m_ctm; }
-	inline interface::SpatialGrid const & sg() const { return *m_sg; }
+	inline sserialize::spatial::dgg::interface::SpatialGrid const & sg() const { return *m_sg; }
 private:
 	Store m_store;
 	IndexStore m_idxStore;
-	sserialize::RCPtrWrapper<interface::SpatialGrid> m_sg;
+	sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> m_sg;
 	TrixelData m_td;
 	CellTrixelMap m_ctm;
 };

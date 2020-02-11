@@ -1,10 +1,10 @@
 #pragma once
-#include "SpatialGrid.h"
+#include <sserialize/spatial/dgg/SpatialGrid.h>
 
 namespace hic {
 
 ///Note that h3-index levels are off by one
-class S2GeomSpatialGrid final: public interface::SpatialGrid {
+class S2GeomSpatialGrid final: public sserialize::spatial::dgg::interface::SpatialGrid {
 public:
 	static constexpr PixelId RootPixelId = std::numeric_limits<PixelId>::max();
 public:

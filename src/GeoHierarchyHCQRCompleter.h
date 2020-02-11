@@ -2,27 +2,27 @@
 
 #include <liboscar/StaticOsmCompleter.h>
 
-#include "HCQR.h"
-#include "HCQRIndexFromCellIndex.h"
-#include "HCQRIndexWithCache.h"
-#include "GeoHierarchySpatialGrid.h"
+#include <sserialize/spatial/dgg/HCQR.h>
+#include <sserialize/spatial/dgg/HCQRIndexFromCellIndex.h>
+#include <sserialize/spatial/dgg/HCQRIndexWithCache.h>
+#include <sserialize/spatial/dgg/GeoHierarchySpatialGrid.h>
 
 namespace hic::detail::GeoHierarchyHCQRCompleter {
 
-class SpatialGridInfo: public hic::interface::SpatialGridInfo {
+class SpatialGridInfo: public  sserialize::spatial::dgg::interface::SpatialGridInfo {
 public:
-	SpatialGridInfo(sserialize::RCPtrWrapper<hic::impl::GeoHierarchySpatialGrid> const & base);
+	SpatialGridInfo(sserialize::RCPtrWrapper<sserialize::spatial::dgg::impl::GeoHierarchySpatialGrid> const & base);
 	~SpatialGridInfo() override;
 	SizeType itemCount(PixelId pid) const override;
 	ItemIndex items(PixelId pid) const override;
 	PixelId pixelId(CompressedPixelId const & cpid) const override;
 private:
-	sserialize::RCPtrWrapper<hic::impl::GeoHierarchySpatialGrid> m_base;
+	sserialize::RCPtrWrapper<sserialize::spatial::dgg::impl::GeoHierarchySpatialGrid> m_base;
 };
 
-class CellIndex: public hic::HCQRIndexFromCellIndex::CellIndex {
+class CellIndex: public sserialize::spatial::dgg::HCQRIndexFromCellIndex::CellIndex {
 public:
-	using Parent = hic::HCQRIndexFromCellIndex::CellIndex;
+	using Parent = sserialize::spatial::dgg::HCQRIndexFromCellIndex::CellIndex;
     using Self = CellIndex;
 public:
     CellIndex(liboscar::Static::OsmCompleter const & d);
@@ -44,7 +44,7 @@ private:
 namespace hic {
 	
 
-sserialize::RCPtrWrapper<hic::interface::HCQRIndex>
+sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>
 makeGeoHierarchyHCQRIndex(liboscar::Static::OsmCompleter const & d);
 
 }//end namespace hic

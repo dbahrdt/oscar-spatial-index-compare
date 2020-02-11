@@ -4,11 +4,12 @@
 #include <liboscar/StaticOsmCompleter.h>
 #include <sserialize/stats/TimeMeasuerer.h>
 #include <sserialize/stats/statfuncs.h>
+#include <sserialize/spatial/dgg/HCQRIndexMakeStatic.h>
+#include <sserialize/spatial/dgg/HCQRIndexCompactifying.h>
+
 #include "static-htm-index.h"
 #include "HCQRCompleter.h"
-#include "HCQRIndexMakeStatic.h"
 #include "GeoHierarchyHCQRCompleter.h"
-#include "HCQRIndexCompactifying.h"
 
 struct Config {
     std::string oscarFiles;
@@ -115,7 +116,7 @@ struct QueryStats {
 };
 
 struct HQueryStats {
-	sserialize::RCPtrWrapper<hic::interface::HCQR> hcqr;
+	sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQR> hcqr;
 	sserialize::ItemIndex items;
 	sserialize::TimeMeasurer cqrTime;
 	sserialize::TimeMeasurer flatenTime;
@@ -483,15 +484,15 @@ void help() {
 	std::cerr << "prg -o <oscar files> -g <spatial grid files> -s <static hcqr files> --hcqr-cache <number> --static-hcqr --compact-hcqr  -m <query string> -t <number of threads> -sq -tsq -hsq -shq -oq -toq -hoq --preload --benchmark <query file> <raw stats prefix> <treedCQR=true|false> <hcqr=true|false> <threadCount> --stats --debug-diff" << std::endl;
 }
 
-sserialize::RCPtrWrapper<hic::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<hic::interface::HCQRIndex> index, Config const & cfg) {
+sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex> applyCfg(sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex> index, Config const & cfg) {
 	if (cfg.compactifiedHCQR) {
-		index = hic::HCQRIndexCompactifying::make(index);
+		index = sserialize::spatial::dgg::HCQRIndexCompactifying::make(index);
 	}
 	if (cfg.staticHCQR) {
-		index = hic::HCQRIndexMakeStatic::make(index);
+		index = sserialize::spatial::dgg::HCQRIndexMakeStatic::make(index);
 	}
 	if (cfg.cachedHCQR) {
-		index = hic::HCQRIndexWithCache::make(index, cfg.cachedHCQR);
+		index = sserialize::spatial::dgg::HCQRIndexWithCache::make(index, cfg.cachedHCQR);
 	}
 	return index;
 }

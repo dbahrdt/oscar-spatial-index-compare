@@ -42,7 +42,7 @@ namespace std {
 
 namespace hic {
 	
-OscarSgIndex::OscarSgIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<interface::SpatialGrid> const & sg) :
+OscarSgIndex::OscarSgIndex(Store const & store, IndexStore const & idxStore, sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> const & sg) :
 m_store(store),
 m_idxStore(idxStore),
 m_sg(sg)

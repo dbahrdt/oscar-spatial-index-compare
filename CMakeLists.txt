@@ -21,23 +21,23 @@ set(LIB_SOURCES_CPP
 	src/OscarSgIndex.cpp
 	src/OscarSearchSgIndex.cpp
 	src/static-htm-index.cpp
-	src/SpatialGrid.cpp
+# 	src/SpatialGrid.cpp
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
 	src/S2GeomSpatialGrid.cpp
-	src/SimpleGridSpatialGrid.cpp
+# 	src/SimpleGridSpatialGrid.cpp
 	src/HcqrOpTree.cpp
-	src/HCQRIndexFromCellIndex.cpp
-	src/HCQRIndexWithCache.cpp
-	src/HCQR.cpp
-	src/GeoHierarchySpatialGrid.cpp
+# 	src/HCQRIndexFromCellIndex.cpp
+# 	src/HCQRIndexWithCache.cpp
+# 	src/HCQR.cpp
+# 	src/GeoHierarchySpatialGrid.cpp
 	src/GeoHierarchyHCQRCompleter.cpp
-	src/HCQRIndexCompactifying.cpp
-	src/StaticHCQRSpatialGrid.cpp
-	src/HCQRIndexMakeStatic.cpp
+# 	src/HCQRIndexCompactifying.cpp
+# 	src/StaticHCQRSpatialGrid.cpp
+# 	src/HCQRIndexMakeStatic.cpp
 	src/HCQRCompleter.cpp
 	src/StaticHCQRTextIndex.cpp
-	src/HCQRSpatialGrid.cpp
+# 	src/HCQRSpatialGrid.cpp
 )
 
 set(LIB_SOURCES_H
@@ -45,23 +45,23 @@ set(LIB_SOURCES_H
 	src/OscarSgIndex.h
 	src/OscarSearchSgIndex.h
 	src/static-htm-index.h
-	src/SpatialGrid.h
+# 	src/SpatialGrid.h
 	src/HtmSpatialGrid.h
 	src/H3SpatialGrid.h
 	src/S2GeomSpatialGrid.h
-	src/SimpleGridSpatialGrid.h
+# 	src/SimpleGridSpatialGrid.h
 	src/HcqrOpTree.h
-	src/HCQRIndexFromCellIndex.h
-	src/HCQRIndexWithCache.h
-	src/HCQR.h
-	src/GeoHierarchySpatialGrid.h
+# 	src/HCQRIndexFromCellIndex.h
+# 	src/HCQRIndexWithCache.h
+# 	src/HCQR.h
+# 	src/GeoHierarchySpatialGrid.h
 	src/GeoHierarchyHCQRCompleter.h
-	src/HCQRIndexCompactifying.h
-	src/StaticHCQRSpatialGrid.h
-	src/HCQRIndexMakeStatic.h
+# 	src/HCQRIndexCompactifying.h
+# 	src/StaticHCQRSpatialGrid.h
+# 	src/HCQRIndexMakeStatic.h
 	src/HCQRCompleter.h
 	src/StaticHCQRTextIndex.h
-	src/StaticHCQRSpatialGrid.h
+# 	src/StaticHCQRSpatialGrid.h
 )
 
 set(SOURCES_CPP

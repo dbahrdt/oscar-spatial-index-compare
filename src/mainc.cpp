@@ -1,11 +1,12 @@
 #include <liboscar/StaticOsmCompleter.h>
 #include <sserialize/containers/ItemIndexFactory.h>
 
+#include <sserialize/spatial/dgg/SimpleGridSpatialGrid.h>
+
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
 #include "S2GeomSpatialGrid.h"
-#include "SimpleGridSpatialGrid.h"
 #include "static-htm-index.h"
 #include "StaticHCQRTextIndex.h"
 
@@ -82,7 +83,7 @@ int createSpatialGrid(Config & cfg) {
     state.indexFile = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/index");
     state.searchFile = sserialize::UByteArrayAdapter::createFile(0, cfg.outdir + "/search");
 	
-	sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg;
+	sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> sg;
 	switch(cfg.it) {
 		case IT_HTM:
 			sg = hic::HtmSpatialGrid::make(cfg.levels);
@@ -94,7 +95,7 @@ int createSpatialGrid(Config & cfg) {
 			sg = hic::S2GeomSpatialGrid::make(cfg.levels);
 			break;
 		case IT_SIMPLEGRID:
-			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
+			sg = sserialize::spatial::dgg::SimpleGridSpatialGrid::make(cfg.levels);
 			break;
 		default:
 			std::cerr << "Invalid spatial index type" << std::endl;
@@ -134,7 +135,7 @@ int createHCQR(Config & cfg) {
 		sserialize::MmappedFile::createDirectory(cfg.outdir);
 	}
 	
-	hic::Static::HCQRTextIndex::CreationConfig cc;
+	hic::Static::OscarSearchHCQRTextIndexCreator cc;
 	cc.threads = cfg.serializeThreadCount;
 	cc.compactTree = cfg.onlyLeafs;
 	if (cfg.compactLevel != std::numeric_limits<uint32_t>::max()) {
@@ -150,7 +151,7 @@ int createHCQR(Config & cfg) {
 	sserialize::TimeMeasurer tm;
 	std::cout << "Computing hcqr index" << std::endl;
 	tm.begin();
-	hic::Static::HCQRTextIndex::fromOscarSearchSgIndex(cc);
+	cc.run();
 	tm.end();
 	std::cout << "Computing hcqr index took " << tm << std::endl;
 	

@@ -1,8 +1,8 @@
 #include <liboscar/StaticOsmCompleter.h>
+#include <sserialize/spatial/dgg/SimpleGridSpatialGrid.h>
 #include "OscarSearchWithSg.h"
 #include "H3SpatialGrid.h"
 #include "HtmSpatialGrid.h"
-#include "SimpleGridSpatialGrid.h"
 #include "S2GeomSpatialGrid.h"
 
 enum SearchType {
@@ -120,7 +120,7 @@ int main(int argc, char const * argv[] ) {
 		return -1;
     }
     
-    sserialize::RCPtrWrapper<hic::interface::SpatialGrid> sg;
+    sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGrid> sg;
 	switch(cfg.it) {
 		case IT_HTM:
 			sg = hic::HtmSpatialGrid::make(cfg.levels);
@@ -129,7 +129,7 @@ int main(int argc, char const * argv[] ) {
 			sg = hic::H3SpatialGrid::make(cfg.levels);
 			break;
 		case IT_SIMPLE_GRID:
-			sg = hic::SimpleGridSpatialGrid::make(cfg.levels);
+			sg = sserialize::spatial::dgg::SimpleGridSpatialGrid::make(cfg.levels);
 			break;
 		case IT_S2GEOM:
 			sg = hic::S2GeomSpatialGrid::make(cfg.levels);

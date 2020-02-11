@@ -39,7 +39,7 @@ HtmSpatialGrid::level(PixelId pixelId) const {
 	}
 	auto result = lsst::sphgeom::HtmPixelization::level(pixelId);
 	if (result < 0) {
-		throw hic::exceptions::InvalidPixelId("HtmSpatialGrid: invalid pixelId");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid: invalid pixelId");
 	}
 	return result+1;
 }
@@ -77,13 +77,13 @@ HtmSpatialGrid::PixelId
 HtmSpatialGrid::index(PixelId parent, uint32_t childNumber) const {
 	if (parent == RootPixelId) {
 		if (UNLIKELY_BRANCH(childNumber > 8)) {
-			throw hic::exceptions::InvalidPixelId("HtmSpatialGrid only has 8 root children");
+			throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid only has 8 root children");
 		}
 		return 8+childNumber;
 	}
 	else {
 		if (UNLIKELY_BRANCH(childNumber > 3)) {
-			throw hic::exceptions::InvalidPixelId("HtmSpatialGrid only has 4 children");
+			throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid only has 4 children");
 		}
 		return (parent << 2) | childNumber;
 	}
@@ -99,7 +99,7 @@ HtmSpatialGrid::parent(PixelId child) const {
 		return RootPixelId;
 	}
 	else {
-		throw hic::exceptions::InvalidPixelId("HtmSpatialGrid::parent with child=" + std::to_string(child));
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid::parent with child=" + std::to_string(child));
 	}
 }
 
@@ -127,7 +127,7 @@ HtmSpatialGrid::tree(CellIterator begin, CellIterator end) const {
 double
 HtmSpatialGrid::area(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("HtmSpatialGrid: root pixel has no area");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid: root pixel has no area");
 		return 0;
 	}
 	return (12700/2)*(12700/2) * HtmPixelization::triangle(pixel).getBoundingCircle().getArea();
@@ -137,7 +137,7 @@ HtmSpatialGrid::area(PixelId pixel) const {
 sserialize::spatial::GeoRect
 HtmSpatialGrid::bbox(PixelId pixel) const {
 	if (pixel == RootPixelId) {
-		throw hic::exceptions::InvalidPixelId("HtmSpatialGrid: root pixel has no boundary");
+		throw sserialize::spatial::dgg::exceptions::InvalidPixelId("HtmSpatialGrid: root pixel has no boundary");
 		return sserialize::spatial::GeoRect();
 	}
 	lsst::sphgeom::Box box = HtmPixelization::triangle(pixel).getBoundingBox();
