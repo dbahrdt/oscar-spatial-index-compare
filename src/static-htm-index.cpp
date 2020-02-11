@@ -9,6 +9,8 @@
 #include <sserialize/spatial/dgg/HCQRIndex.h>
 #include <sserialize/spatial/dgg/HCQRSpatialGrid.h>
 #include <sserialize/spatial/dgg/StaticHCQRSpatialGrid.h>
+#include <sserialize/spatial/dgg/Static/HCQRCellInfo.h>
+
 
 #include "StaticHCQRTextIndex.h"
 
@@ -17,129 +19,6 @@
 #include "S2GeomSpatialGrid.h"
 
 namespace hic::Static {
-	
-namespace ssinfo::SpatialGridInfo {
-
-
-sserialize::UByteArrayAdapter::SizeType
-MetaData::getSizeInBytes() const {
-	return 3+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes()+m_d->trixelItemIndexIds().getSizeInBytes();;
-}
-
-sserialize::UByteArrayAdapter::SizeType
-MetaData::offset(DataMembers member) const {
-	switch(member) {
-		case DataMembers::type:
-			return 1;
-		case DataMembers::levels:
-			return 2;
-		case DataMembers::trixelId2HtmIndexId:
-			return 3;
-		case DataMembers::htmIndexId2TrixelId:
-			return 3+m_d->trixelId2HtmIndexId().getSizeInBytes();
-		case DataMembers::trixelItemIndexIds:
-			return 3+m_d->trixelId2HtmIndexId().getSizeInBytes()+m_d->htmIndexId2TrixelId().getSizeInBytes();
-		default:
-			throw sserialize::InvalidEnumValueException("MetaData");
-			break;
-	};
-	return 0;
-}
-
-
-Data::Data(const sserialize::UByteArrayAdapter & d) :
-m_type(decltype(m_type)(sserialize::Static::ensureVersion(d, MetaData::version, d.getUint8(0)).getUint8(1))),
-m_levels(d.getUint8(2)),
-m_trixelId2HtmIndexId(d+3),
-m_htmIndexId2TrixelId(d+(3+m_trixelId2HtmIndexId.getSizeInBytes())),
-m_trixelItemIndexIds(d+(3+m_trixelId2HtmIndexId.getSizeInBytes()+m_htmIndexId2TrixelId.getSizeInBytes()))
-{}
-
-} //end namespace ssinfo::HtmInfo
-	
-SpatialGridInfo::SpatialGridInfo(const sserialize::UByteArrayAdapter & d) :
-m_d(d)
-{}
-
-SpatialGridInfo::~SpatialGridInfo() {}
-
-sserialize::UByteArrayAdapter::SizeType
-SpatialGridInfo::getSizeInBytes() const {
-	return MetaData(&m_d).getSizeInBytes();
-}
-
-int SpatialGridInfo::levels() const {
-	return m_d.levels();
-}
-
-SpatialGridInfo::SizeType
-SpatialGridInfo::cPixelCount() const {
-	return m_d.trixelId2HtmIndexId().size();
-}
-
-SpatialGridInfo::ItemIndexId
-SpatialGridInfo::itemIndexId(CPixelId trixelId) const {
-	return m_d.trixelItemIndexIds().at(trixelId);
-}
-
-SpatialGridInfo::CPixelId
-SpatialGridInfo::cPixelId(SGPixelId htmIndex) const {
-	return m_d.htmIndexId2TrixelId().at(htmIndex);
-}
-
-bool
-SpatialGridInfo::hasSgIndex(SGPixelId htmIndex) const {
-	return m_d.htmIndexId2TrixelId().contains(htmIndex);
-}
-
-SpatialGridInfo::SGPixelId
-SpatialGridInfo::sgIndex(CPixelId cPixelId) const {
-	return m_d.trixelId2HtmIndexId().at64(cPixelId);
-}
-
-HCQRCellInfo::HCQRCellInfo(sserialize::Static::ItemIndexStore const & idxStore, std::shared_ptr<SpatialGridInfo> const & sgi) :
-m_idxStore(idxStore),
-m_sgi(sgi)
-{}
-
-HCQRCellInfo::~HCQRCellInfo() {}
-
-HCQRCellInfo::SpatialGrid::Level
-HCQRCellInfo::level() const {
-	return m_sgi->levels();
-}
-
-bool
-HCQRCellInfo::hasPixel(PixelId pid) const {
-	return m_sgi->hasSgIndex(pid);
-}
-
-HCQRCellInfo::ItemIndex
-HCQRCellInfo::items(PixelId pid) const {
-	SSERIALIZE_CHEAP_ASSERT(hasPixel(pid));
-	try {
-		return m_idxStore.at(
-			m_sgi->itemIndexId(
-				m_sgi->cPixelId(pid)
-			)
-		);
-	}
-	catch (sserialize::OutOfBoundsException const &) {
-		return ItemIndex();
-	}
-}
-
-HCQRCellInfo::PixelId
-HCQRCellInfo::pixelId(CompressedPixelId const & cpid) const {
-	return m_sgi->sgIndex(cpid.value());
-}
-
-std::vector<HCQRCellInfo::CompressedPixelId>
-HCQRCellInfo::cells() const
-{
-	sserialize::RangeGenerator<uint32_t> range(0, m_sgi->cPixelCount());
-	return std::vector<CompressedPixelId>(range.begin(), range.end());
-}
 
 OscarSearchSgIndex::OscarSearchSgIndex(const sserialize::UByteArrayAdapter & d, const sserialize::Static::ItemIndexStore & idxStore) :
 m_sq(sserialize::Static::ensureVersion(d, MetaData::version, d.at(0)).at(1)),
@@ -369,6 +248,7 @@ sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>
 makeOscarSearchSgHCQRIndex(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
 	using HCQRIndexImp = sserialize::spatial::dgg::HCQRIndexFromCellIndex;
 	using SpatialGridInfoImp = sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
+	using HCQRCellInfo = hic::Static::HCQRTextIndex::HCQRCellInfo;
 
 	auto cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(d->idxStore(), d->sgInfoPtr()) );
 	HCQRIndexImp::SpatialGridInfoPtr sgi( new SpatialGridInfoImp(d->sgPtr(), cellInfoPtr) );
@@ -397,6 +277,7 @@ void OscarSearchHCQRTextIndexCreator::run() {
 	using Trie = hic::Static::HCQRTextIndex::Trie;
 	using Payloads = hic::Static::HCQRTextIndex::Payloads;
 	using HCQRPtr = hic::Static::HCQRTextIndex::HCQRPtr;
+	using HCQRCellInfo = hic::Static::HCQRTextIndex::HCQRCellInfo;
 	
 	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
 	using SpatialGridInfoImp = sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
@@ -404,7 +285,7 @@ void OscarSearchHCQRTextIndexCreator::run() {
 	struct Aux {
 		sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> sgIndex;
 		CellInfo::RCType ci;
-		sserialize::RCPtrWrapper<HCQRCellInfo> cellInfoPtr;
+		sserialize::RCPtrWrapper<sserialize::spatial::dgg::Static::HCQRCellInfo> cellInfoPtr;
 		sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::SpatialGridInfo> sgi;
 	};
 	

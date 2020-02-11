@@ -4,6 +4,8 @@
 #include <sserialize/iterator/MultiBitBackInserter.h>
 #include <sserialize/spatial/dgg/HCQRIndex.h>
 #include <sserialize/spatial/dgg/HCQRSpatialGrid.h>
+#include <sserialize/spatial/dgg/Static/SpatialGridInfo.h>
+#include <sserialize/spatial/dgg/Static/HCQRCellInfo.h>
 #include "static-htm-index.h"
 
 namespace hic::Static {
@@ -65,7 +67,8 @@ public:
 class HCQRTextIndex: public sserialize::spatial::dgg::interface::HCQRIndex {
 public:
     using Self = HCQRTextIndex;
-	using SpatialGridInfo = hic::Static::SpatialGridInfo;
+	using SpatialGridInfo = sserialize::spatial::dgg::Static::SpatialGridInfo;
+	using HCQRCellInfo = sserialize::spatial::dgg::Static::HCQRCellInfo;
     using Payload = hic::Static::detail::HCQRTextIndex::Payload;
 	using Trie = sserialize::Static::UnicodeTrie::FlatTrieBase;
 	using Payloads = sserialize::Static::Array<Payload>;

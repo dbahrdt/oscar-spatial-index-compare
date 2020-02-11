@@ -413,6 +413,7 @@ void OscarSearchSgIndex::create(uint32_t threadCount, FlusherType ft) {
 
 sserialize::UByteArrayAdapter &
 OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t threadCount) {
+	using MetaData = sserialize::spatial::dgg::Static::ssinfo::SpatialGridInfo::MetaData;
 	
 	if (!threadCount) {
 		threadCount = std::thread::hardware_concurrency();
@@ -429,16 +430,16 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	//HtmInfo
 	dest.putUint8(2); //version
 	if (m_ohi->sg().name() == "htm") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_HTM);
+		dest.putUint8(MetaData::SG_HTM);
 	}
 	else if (m_ohi->sg().name() == "h3") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
+		dest.putUint8(MetaData::SG_H3);
 	}
 	else if (m_ohi->sg().name() == "s2geom") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_S2GEOM);
+		dest.putUint8(MetaData::SG_S2GEOM);
 	}
 	else if (m_ohi->sg().name() == "simplegrid") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_SIMPLEGRID);
+		dest.putUint8(MetaData::SG_SIMPLEGRID);
 	}
 	else {
 		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
@@ -520,6 +521,8 @@ OscarSearchSgIndex::CellTextCompleter OscarSearchSgIndex::ctc() const {
 
 sserialize::UByteArrayAdapter &
 OscarSearchSgIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
+	using MetaData = sserialize::spatial::dgg::Static::ssinfo::SpatialGridInfo::MetaData;
+	
 	auto ctc = this->ctc();
 	auto trie = this->trie();
 	//OscarSearchSgIndex
@@ -529,16 +532,16 @@ OscarSearchSgIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	//HtmInfo
 	dest.putUint8(2); //version
 	if (m_ohi->sg().name() == "htm-index") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_HTM);
+		dest.putUint8(MetaData::SG_HTM);
 	}
 	else if (m_ohi->sg().name() == "h3-index") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_H3);
+		dest.putUint8(MetaData::SG_H3);
 	}
 	else if (m_ohi->sg().name() == "s2geom") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_S2GEOM);
+		dest.putUint8(MetaData::SG_S2GEOM);
 	}
 	else if (m_ohi->sg().name() == "simplegrid") {
-		dest.putUint8(hic::Static::ssinfo::SpatialGridInfo::MetaData::SG_SIMPLEGRID);
+		dest.putUint8(MetaData::SG_SIMPLEGRID);
 	}
 	else {
 		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
