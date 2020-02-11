@@ -11,6 +11,7 @@
 #include <sserialize/spatial/dgg/StaticHCQRSpatialGrid.h>
 #include <sserialize/spatial/dgg/Static/HCQRCellInfo.h>
 #include <sserialize/spatial/dgg/Static/HCQRTextIndex.h>
+#include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
@@ -27,23 +28,7 @@ m_regions(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSize
 m_items(d+(2+sgInfo().getSizeInBytes()+m_trie.getSizeInBytes()+m_mixed.getSizeInBytes()+m_regions.getSizeInBytes())),
 m_idxStore(idxStore)
 {
-	switch(sgInfo().type()) {
-		case SpatialGridInfo::MetaData::SG_HTM:
-			m_sg = hic::HtmSpatialGrid::make(sgInfo().levels());
-			break;
-		case SpatialGridInfo::MetaData::SG_H3:
-			m_sg = hic::H3SpatialGrid::make(sgInfo().levels());
-			break;
-		case SpatialGridInfo::MetaData::SG_S2GEOM:
-			m_sg = hic::S2GeomSpatialGrid::make(sgInfo().levels());
-			break;
-		case SpatialGridInfo::MetaData::SG_SIMPLEGRID:
-			m_sg = sserialize::spatial::dgg::SimpleGridSpatialGrid::make(sgInfo().levels());
-			break;
-		default:
-			throw sserialize::TypeMissMatchException("SpatialGridType is invalid: " + std::to_string(sgInfo().type()));
-			break;
-	};
+	m_sg = sserialize::spatial::dgg::Static::SpatialGridRegistry::get().get(sgInfo());
 }
 
 

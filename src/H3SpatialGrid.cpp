@@ -1,10 +1,17 @@
 #include "H3SpatialGrid.h"
 #include <sserialize/utility/exceptions.h>
+#include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 
 #include <h3api.h>
 
 namespace hic {
 
+void H3SpatialGrid::registerWithSpatialGridRegistry() {
+	using Registry = sserialize::spatial::dgg::Static::SpatialGridRegistry;
+	Registry::get().set("h3", [](Registry::SpatialGridInfo const & info) -> Registry::SpatialGridPtr {
+		return H3SpatialGrid::make(info.levels());
+	});
+}
 
 sserialize::RCPtrWrapper<H3SpatialGrid>
 H3SpatialGrid::make(uint32_t defLevel) {

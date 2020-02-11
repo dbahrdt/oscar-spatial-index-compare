@@ -428,22 +428,8 @@ OscarSearchSgIndex::create(sserialize::UByteArrayAdapter & dest, uint32_t thread
 	dest.putUint8(ctc.getSupportedQuerries());
 	
 	//HtmInfo
-	dest.putUint8(2); //version
-	if (m_ohi->sg().name() == "htm") {
-		dest.putUint8(MetaData::SG_HTM);
-	}
-	else if (m_ohi->sg().name() == "h3") {
-		dest.putUint8(MetaData::SG_H3);
-	}
-	else if (m_ohi->sg().name() == "s2geom") {
-		dest.putUint8(MetaData::SG_S2GEOM);
-	}
-	else if (m_ohi->sg().name() == "simplegrid") {
-		dest.putUint8(MetaData::SG_SIMPLEGRID);
-	}
-	else {
-		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
-	}
+	dest.putUint8(3); //version
+	dest.put(m_ohi->sg().typeId());
 	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{
@@ -530,22 +516,8 @@ OscarSearchSgIndex::serialize(sserialize::UByteArrayAdapter & dest) const {
 	dest.putUint8(ctc.getSupportedQuerries());
 	
 	//HtmInfo
-	dest.putUint8(2); //version
-	if (m_ohi->sg().name() == "htm-index") {
-		dest.putUint8(MetaData::SG_HTM);
-	}
-	else if (m_ohi->sg().name() == "h3-index") {
-		dest.putUint8(MetaData::SG_H3);
-	}
-	else if (m_ohi->sg().name() == "s2geom") {
-		dest.putUint8(MetaData::SG_S2GEOM);
-	}
-	else if (m_ohi->sg().name() == "simplegrid") {
-		dest.putUint8(MetaData::SG_SIMPLEGRID);
-	}
-	else {
-		throw sserialize::UnsupportedFeatureException("Unsupported spatial grid type: " + m_ohi->sg().name());
-	}
+	dest.putUint8(3); //version
+	dest.put(m_ohi->sg().typeId());
 	dest.putUint8(m_ohi->sg().defaultLevel());
 	sserialize::BoundedCompactUintArray::create(trixelIdMap().m_trixelId2HtmIndex, dest);
 	{

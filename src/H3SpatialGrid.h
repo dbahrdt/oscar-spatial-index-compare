@@ -8,6 +8,7 @@ class H3SpatialGrid final: public sserialize::spatial::dgg::interface::SpatialGr
 public:
 	static constexpr PixelId RootPixelId = std::numeric_limits<PixelId>::max();
 public:
+	static void registerWithSpatialGridRegistry();
 	static sserialize::RCPtrWrapper<H3SpatialGrid> make(uint32_t defaultLevel);
 public:
 	std::string name() const override;

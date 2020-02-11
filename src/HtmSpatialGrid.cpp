@@ -1,11 +1,19 @@
 #include "HtmSpatialGrid.h"
 #include <sserialize/utility/exceptions.h>
+#include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 
 #include <lsst/sphgeom/LonLat.h>
 #include <lsst/sphgeom/Circle.h>
 #include <lsst/sphgeom/Box.h>
 
 namespace hic {
+	
+void HtmSpatialGrid::registerWithSpatialGridRegistry() {
+	using Registry = sserialize::spatial::dgg::Static::SpatialGridRegistry;
+	Registry::get().set("htm", [](Registry::SpatialGridInfo const & info) -> Registry::SpatialGridPtr {
+		return HtmSpatialGrid::make(info.levels());
+	});
+}
 
 sserialize::RCPtrWrapper<HtmSpatialGrid>
 HtmSpatialGrid::make(uint32_t maxLevel) {

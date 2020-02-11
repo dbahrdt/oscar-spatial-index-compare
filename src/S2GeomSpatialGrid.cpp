@@ -1,5 +1,6 @@
 #include "S2GeomSpatialGrid.h"
 #include <sserialize/utility/exceptions.h>
+#include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 
 #include <s2/s2cell_id.h>
 #include <s2/s2cell.h>
@@ -7,6 +8,13 @@
 #include <s2/s2latlng_rect.h>
 
 namespace hic {
+	
+void S2GeomSpatialGrid::registerWithSpatialGridRegistry() {
+	using Registry = sserialize::spatial::dgg::Static::SpatialGridRegistry;
+	Registry::get().set("s2geom", [](Registry::SpatialGridInfo const & info) -> Registry::SpatialGridPtr {
+		return S2GeomSpatialGrid::make(info.levels());
+	});
+}
 
 sserialize::RCPtrWrapper<S2GeomSpatialGrid>
 S2GeomSpatialGrid::make(uint32_t defLevel) {

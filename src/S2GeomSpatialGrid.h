@@ -8,6 +8,7 @@ class S2GeomSpatialGrid final: public sserialize::spatial::dgg::interface::Spati
 public:
 	static constexpr PixelId RootPixelId = std::numeric_limits<PixelId>::max();
 public:
+	static void registerWithSpatialGridRegistry();
 	static sserialize::RCPtrWrapper<S2GeomSpatialGrid> make(uint32_t defaultLevel);
 public:
 	std::string name() const override;

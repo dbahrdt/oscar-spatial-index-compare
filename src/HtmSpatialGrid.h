@@ -11,6 +11,7 @@ public:
 public:
 	static constexpr PixelId RootPixelId = 0;
 public:
+	static void registerWithSpatialGridRegistry();
 	static sserialize::RCPtrWrapper<HtmSpatialGrid> make(uint32_t maxLevel);
 public:
 	std::string name() const override;
