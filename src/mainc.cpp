@@ -8,7 +8,6 @@
 #include "HtmSpatialGrid.h"
 #include "S2GeomSpatialGrid.h"
 #include "static-htm-index.h"
-#include "StaticHCQRTextIndex.h"
 
 
 enum IndexType {

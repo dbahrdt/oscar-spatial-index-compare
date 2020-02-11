@@ -10,9 +10,7 @@
 #include <sserialize/spatial/dgg/HCQRSpatialGrid.h>
 #include <sserialize/spatial/dgg/StaticHCQRSpatialGrid.h>
 #include <sserialize/spatial/dgg/Static/HCQRCellInfo.h>
-
-
-#include "StaticHCQRTextIndex.h"
+#include <sserialize/spatial/dgg/Static/HCQRTextIndex.h>
 
 #include "HtmSpatialGrid.h"
 #include "H3SpatialGrid.h"
@@ -248,7 +246,7 @@ sserialize::RCPtrWrapper<sserialize::spatial::dgg::interface::HCQRIndex>
 makeOscarSearchSgHCQRIndex(sserialize::RCPtrWrapper<hic::Static::OscarSearchSgIndex> const & d) {
 	using HCQRIndexImp = sserialize::spatial::dgg::HCQRIndexFromCellIndex;
 	using SpatialGridInfoImp = sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
-	using HCQRCellInfo = hic::Static::HCQRTextIndex::HCQRCellInfo;
+	using HCQRCellInfo = sserialize::spatial::dgg::Static::HCQRTextIndex::HCQRCellInfo;
 
 	auto cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(d->idxStore(), d->sgInfoPtr()) );
 	HCQRIndexImp::SpatialGridInfoPtr sgi( new SpatialGridInfoImp(d->sgPtr(), cellInfoPtr) );
@@ -272,12 +270,13 @@ void OscarSearchHCQRTextIndexCreator::run() {
 	using CreationConfig = OscarSearchHCQRTextIndexCreator;
 	CreationConfig & cfg = *this;
 
-	using SpatialGridInfo = hic::Static::HCQRTextIndex::SpatialGridInfo;
-    using Payload = hic::Static::HCQRTextIndex::Payload;
-	using Trie = hic::Static::HCQRTextIndex::Trie;
-	using Payloads = hic::Static::HCQRTextIndex::Payloads;
-	using HCQRPtr = hic::Static::HCQRTextIndex::HCQRPtr;
-	using HCQRCellInfo = hic::Static::HCQRTextIndex::HCQRCellInfo;
+	using HCQRTextIndex = sserialize::spatial::dgg::Static::HCQRTextIndex;
+	using SpatialGridInfo = HCQRTextIndex::SpatialGridInfo;
+    using Payload = HCQRTextIndex::Payload;
+	using Trie = HCQRTextIndex::Trie;
+	using Payloads = HCQRTextIndex::Payloads;
+	using HCQRPtr = HCQRTextIndex::HCQRPtr;
+	using HCQRCellInfo = HCQRTextIndex::HCQRCellInfo;
 	
 	using CellInfo = hic::Static::detail::OscarSearchSgIndexCellInfo;
 	using SpatialGridInfoImp = sserialize::spatial::dgg::detail::HCQRIndexFromCellIndex::impl::SpatialGridInfoFromCellIndexWithIndex;
@@ -349,7 +348,7 @@ void OscarSearchHCQRTextIndexCreator::run() {
 				}
 			}
 			else {
-				detail::HCQRTextIndex::CompactNode::create(node, dest);
+				sserialize::spatial::dgg::Static::detail::HCQRTextIndex::CompactNode::create(node, dest);
 			}
 		}
 		
