@@ -356,7 +356,8 @@ SgOpTree::Calc<TCQRType>::Calc::calc(const Node * node) {
 			return calc(node->children.at(0)).allToFull();
 		case Node::CELL_DILATION_OP:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: cell dilation");
-		case Node::REGION_DILATION_OP:
+		case Node::REGION_DILATION_BY_ITEM_COVERAGE_OP:
+		case Node::REGION_DILATION_BY_CELL_COVERAGE_OP:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: region dilation");
 		case Node::COMPASS_OP:
 			throw sserialize::UnsupportedFeatureException("OscarSearchWithSg: compass");

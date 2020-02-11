@@ -94,7 +94,7 @@ public:
 	int flags() const;
 	std::ostream & printStats(std::ostream & out) const;
 public:
-	sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const;
+	sserialize::StringCompleter::SupportedQuerries getSupportedQueries() const override;
 
 	HCQRPtr complete(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;
 	HCQRPtr items(const std::string & qstr, const sserialize::StringCompleter::QuerryType qt) const override;

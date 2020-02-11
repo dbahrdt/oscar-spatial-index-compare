@@ -249,8 +249,8 @@ HCQRTextIndex::fromOscarSearchSgIndex(CreationConfig & cfg)
 			}
 		}
 		State(sserialize::UByteArrayAdapter & dest, hic::Static::OscarSearchSgIndex::Payloads const & src) :
-		ac(dest),
-		src(src)
+		src(src),
+		ac(dest)
 		{}
 	};
 	

@@ -79,7 +79,8 @@ HcqrOpTree::Calc::Calc::calc(const Node * node) {
             }
 		case Node::CELL_DILATION_OP:
 			throw sserialize::UnsupportedFeatureException("HcqrOpTree: cell dilation");
-		case Node::REGION_DILATION_OP:
+		case Node::REGION_DILATION_BY_ITEM_COVERAGE_OP:
+		case Node::REGION_DILATION_BY_CELL_COVERAGE_OP:
 			throw sserialize::UnsupportedFeatureException("HcqrOpTree: region dilation");
 		case Node::COMPASS_OP:
 			throw sserialize::UnsupportedFeatureException("HcqrOpTree: compass");
