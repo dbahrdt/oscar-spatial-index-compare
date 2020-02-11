@@ -1,4 +1,4 @@
-#include "GeoHierarchyHCQRCompleter.h"
+#include <hic/GeoHierarchyHCQRCompleter.h>
 
 namespace hic::detail::GeoHierarchyHCQRCompleter {
 

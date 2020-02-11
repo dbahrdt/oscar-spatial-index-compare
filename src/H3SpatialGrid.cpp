@@ -1,4 +1,4 @@
-#include "H3SpatialGrid.h"
+#include <hic/H3SpatialGrid.h>
 #include <sserialize/utility/exceptions.h>
 #include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 

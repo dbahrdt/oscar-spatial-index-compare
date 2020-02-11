@@ -7,7 +7,7 @@
 #include <map>
 #include <limits>
 
-#include "OscarSgIndex.h"
+#include <hic/OscarSgIndex.h>
 
 namespace hic {
 	

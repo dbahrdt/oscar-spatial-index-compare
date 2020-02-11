@@ -1,4 +1,4 @@
-#include "HcqrOpTree.h"
+#include <hic/HcqrOpTree.h>
 
 namespace hic {
 	

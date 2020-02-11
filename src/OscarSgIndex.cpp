@@ -1,6 +1,6 @@
-#include "OscarSgIndex.h"
+#include <hic/OscarSgIndex.h>
 
-#include "HtmSpatialGrid.h"
+#include <hic/HtmSpatialGrid.h>
 #include <boost/range/adaptor/map.hpp>
 
 namespace hic {

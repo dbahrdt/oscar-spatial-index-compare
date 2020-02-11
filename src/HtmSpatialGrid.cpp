@@ -1,4 +1,4 @@
-#include "HtmSpatialGrid.h"
+#include <hic/HtmSpatialGrid.h>
 #include <sserialize/utility/exceptions.h>
 #include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 

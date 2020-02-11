@@ -1,4 +1,4 @@
-#include "S2GeomSpatialGrid.h"
+#include <hic/S2GeomSpatialGrid.h>
 #include <sserialize/utility/exceptions.h>
 #include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
 

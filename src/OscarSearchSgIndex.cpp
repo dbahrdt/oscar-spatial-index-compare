@@ -1,9 +1,9 @@
-#include "OscarSearchSgIndex.h"
+#include <hic/OscarSearchSgIndex.h>
 
 #include <sserialize/Static/Map.h>
 #include <sserialize/mt/ThreadPool.h>
 
-#include "static-htm-index.h"
+#include <hic/static-htm-index.h>
 
 namespace hic {
 

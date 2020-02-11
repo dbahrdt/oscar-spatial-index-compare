@@ -21,59 +21,38 @@ set(LIB_SOURCES_CPP
 	src/OscarSgIndex.cpp
 	src/OscarSearchSgIndex.cpp
 	src/static-htm-index.cpp
-# 	src/SpatialGrid.cpp
 	src/HtmSpatialGrid.cpp
 	src/H3SpatialGrid.cpp
 	src/S2GeomSpatialGrid.cpp
-# 	src/SimpleGridSpatialGrid.cpp
 	src/HcqrOpTree.cpp
-# 	src/HCQRIndexFromCellIndex.cpp
-# 	src/HCQRIndexWithCache.cpp
-# 	src/HCQR.cpp
-# 	src/GeoHierarchySpatialGrid.cpp
 	src/GeoHierarchyHCQRCompleter.cpp
-# 	src/HCQRIndexCompactifying.cpp
-# 	src/StaticHCQRSpatialGrid.cpp
-# 	src/HCQRIndexMakeStatic.cpp
 	src/HCQRCompleter.cpp
-# 	src/StaticHCQRTextIndex.cpp
-# 	src/HCQRSpatialGrid.cpp
+	src/SpatialGridInitializer.cpp
 )
 
 set(LIB_SOURCES_H
-	src/OscarSearchWithSg.h
-	src/OscarSgIndex.h
-	src/OscarSearchSgIndex.h
-	src/static-htm-index.h
-# 	src/SpatialGrid.h
-	src/HtmSpatialGrid.h
-	src/H3SpatialGrid.h
-	src/S2GeomSpatialGrid.h
-# 	src/SimpleGridSpatialGrid.h
-	src/HcqrOpTree.h
-# 	src/HCQRIndexFromCellIndex.h
-# 	src/HCQRIndexWithCache.h
-# 	src/HCQR.h
-# 	src/GeoHierarchySpatialGrid.h
-	src/GeoHierarchyHCQRCompleter.h
-# 	src/HCQRIndexCompactifying.h
-# 	src/StaticHCQRSpatialGrid.h
-# 	src/HCQRIndexMakeStatic.h
-	src/HCQRCompleter.h
-# 	src/StaticHCQRTextIndex.h
-# 	src/StaticHCQRSpatialGrid.h
+	include/hic/OscarSearchWithSg.h
+	include/hic/OscarSgIndex.h
+	include/hic/OscarSearchSgIndex.h
+	include/hic/static-htm-index.h
+	include/hic/HtmSpatialGrid.h
+	include/hic/H3SpatialGrid.h
+	include/hic/S2GeomSpatialGrid.h
+	include/hic/HcqrOpTree.h
+	include/hic/GeoHierarchyHCQRCompleter.h
+	include/hic/HCQRCompleter.h
 )
 
 set(SOURCES_CPP
-	src/main.cpp
+	apps/main.cpp
 )
 
 set(QUERY_SOURCES_CPP
-	src/mainq.cpp
+	apps/mainq.cpp
 )
 
 set(CREATE_SOURCES_CPP
-	src/mainc.cpp
+	apps/mainc.cpp
 )
 
 SET(LINK_LIBS
@@ -85,6 +64,8 @@ SET(LINK_LIBS
 
 add_library(lib${PROJECT_NAME} STATIC ${LIB_SOURCES_CPP} ${LIB_SOURCES_H})
 target_link_libraries(lib${PROJECT_NAME} PUBLIC ${LINK_LIBS})
+target_include_directories(lib${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_features(lib${PROJECT_NAME} PUBLIC cxx_std_17)
 
 add_executable(${PROJECT_NAME} ${SOURCES_CPP})
 target_link_libraries(${PROJECT_NAME} lib${PROJECT_NAME})

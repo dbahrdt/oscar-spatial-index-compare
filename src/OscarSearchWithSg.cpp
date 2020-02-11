@@ -1,4 +1,4 @@
-#include "OscarSearchWithSg.h"
+#include <hic/OscarSearchWithSg.h>
 #include <sserialize/strings/unicode_case_functions.h>
 
 

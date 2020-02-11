@@ -7,9 +7,9 @@
 #include <sserialize/spatial/dgg/HCQRIndexMakeStatic.h>
 #include <sserialize/spatial/dgg/HCQRIndexCompactifying.h>
 
-#include "static-htm-index.h"
-#include "HCQRCompleter.h"
-#include "GeoHierarchyHCQRCompleter.h"
+#include <hic/static-htm-index.h>
+#include <hic/HCQRCompleter.h>
+#include <hic/GeoHierarchyHCQRCompleter.h>
 
 struct Config {
     std::string oscarFiles;

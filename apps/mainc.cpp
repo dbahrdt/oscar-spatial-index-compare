@@ -3,11 +3,11 @@
 
 #include <sserialize/spatial/dgg/SimpleGridSpatialGrid.h>
 
-#include "OscarSearchWithSg.h"
-#include "H3SpatialGrid.h"
-#include "HtmSpatialGrid.h"
-#include "S2GeomSpatialGrid.h"
-#include "static-htm-index.h"
+#include <hic/OscarSearchWithSg.h>
+#include <hic/H3SpatialGrid.h>
+#include <hic/HtmSpatialGrid.h>
+#include <hic/S2GeomSpatialGrid.h>
+#include <hic/static-htm-index.h>
 
 
 enum IndexType {

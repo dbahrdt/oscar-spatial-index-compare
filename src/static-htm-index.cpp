@@ -1,4 +1,4 @@
-#include "static-htm-index.h"
+#include <hic/static-htm-index.h>
 #include <sserialize/strings/unicode_case_functions.h>
 #include <sserialize/Static/Version.h>
 #include <sserialize/spatial/TreedCQR.h>
@@ -12,10 +12,6 @@
 #include <sserialize/spatial/dgg/Static/HCQRCellInfo.h>
 #include <sserialize/spatial/dgg/Static/HCQRTextIndex.h>
 #include <sserialize/spatial/dgg/Static/SpatialGridRegistry.h>
-
-#include "HtmSpatialGrid.h"
-#include "H3SpatialGrid.h"
-#include "S2GeomSpatialGrid.h"
 
 namespace hic::Static {
 

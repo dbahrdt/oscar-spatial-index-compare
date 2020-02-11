@@ -2,7 +2,7 @@
 
 #include <liboscar/AdvancedOpTree.h>
 
-#include "OscarSearchSgIndex.h"
+#include <hic/OscarSearchSgIndex.h>
 
 
 namespace hic {
