@@ -6,6 +6,7 @@
 #include <sserialize/stats/statfuncs.h>
 #include <sserialize/spatial/dgg/HCQRIndexMakeStatic.h>
 #include <sserialize/spatial/dgg/HCQRIndexCompactifying.h>
+#include <sserialize/spatial/dgg/Static/HCQRTextIndex.h>
 
 #include <hic/static-htm-index.h>
 #include <hic/HCQRCompleter.h>
@@ -652,6 +653,19 @@ int main(int argc, char const * argv[]) {
 				std::cerr << "Failed to initialize hierachical spatial grid completer: " << e.what() << std::endl;
 				return -1;
 			}
+		}
+	}
+	if (cfg.shcqrFiles.size()) {
+		try {
+			auto isd = sserialize::UByteArrayAdapter::openRo(cfg.shcqrFiles + "/index", false);
+			auto tid = sserialize::UByteArrayAdapter::openRo(cfg.shcqrFiles + "/search.hcqr", false);
+			sserialize::Static::ItemIndexStore idxStore(isd);
+			auto base = sserialize::spatial::dgg::Static::HCQRTextIndex::make(tid, idxStore);
+			completers.shcmp = std::make_shared<hic::HCQRCompleter>( applyCfg(base, cfg) );
+		}
+		catch (std::exception const & e) {
+			std::cerr << "Failed to initialize static hierachical spatial grid completer: " << e.what() << std::endl;
+			return -1;
 		}
 	}
 
