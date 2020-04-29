@@ -314,10 +314,13 @@ void OscarSearchHCQRTextIndexCreator::run() {
 		
 		sserialize::UByteArrayAdapter sge2cn(HCQRPtr const & hcqr) {
 			auto tmpd = sserialize::UByteArrayAdapter(0, sserialize::MM_PROGRAM_MEMORY);
-			if (static_cast<sserialize::spatial::dgg::impl::HCQRSpatialGrid const &>(*hcqr).root()) {
+			auto const & rn = static_cast<sserialize::spatial::dgg::impl::HCQRSpatialGrid const &>(*hcqr).root();
+			if (rn) {
+				tmpd.putVlPackedUint32(numLeafNodes(*rn));
 				auto bi = sserialize::MultiBitBackInserter(tmpd);
-				cnrec(bi, *static_cast<sserialize::spatial::dgg::impl::HCQRSpatialGrid const &>(*hcqr).root());
+				cnrec(bi, *rn);
 				bi.flush();
+				
 			}
 			return tmpd;
 		}
@@ -331,6 +334,16 @@ void OscarSearchHCQRTextIndexCreator::run() {
 			else {
 				sserialize::spatial::dgg::Static::detail::HCQRTextIndex::CompactNode::create(node, dest);
 			}
+		}
+		
+		std::size_t numLeafNodes(sserialize::spatial::dgg::impl::HCQRSpatialGrid::TreeNode const & node) {
+			if (node.children().size()) {
+				std::size_t result = 0;
+				for(auto const & x : node.children()) {
+					result += numLeafNodes(*x);
+				}
+			}
+			return 1;
 		}
 		
 		sserialize::UByteArrayAdapter sge2payload(hic::Static::OscarSearchSgIndex::Payload::Type const & t) {
@@ -396,10 +409,18 @@ void OscarSearchHCQRTextIndexCreator::run() {
 	aux.cellInfoPtr = sserialize::RCPtrWrapper<HCQRCellInfo>( new HCQRCellInfo(cfg.idxStore, aux.sgIndex->sgInfoPtr()) );
 	aux.sgi.reset( new SpatialGridInfoImp(aux.sgIndex->sgPtr(), aux.cellInfoPtr) );
  
+	uint8_t payloadFlags = 0;
+	if (cfg.compactTree) {
+		payloadFlags = HCQRTextIndex::PayloadFlags::COMPACT_NODES;
+	}
+	else {
+		payloadFlags = HCQRTextIndex::PayloadFlags::FULL_TREE;
+	}
 	
-	cfg.dest.putUint8(1); //version
+	cfg.dest.putUint8(3); //version
 	cfg.dest.putUint8(cfg.src.at(1)); //sq
-	cfg.dest.put( sserialize::UByteArrayAdapter(cfg.dest, 2, aux.sgIndex->sgInfo().getSizeInBytes()) ); //sgInfo
+	cfg.dest.putUint8(payloadFlags);
+	cfg.dest.put( sserialize::UByteArrayAdapter(cfg.src, 2, aux.sgIndex->sgInfo().getSizeInBytes()) ); //sgInfo
 	cfg.dest.put( aux.sgIndex->trie().data() );
 	
 	{
