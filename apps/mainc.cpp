@@ -1,6 +1,8 @@
 #include <liboscar/StaticOsmCompleter.h>
 #include <sserialize/containers/ItemIndexFactory.h>
 
+#include <sserialize/stats/TimeMeasuerer.h>
+
 #include <sserialize/spatial/dgg/SimpleGridSpatialGrid.h>
 
 #include <hic/OscarSearchWithSg.h>
